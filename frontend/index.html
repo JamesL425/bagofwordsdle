@@ -136,10 +136,16 @@
                     <span>Your secret word:</span>
                     <span id="your-secret-word" class="secret">???</span>
                 </div>
-                <div id="change-word-container" class="change-word-container hidden">
-                    <input type="text" id="new-word-input" placeholder="New word...">
+            <div id="change-word-container" class="change-word-container hidden">
+                <p class="change-word-label">🎉 You eliminated someone! Pick a new secret word:</p>
+                <div id="word-pool-options" class="word-pool-options">
+                    <!-- Available words will be shown here -->
+                </div>
+                <div class="change-word-input-row">
+                    <input type="text" id="new-word-input" placeholder="Click a word above or type...">
                     <button id="change-word-btn" class="btn btn-small btn-accent">Change Word</button>
                 </div>
+            </div>
             </div>
 
             <div class="game-theme-info">

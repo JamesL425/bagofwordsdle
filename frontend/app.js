@@ -306,8 +306,31 @@ function updateGame(game) {
         document.getElementById('your-secret-word').textContent = myPlayer.secret_word || '???';
         
         const changeWordContainer = document.getElementById('change-word-container');
+        const wordPoolOptions = document.getElementById('word-pool-options');
+        
         if (myPlayer.can_change_word) {
             changeWordContainer.classList.remove('hidden');
+            
+            // Show word pool options (excluding guessed words)
+            const guessedWords = new Set(game.history
+                .filter(e => e.word)
+                .map(e => e.word.toLowerCase()));
+            
+            const availableWords = (myPlayer.word_pool || gameState.wordPool || [])
+                .filter(w => !guessedWords.has(w.toLowerCase()));
+            
+            if (wordPoolOptions) {
+                wordPoolOptions.innerHTML = '';
+                availableWords.sort().forEach(word => {
+                    const wordEl = document.createElement('span');
+                    wordEl.className = 'word-pool-option';
+                    wordEl.textContent = word;
+                    wordEl.addEventListener('click', () => {
+                        document.getElementById('new-word-input').value = word;
+                    });
+                    wordPoolOptions.appendChild(wordEl);
+                });
+            }
         } else {
             changeWordContainer.classList.add('hidden');
         }
