@@ -897,15 +897,17 @@ function createConfetti() {
     if (!container) return;
     
     container.innerHTML = '';
-    const colors = ['#ff6b4a', '#ff8f73', '#4ade80', '#38bdf8', '#fbbf24', '#a78bfa'];
+    const chars = '01<>{}[]/*-+=$#@!';
     
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 80; i++) {
         const confetti = document.createElement('div');
         confetti.className = 'confetti';
+        confetti.textContent = chars[Math.floor(Math.random() * chars.length)];
         confetti.style.left = Math.random() * 100 + '%';
-        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
         confetti.style.animationDelay = Math.random() * 3 + 's';
         confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+        confetti.style.color = '#00ff41';
+        confetti.style.textShadow = '0 0 10px #00ff41';
         container.appendChild(confetti);
     }
     
@@ -950,5 +952,48 @@ function stopPolling() {
     }
 }
 
+// Matrix Rain Effect
+function initMatrixRain() {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('matrix-bg');
+    if (!container) return;
+    
+    container.appendChild(canvas);
+    
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+    
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()';
+    const fontSize = 14;
+    const columns = Math.floor(canvas.width / fontSize);
+    const drops = Array(columns).fill(1);
+    
+    function draw() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = '#00ff41';
+        ctx.font = fontSize + 'px JetBrains Mono';
+        
+        for (let i = 0; i < drops.length; i++) {
+            const char = chars[Math.floor(Math.random() * chars.length)];
+            ctx.fillText(char, i * fontSize, drops[i] * fontSize);
+            
+            if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                drops[i] = 0;
+            }
+            drops[i]++;
+        }
+    }
+    
+    setInterval(draw, 50);
+}
+
 // Initialize
+initMatrixRain();
 showScreen('home');

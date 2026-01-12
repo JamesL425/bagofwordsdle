@@ -2,7 +2,8 @@
   "game": {
     "min_players": 2,
     "max_players": 6,
-    "game_expiry_seconds": 7200
+    "game_expiry_seconds": 7200,
+    "lobby_expiry_seconds": 600
   },
   "embedding": {
     "model": "text-embedding-3-large",

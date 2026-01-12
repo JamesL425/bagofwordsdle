@@ -30,6 +30,7 @@ CONFIG = load_config()
 MIN_PLAYERS = CONFIG.get("game", {}).get("min_players", 3)
 MAX_PLAYERS = CONFIG.get("game", {}).get("max_players", 4)
 GAME_EXPIRY_SECONDS = CONFIG.get("game", {}).get("game_expiry_seconds", 7200)
+LOBBY_EXPIRY_SECONDS = CONFIG.get("game", {}).get("lobby_expiry_seconds", 600)
 
 # Embedding settings
 EMBEDDING_MODEL = CONFIG.get("embedding", {}).get("model", "text-embedding-3-small")
@@ -300,15 +301,25 @@ class handler(BaseHTTPRequestHandler):
         # GET /api/lobbies - List open lobbies
         if path == '/api/lobbies':
             try:
+                import time
                 redis = get_redis()
                 keys = redis.keys("game:*")
                 lobbies = []
+                current_time = time.time()
+                
                 for key in keys:
                     game_data = redis.get(key)
                     if game_data:
                         game = json.loads(game_data)
-                        # Only show waiting lobbies that aren't full
+                        # Only show waiting lobbies that aren't full and not expired
                         if game.get('status') == 'waiting' and len(game.get('players', [])) < MAX_PLAYERS:
+                            # Check if lobby has expired
+                            created_at = game.get('created_at', current_time)
+                            if current_time - created_at > LOBBY_EXPIRY_SECONDS:
+                                # Delete expired lobby
+                                redis.delete(key)
+                                continue
+                            
                             # Get winning theme from votes
                             votes = game.get('theme_votes', {})
                             winning_theme = max(votes.keys(), key=lambda k: len(votes[k])) if votes else None
@@ -437,6 +448,7 @@ class handler(BaseHTTPRequestHandler):
         # POST /api/games - Create lobby with theme voting
         if path == '/api/games':
             import random
+            import time
             
             code = generate_game_code()
             
@@ -459,6 +471,7 @@ class handler(BaseHTTPRequestHandler):
                 "theme": None,  # Will be set when game starts based on votes
                 "theme_options": theme_options,
                 "theme_votes": {opt: [] for opt in theme_options},  # Track votes per theme
+                "created_at": time.time(),  # For lobby expiry
             }
             save_game(code, game)
             return self._send_json({
