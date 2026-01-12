@@ -65,6 +65,7 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
         
         // For creator, fetch their word pool
         const themeData = await apiCall(`/api/games/${data.code}/theme`);
+        console.log('Theme data:', themeData);
         gameState.wordPool = themeData.word_pool;
         gameState.allThemeWords = themeData.theme.words;
         
@@ -80,6 +81,7 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
         
         showScreen('join');
     } catch (error) {
+        console.error('Create game error:', error);
         showError(error.message);
     }
 });
@@ -118,15 +120,18 @@ document.getElementById('game-code').addEventListener('blur', async () => {
 });
 
 function displayWordPool(themeName, wordPool) {
-    if (!wordPool || wordPool.length === 0) {
-        document.getElementById('theme-display').classList.add('hidden');
-        return;
-    }
+    console.log('displayWordPool called:', themeName, wordPool);
     
-    document.getElementById('theme-name').textContent = themeName;
+    document.getElementById('theme-name').textContent = themeName || 'Loading...';
     
     const wordsContainer = document.getElementById('theme-words');
     wordsContainer.innerHTML = '';
+    
+    if (!wordPool || wordPool.length === 0) {
+        wordsContainer.innerHTML = '<span class="theme-word" style="color: var(--text-muted);">Generating words...</span>';
+        document.getElementById('theme-display').classList.remove('hidden');
+        return;
+    }
     
     // Sort words alphabetically
     const sortedWords = [...wordPool].sort();
