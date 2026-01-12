@@ -621,29 +621,10 @@ class handler(BaseHTTPRequestHandler):
             if player.get('secret_word'):
                 return self._send_error("You already set your word", 400)
             
-            import random
-            
-            # Get all theme words and words already assigned
-            all_theme_words = game.get('theme', {}).get('words', [])
-            assigned_words = set()
-            for p in game['players']:
-                assigned_words.update(w.lower() for w in p.get('word_pool', []))
-            
-            if all_theme_words and secret_word.lower() not in [w.lower() for w in all_theme_words]:
-                return self._send_error("Please choose a word from the theme", 400)
-            
-            if secret_word.lower() in assigned_words:
-                return self._send_error("That word is already taken", 400)
-            
-            # Assign word pool
-            available_words = [w for w in all_theme_words if w.lower() not in assigned_words]
-            available_words = [w for w in available_words if w.lower() != secret_word.lower()]
-            
-            if len(available_words) > 19:
-                player_word_pool = random.sample(available_words, 19)
-            else:
-                player_word_pool = available_words.copy()
-            player_word_pool.append(secret_word.lower())
+            # Validate against player's assigned word pool
+            player_word_pool = player.get('word_pool', [])
+            if player_word_pool and secret_word.lower() not in [w.lower() for w in player_word_pool]:
+                return self._send_error("Please choose a word from your word pool", 400)
             
             try:
                 embedding = get_embedding(secret_word)
@@ -652,7 +633,6 @@ class handler(BaseHTTPRequestHandler):
             
             player['secret_word'] = secret_word.lower()
             player['secret_embedding'] = embedding
-            player['word_pool'] = sorted(player_word_pool)
             
             save_game(code, game)
             return self._send_json({
@@ -686,10 +666,22 @@ class handler(BaseHTTPRequestHandler):
             
             # Set the theme
             theme = get_theme_words(winning_theme)
+            all_words = theme.get("words", [])
             game['theme'] = {
                 "name": theme.get("name", winning_theme),
-                "words": theme.get("words", []),
+                "words": all_words,
             }
+            
+            # Assign distinct word pools to each player (20 words each, no overlap)
+            import random
+            shuffled_words = all_words.copy()
+            random.shuffle(shuffled_words)
+            
+            words_per_player = 20
+            for i, p in enumerate(game['players']):
+                start_idx = i * words_per_player
+                end_idx = start_idx + words_per_player
+                p['word_pool'] = sorted(shuffled_words[start_idx:end_idx])
             
             game['status'] = 'playing'
             game['current_turn'] = 0

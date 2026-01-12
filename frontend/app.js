@@ -308,8 +308,12 @@ function showWordSelection(data) {
     document.getElementById('player-name').readOnly = true;
     document.querySelector('#join-form .form-group:nth-child(2)').style.display = 'none';
     
+    // Get this player's word pool (not all theme words)
+    const myPlayer = data.players.find(p => p.id === gameState.playerId);
+    const wordPool = myPlayer?.word_pool || [];
+    
     // Show word pool
-    displayWordPool(data.theme?.name, data.theme?.words || []);
+    displayWordPool(data.theme?.name, wordPool);
     
     showScreen('join');
 }
