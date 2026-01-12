@@ -1458,7 +1458,12 @@ class handler(BaseHTTPRequestHandler):
                 return self._send_error("Only the host can start", 403)
             if game['status'] != 'waiting':
                 return self._send_error("Game already started", 400)
-            if len(game['players']) < MIN_PLAYERS:
+            
+            # Check if host is admin (can bypass min players)
+            host_player = next((p for p in game['players'] if p['id'] == player_id), None)
+            is_admin_host = host_player and host_player.get('auth_user_id') == 'admin_local'
+            
+            if len(game['players']) < MIN_PLAYERS and not is_admin_host:
                 return self._send_error(f"Need at least {MIN_PLAYERS} players", 400)
             
             # Determine winning theme from votes (weighted random)
