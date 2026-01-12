@@ -234,6 +234,7 @@ const screens = {
     home: document.getElementById('home-screen'),
     join: document.getElementById('join-screen'),
     lobby: document.getElementById('lobby-screen'),
+    singleplayerLobby: document.getElementById('singleplayer-lobby-screen'),
     wordselect: document.getElementById('wordselect-screen'),
     game: document.getElementById('game-screen'),
     gameover: document.getElementById('gameover-screen'),
@@ -358,6 +359,169 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
 });
 
 document.getElementById('refresh-lobbies-btn')?.addEventListener('click', loadLobbies);
+
+// ============ SINGLEPLAYER MODE ============
+
+document.getElementById('singleplayer-btn')?.addEventListener('click', async () => {
+    if (!gameState.playerName) {
+        showError('Enter your callsign first (top right)');
+        document.getElementById('login-name').focus();
+        return;
+    }
+    
+    try {
+        // Create singleplayer lobby
+        const data = await apiCall('/api/singleplayer', 'POST');
+        gameState.code = data.code;
+        gameState.isSingleplayer = true;
+        
+        // Join the lobby we just created
+        await joinSingleplayerLobby(data.code, gameState.playerName);
+    } catch (error) {
+        showError(error.message);
+    }
+});
+
+async function joinSingleplayerLobby(code, name) {
+    try {
+        const joinData = { name };
+        if (gameState.authUser && gameState.authUser.id) {
+            joinData.auth_user_id = gameState.authUser.id;
+        }
+        
+        const data = await apiCall(`/api/games/${code}/join`, 'POST', joinData);
+        
+        gameState.code = code;
+        gameState.playerId = data.player_id;
+        gameState.playerName = name;
+        gameState.isHost = data.is_host;
+        gameState.isSingleplayer = true;
+        
+        showScreen('singleplayerLobby');
+        startSingleplayerLobbyPolling();
+    } catch (error) {
+        showError(error.message);
+    }
+}
+
+function startSingleplayerLobbyPolling() {
+    if (gameState.pollingInterval) {
+        clearInterval(gameState.pollingInterval);
+    }
+    
+    updateSingleplayerLobby();
+    gameState.pollingInterval = setInterval(updateSingleplayerLobby, 2000);
+}
+
+async function updateSingleplayerLobby() {
+    try {
+        const data = await apiCall(`/api/games/${gameState.code}?player_id=${gameState.playerId}`);
+        
+        // Update theme display
+        document.getElementById('sp-theme-name').textContent = data.theme?.name || 'Loading...';
+        
+        // Update players list
+        const playersList = document.getElementById('sp-players-list');
+        playersList.innerHTML = data.players.map(p => {
+            const isYou = p.id === gameState.playerId;
+            const isAI = p.is_ai;
+            const difficultyClass = isAI ? `ai-${p.difficulty}` : '';
+            
+            return `
+                <div class="sp-player-item ${isYou ? 'is-you' : ''} ${isAI ? 'is-ai' : ''}">
+                    <div class="sp-player-info">
+                        <span class="sp-player-icon">${isAI ? '🤖' : '👤'}</span>
+                        <span class="sp-player-name">${escapeHtml(p.name)}${isYou ? ' (you)' : ''}</span>
+                        ${isYou ? '<span class="sp-player-badge host">HOST</span>' : ''}
+                        ${isAI ? `<span class="sp-player-badge ${difficultyClass}">${escapeHtml(p.difficulty)}</span>` : ''}
+                    </div>
+                    ${isAI ? `<button class="sp-remove-ai" data-ai-id="${escapeHtml(p.id)}">✕ Remove</button>` : ''}
+                </div>
+            `;
+        }).join('');
+        
+        // Add remove AI handlers
+        playersList.querySelectorAll('.sp-remove-ai').forEach(btn => {
+            btn.addEventListener('click', () => removeAI(btn.dataset.aiId));
+        });
+        
+        // Update player count
+        document.getElementById('sp-player-count').textContent = data.players.length;
+        
+        // Enable/disable AI add buttons based on player count
+        const aiButtons = document.querySelectorAll('.btn-ai-add');
+        const canAddMore = data.players.length < 6;
+        aiButtons.forEach(btn => {
+            btn.disabled = !canAddMore;
+        });
+        
+        // Enable start button if we have at least 2 players (1 human + 1 AI)
+        const aiCount = data.players.filter(p => p.is_ai).length;
+        document.getElementById('sp-start-game-btn').disabled = aiCount < 1;
+        
+        // Check if game moved to word selection
+        if (data.status === 'word_selection') {
+            clearInterval(gameState.pollingInterval);
+            gameState.theme = data.theme;
+            gameState.allThemeWords = data.theme?.words || [];
+            showWordSelectionScreen(data);
+        }
+    } catch (error) {
+        console.error('Singleplayer lobby poll error:', error);
+    }
+}
+
+// Add AI player
+document.querySelectorAll('.btn-ai-add').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const difficulty = btn.dataset.difficulty;
+        try {
+            await apiCall(`/api/games/${gameState.code}/add-ai`, 'POST', {
+                player_id: gameState.playerId,
+                difficulty: difficulty,
+            });
+            updateSingleplayerLobby();
+        } catch (error) {
+            showError(error.message);
+        }
+    });
+});
+
+async function removeAI(aiId) {
+    try {
+        await apiCall(`/api/games/${gameState.code}/remove-ai`, 'POST', {
+            player_id: gameState.playerId,
+            ai_id: aiId,
+        });
+        updateSingleplayerLobby();
+    } catch (error) {
+        showError(error.message);
+    }
+}
+
+// Start singleplayer game
+document.getElementById('sp-start-game-btn')?.addEventListener('click', async () => {
+    try {
+        await apiCall(`/api/games/${gameState.code}/start`, 'POST', {
+            player_id: gameState.playerId,
+        });
+        // Polling will detect status change
+    } catch (error) {
+        showError(error.message);
+    }
+});
+
+// Leave singleplayer lobby
+document.getElementById('sp-leave-lobby-btn')?.addEventListener('click', () => {
+    if (gameState.pollingInterval) {
+        clearInterval(gameState.pollingInterval);
+    }
+    gameState.code = null;
+    gameState.playerId = null;
+    gameState.isSingleplayer = false;
+    showScreen('home');
+    loadLobbies();
+});
 
 // ============ JOIN LOBBY ============
 
@@ -986,6 +1150,7 @@ function updatePlayersGrid(game) {
     game.players.forEach(player => {
         const isCurrentTurn = player.id === game.current_player_id;
         const isYou = player.id === gameState.playerId;
+        const isAI = player.is_ai;
         
         // Get cosmetic classes
         const cosmeticClasses = typeof getPlayerCardClasses === 'function' 
@@ -996,7 +1161,7 @@ function updatePlayersGrid(game) {
             ? getBadgeHtml(player.cosmetics) : '';
         
         const div = document.createElement('div');
-        div.className = `player-card${isCurrentTurn ? ' current-turn' : ''}${!player.is_alive ? ' eliminated' : ''}${isYou ? ' is-you' : ''} ${cosmeticClasses}`;
+        div.className = `player-card${isCurrentTurn ? ' current-turn' : ''}${!player.is_alive ? ' eliminated' : ''}${isYou ? ' is-you' : ''}${isAI ? ' is-ai' : ''} ${cosmeticClasses}`;
         div.dataset.playerId = player.id;
         
         // Check if this player recently changed their word
@@ -1011,6 +1176,12 @@ function updatePlayersGrid(game) {
         let dangerHtml = '';
         if (player.is_alive && topGuesses && topGuesses.length > 0) {
             dangerHtml = `<div class="danger-indicator danger-${dangerLevel}" title="Risk: ${(dangerScore * 100).toFixed(0)}%"></div>`;
+        }
+        
+        // Build AI difficulty badge HTML
+        let aiDifficultyBadge = '';
+        if (isAI && player.difficulty) {
+            aiDifficultyBadge = `<span class="ai-difficulty-badge ${player.difficulty}">${player.difficulty}</span>`;
         }
         
         // Build top guesses HTML
@@ -1033,7 +1204,7 @@ function updatePlayersGrid(game) {
         
         div.innerHTML = `
             ${dangerHtml}
-            <div class="name ${nameColorClass}">${escapeHtml(player.name)}${badgeHtml}${isYou ? ' (you)' : ''}</div>
+            <div class="name ${nameColorClass}">${escapeHtml(player.name)}${aiDifficultyBadge}${badgeHtml}${isYou ? ' (you)' : ''}</div>
             <div class="status ${player.is_alive ? 'alive' : 'eliminated'}">
                 ${player.is_alive ? 'Alive' : 'Eliminated'}
             </div>
@@ -1068,7 +1239,8 @@ function updateTurnIndicator(game) {
         turnText.textContent = "It's your turn! Make a guess.";
     } else {
         indicator.classList.remove('your-turn');
-        turnText.textContent = `Waiting for ${currentPlayer?.name || '...'} to guess...`;
+        const aiIndicator = currentPlayer?.is_ai ? ' 🤖' : '';
+        turnText.textContent = `Waiting for ${currentPlayer?.name || '...'}${aiIndicator} to guess...`;
     }
 }
 
@@ -1132,9 +1304,13 @@ function updateHistory(game) {
             eliminationHtml = `<div class="elimination">Eliminated: ${eliminatedNames.join(', ')}</div>`;
         }
         
+        // Check if guesser is AI
+        const guesser = game.players.find(p => p.id === entry.guesser_id);
+        const aiIndicator = guesser?.is_ai ? ' 🤖' : '';
+        
         div.innerHTML = `
             <div class="header">
-                <span class="guesser">${escapeHtml(entry.guesser_name)}</span>
+                <span class="guesser">${escapeHtml(entry.guesser_name)}${aiIndicator}</span>
                 <span class="word">"${escapeHtml(entry.word)}"</span>
             </div>
             <div class="similarities">${simsHtml}</div>
@@ -1311,6 +1487,8 @@ document.getElementById('back-to-lobby-btn')?.addEventListener('click', () => {
 document.getElementById('play-again-btn').addEventListener('click', () => {
     stopPolling();
     const savedName = gameState.playerName;
+    const savedAuthToken = gameState.authToken;
+    const savedAuthUser = gameState.authUser;
     gameState = {
         code: null,
         playerId: null,
@@ -1321,6 +1499,9 @@ document.getElementById('play-again-btn').addEventListener('click', () => {
         wordPool: null,
         allThemeWords: null,
         myVote: null,
+        authToken: savedAuthToken,
+        authUser: savedAuthUser,
+        isSingleplayer: false,
     };
     showScreen('home');
 });

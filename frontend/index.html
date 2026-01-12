@@ -74,6 +74,7 @@
                 </div>
                 <div class="button-group">
                     <button id="create-game-btn" class="btn btn-primary btn-large">&gt; CREATE_SERVER</button>
+                    <button id="singleplayer-btn" class="btn btn-secondary btn-large">&gt; SOLO_MISSION</button>
                 </div>
             </div>
 
@@ -188,6 +189,55 @@
                     <button id="start-game-btn" class="btn btn-primary" disabled>&gt; SELECT_WORDS</button>
                 </div>
                 <button id="leave-lobby-btn" class="btn btn-ghost">&lt; DISCONNECT</button>
+            </div>
+        </div>
+
+        <!-- Singleplayer Lobby Screen -->
+        <div id="singleplayer-lobby-screen" class="screen">
+            <div class="card">
+                <h2>// SOLO_MISSION</h2>
+                <div class="sp-theme-display">
+                    <span>DATABASE:</span>
+                    <span id="sp-theme-name" class="theme-name">Loading...</span>
+                </div>
+                
+                <div class="sp-players-section">
+                    <h3>OPERATIVES</h3>
+                    <div id="sp-players-list" class="sp-players-list">
+                        <!-- Player and AI slots will be added here -->
+                    </div>
+                </div>
+                
+                <div class="sp-ai-controls">
+                    <h3>ADD AI OPPONENT</h3>
+                    <div class="ai-difficulty-buttons">
+                        <button class="btn btn-ai-add" data-difficulty="easy">
+                            <span class="ai-icon">🤖</span>
+                            <span class="ai-label">EASY</span>
+                            <span class="ai-desc">Random guesses</span>
+                        </button>
+                        <button class="btn btn-ai-add" data-difficulty="medium">
+                            <span class="ai-icon">🤖</span>
+                            <span class="ai-label">MEDIUM</span>
+                            <span class="ai-desc">Semi-strategic</span>
+                        </button>
+                        <button class="btn btn-ai-add" data-difficulty="hard">
+                            <span class="ai-icon">🤖</span>
+                            <span class="ai-label">HARD</span>
+                            <span class="ai-desc">Targeting AI</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="sp-lobby-info">
+                    <p>Operatives: <span id="sp-player-count">1</span>/6</p>
+                    <p class="min-players">Add at least 1 AI opponent</p>
+                </div>
+                
+                <div class="sp-host-controls">
+                    <button id="sp-start-game-btn" class="btn btn-primary btn-large" disabled>&gt; BEGIN_MISSION</button>
+                </div>
+                <button id="sp-leave-lobby-btn" class="btn btn-ghost">&lt; ABORT</button>
             </div>
         </div>
 

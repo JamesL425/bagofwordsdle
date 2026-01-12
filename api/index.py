@@ -136,6 +136,354 @@ DEFAULT_COSMETICS = {
     "alt_background": "matrix"
 }
 
+# ============== AI PLAYER CONFIGURATION ==============
+
+# AI difficulty settings
+AI_DIFFICULTY_CONFIG = {
+    "easy": {
+        "name_prefix": "Bot",
+        "strategic_chance": 0.15,  # 15% chance to make a strategic guess
+        "word_selection": "random",  # How AI picks its secret word
+        "targeting_strength": 0.2,  # How much AI focuses on high-similarity targets
+        "delay_range": (1, 3),  # Simulated thinking time in seconds
+        "badge": "🤖",
+    },
+    "medium": {
+        "name_prefix": "Agent",
+        "strategic_chance": 0.45,  # 45% chance to make a strategic guess
+        "word_selection": "avoid_common",  # Avoids most common words
+        "targeting_strength": 0.5,  # Moderate focus on targets
+        "delay_range": (2, 5),
+        "badge": "🤖",
+    },
+    "hard": {
+        "name_prefix": "Nexus",
+        "strategic_chance": 0.75,  # 75% chance to make a strategic guess
+        "word_selection": "obscure",  # Picks less common words
+        "targeting_strength": 0.8,  # Strong focus on high-similarity targets
+        "delay_range": (3, 7),
+        "badge": "🤖",
+    },
+}
+
+# AI name suffixes for variety
+AI_NAME_SUFFIXES = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Theta"]
+
+
+def generate_ai_player_id(difficulty: str) -> str:
+    """Generate a unique AI player ID."""
+    return f"ai_{difficulty}_{secrets.token_hex(4)}"
+
+
+def create_ai_player(difficulty: str, existing_names: list) -> dict:
+    """Create an AI player with the specified difficulty."""
+    config = AI_DIFFICULTY_CONFIG.get(difficulty, AI_DIFFICULTY_CONFIG["easy"])
+    
+    # Generate unique name
+    used_suffixes = set()
+    for name in existing_names:
+        for suffix in AI_NAME_SUFFIXES:
+            if suffix in name:
+                used_suffixes.add(suffix)
+    
+    available_suffixes = [s for s in AI_NAME_SUFFIXES if s not in used_suffixes]
+    suffix = available_suffixes[0] if available_suffixes else secrets.choice(AI_NAME_SUFFIXES)
+    
+    name = f"{config['name_prefix']}-{suffix}"
+    
+    return {
+        "id": generate_ai_player_id(difficulty),
+        "name": name,
+        "difficulty": difficulty,
+        "is_ai": True,
+        "secret_word": None,
+        "secret_embedding": None,
+        "is_alive": True,
+        "can_change_word": False,
+        "word_pool": [],
+        "is_ready": True,  # AI is always ready
+        "cosmetics": {
+            "card_border": "neon_glow" if difficulty == "hard" else "classic",
+            "card_background": "circuit_board" if difficulty == "hard" else "default",
+            "name_color": "electric" if difficulty == "hard" else ("ice" if difficulty == "medium" else "default"),
+            "badge": config["badge"],
+        },
+        "ai_memory": {
+            "high_similarity_targets": {},  # player_id -> [(word, similarity)]
+            "guessed_words": [],
+        },
+    }
+
+
+def ai_select_secret_word(ai_player: dict, word_pool: list) -> str:
+    """AI selects a secret word based on difficulty."""
+    import random
+    
+    difficulty = ai_player.get("difficulty", "easy")
+    config = AI_DIFFICULTY_CONFIG.get(difficulty, AI_DIFFICULTY_CONFIG["easy"])
+    selection_mode = config.get("word_selection", "random")
+    
+    if not word_pool:
+        return None
+    
+    if selection_mode == "random":
+        return random.choice(word_pool)
+    
+    elif selection_mode == "avoid_common":
+        # Sort by word frequency (less common = better) and pick from bottom half
+        words_with_freq = [(w, word_frequency(w.lower(), 'en')) for w in word_pool]
+        words_with_freq.sort(key=lambda x: x[1])
+        # Pick from the less common half
+        less_common = words_with_freq[:len(words_with_freq)//2 + 1]
+        return random.choice(less_common)[0]
+    
+    elif selection_mode == "obscure":
+        # Pick from the least common 25% of words
+        words_with_freq = [(w, word_frequency(w.lower(), 'en')) for w in word_pool]
+        words_with_freq.sort(key=lambda x: x[1])
+        obscure_count = max(1, len(words_with_freq)//4)
+        obscure_words = words_with_freq[:obscure_count]
+        return random.choice(obscure_words)[0]
+    
+    return random.choice(word_pool)
+
+
+def ai_update_memory(ai_player: dict, guess_word: str, similarities: dict, game: dict):
+    """Update AI's memory after a guess is made."""
+    memory = ai_player.get("ai_memory", {})
+    if "guessed_words" not in memory:
+        memory["guessed_words"] = []
+    if "high_similarity_targets" not in memory:
+        memory["high_similarity_targets"] = {}
+    
+    memory["guessed_words"].append(guess_word.lower())
+    
+    # Track high similarities for targeting
+    for player_id, sim in similarities.items():
+        if player_id == ai_player["id"]:
+            continue
+        # Only track if player is still alive
+        player = next((p for p in game["players"] if p["id"] == player_id), None)
+        if player and player.get("is_alive", True):
+            if player_id not in memory["high_similarity_targets"]:
+                memory["high_similarity_targets"][player_id] = []
+            memory["high_similarity_targets"][player_id].append((guess_word, sim))
+            # Keep only top 5 similarities per player
+            memory["high_similarity_targets"][player_id].sort(key=lambda x: x[1], reverse=True)
+            memory["high_similarity_targets"][player_id] = memory["high_similarity_targets"][player_id][:5]
+    
+    ai_player["ai_memory"] = memory
+
+
+def ai_find_best_target(ai_player: dict, game: dict) -> Optional[dict]:
+    """Find the best target player based on AI memory."""
+    memory = ai_player.get("ai_memory", {})
+    targets = memory.get("high_similarity_targets", {})
+    
+    if not targets:
+        return None
+    
+    best_target = None
+    best_score = 0
+    
+    for player_id, sims in targets.items():
+        # Check if player is still alive
+        player = next((p for p in game["players"] if p["id"] == player_id), None)
+        if not player or not player.get("is_alive", True) or player.get("is_ai"):
+            continue
+        
+        if sims:
+            # Calculate a weighted score: highest similarity matters most
+            top_sim = sims[0][1] if sims else 0
+            avg_sim = sum(s[1] for s in sims) / len(sims) if sims else 0
+            score = top_sim * 0.7 + avg_sim * 0.3
+            
+            if score > best_score:
+                best_score = score
+                best_target = {
+                    "player_id": player_id,
+                    "player_name": player["name"],
+                    "top_word": sims[0][0] if sims else None,
+                    "top_similarity": top_sim,
+                    "score": score,
+                }
+    
+    return best_target
+
+
+def ai_find_similar_words(target_word: str, theme_words: list, guessed_words: list, count: int = 5) -> list:
+    """Find words in theme that are semantically similar to target word using embeddings."""
+    try:
+        target_embedding = get_embedding(target_word)
+        
+        candidates = []
+        for word in theme_words:
+            if word.lower() in [g.lower() for g in guessed_words]:
+                continue
+            
+            word_embedding = get_embedding(word)
+            sim = cosine_similarity(target_embedding, word_embedding)
+            candidates.append((word, sim))
+        
+        # Sort by similarity and return top candidates
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        return [c[0] for c in candidates[:count]]
+    
+    except Exception as e:
+        print(f"Error finding similar words: {e}")
+        return []
+
+
+def ai_choose_guess(ai_player: dict, game: dict) -> Optional[str]:
+    """AI chooses a word to guess based on difficulty and game state."""
+    import random
+    
+    difficulty = ai_player.get("difficulty", "easy")
+    config = AI_DIFFICULTY_CONFIG.get(difficulty, AI_DIFFICULTY_CONFIG["easy"])
+    
+    theme_words = game.get("theme", {}).get("words", [])
+    memory = ai_player.get("ai_memory", {})
+    guessed_words = memory.get("guessed_words", [])
+    
+    # Get all words that haven't been guessed yet
+    available_words = [w for w in theme_words if w.lower() not in [g.lower() for g in guessed_words]]
+    
+    if not available_words:
+        return None
+    
+    # Decide if this should be a strategic guess
+    strategic_chance = config.get("strategic_chance", 0.15)
+    targeting_strength = config.get("targeting_strength", 0.2)
+    
+    if random.random() < strategic_chance:
+        # Strategic guess: try to find words similar to high-similarity targets
+        target = ai_find_best_target(ai_player, game)
+        
+        if target and target["top_word"] and target["top_similarity"] > 0.3:
+            # Find words similar to the word that got high similarity
+            similar_words = ai_find_similar_words(
+                target["top_word"], 
+                available_words, 
+                guessed_words,
+                count=5
+            )
+            
+            if similar_words:
+                # Higher targeting strength = more likely to pick the most similar word
+                if random.random() < targeting_strength:
+                    return similar_words[0]  # Most similar
+                else:
+                    return random.choice(similar_words[:3])  # Top 3
+    
+    # Random guess from available words
+    return random.choice(available_words)
+
+
+def ai_change_word(ai_player: dict, game: dict) -> Optional[str]:
+    """AI chooses a new secret word after eliminating someone."""
+    word_pool = ai_player.get("word_pool", [])
+    guessed_words = [e.get("word", "").lower() for e in game.get("history", []) if e.get("word")]
+    
+    # Filter out guessed words from pool
+    available_words = [w for w in word_pool if w.lower() not in guessed_words]
+    
+    if not available_words:
+        return None
+    
+    return ai_select_secret_word(ai_player, available_words)
+
+
+def process_ai_turn(game: dict, ai_player: dict) -> Optional[dict]:
+    """Process an AI player's turn and return the guess result."""
+    import random
+    
+    if not ai_player.get("is_ai") or not ai_player.get("is_alive"):
+        return None
+    
+    # Choose a guess
+    guess_word = ai_choose_guess(ai_player, game)
+    if not guess_word:
+        return None
+    
+    # Get embedding and calculate similarities
+    try:
+        guess_embedding = get_embedding(guess_word)
+    except Exception as e:
+        print(f"AI embedding error: {e}")
+        return None
+    
+    similarities = {}
+    for p in game["players"]:
+        if p.get("secret_embedding"):
+            sim = cosine_similarity(guess_embedding, p["secret_embedding"])
+            similarities[p["id"]] = round(sim, 2)
+    
+    # Check for eliminations
+    eliminations = []
+    for p in game["players"]:
+        if p["id"] != ai_player["id"] and p.get("is_alive"):
+            if guess_word.lower() == p.get("secret_word", "").lower():
+                p["is_alive"] = False
+                eliminations.append(p["id"])
+    
+    # If AI eliminated someone, they can change their word
+    if eliminations:
+        ai_player["can_change_word"] = True
+    
+    # Update AI memory
+    ai_update_memory(ai_player, guess_word, similarities, game)
+    
+    # Also update other AI players' memories
+    for p in game["players"]:
+        if p.get("is_ai") and p["id"] != ai_player["id"]:
+            ai_update_memory(p, guess_word, similarities, game)
+    
+    # Record history
+    history_entry = {
+        "guesser_id": ai_player["id"],
+        "guesser_name": ai_player["name"],
+        "word": guess_word.lower(),
+        "similarities": similarities,
+        "eliminations": eliminations,
+    }
+    game["history"].append(history_entry)
+    
+    return {
+        "word": guess_word,
+        "similarities": similarities,
+        "eliminations": eliminations,
+    }
+
+
+def process_ai_word_change(game: dict, ai_player: dict) -> bool:
+    """Process AI word change after elimination."""
+    import random
+    
+    if not ai_player.get("can_change_word"):
+        return False
+    
+    # 70% chance AI changes word, 30% keeps it
+    if random.random() < 0.7:
+        new_word = ai_change_word(ai_player, game)
+        if new_word:
+            try:
+                embedding = get_embedding(new_word)
+                ai_player["secret_word"] = new_word.lower()
+                ai_player["secret_embedding"] = embedding
+                
+                # Record word change in history
+                game["history"].append({
+                    "type": "word_change",
+                    "player_id": ai_player["id"],
+                    "player_name": ai_player["name"],
+                })
+            except Exception as e:
+                print(f"AI word change error: {e}")
+    
+    ai_player["can_change_word"] = False
+    return True
+
+
 # Initialise clients lazily
 _openai_client = None
 _redis_client = None
@@ -1097,6 +1445,7 @@ class handler(BaseHTTPRequestHandler):
                     "theme_votes": theme_votes_with_names,
                     "all_words_set": all_words_set,
                     "ready_count": ready_count,
+                    "is_singleplayer": game.get('is_singleplayer', False),
                 }
                 
                 for p in game['players']:
@@ -1110,6 +1459,8 @@ class handler(BaseHTTPRequestHandler):
                         "can_change_word": p.get('can_change_word', False) if p['id'] == player_id else None,
                         "is_ready": p.get('is_ready', False),
                         "cosmetics": p.get('cosmetics', {}),  # Include cosmetics for all players
+                        "is_ai": p.get('is_ai', False),  # Include AI flag
+                        "difficulty": p.get('difficulty'),  # Include AI difficulty
                     }
                     # Include this player's word pool if it's them
                     if p['id'] == player_id:
@@ -1207,6 +1558,144 @@ class handler(BaseHTTPRequestHandler):
             return self._send_json({
                 "code": code,
                 "theme_options": theme_options,
+            })
+
+        # POST /api/singleplayer - Create singleplayer lobby
+        if path == '/api/singleplayer':
+            # Rate limit: 5 games/min per IP
+            if not check_rate_limit(get_ratelimit_game_create(), client_ip):
+                return self._send_error("Too many game creations. Please wait.", 429)
+            
+            import random
+            import time
+            
+            code = generate_game_code()
+            
+            # Make sure code is unique
+            while load_game(code):
+                code = generate_game_code()
+            
+            # Pick a random theme category directly (no voting in singleplayer)
+            theme_category = random.choice(THEME_CATEGORIES)
+            theme = get_theme_words(theme_category)
+            
+            # Create singleplayer lobby
+            game = {
+                "code": code,
+                "host_id": "",
+                "players": [],
+                "current_turn": 0,
+                "status": "waiting",
+                "winner": None,
+                "history": [],
+                "theme": {
+                    "name": theme.get("name", theme_category),
+                    "words": theme.get("words", []),
+                },
+                "theme_options": [],  # No voting in singleplayer
+                "theme_votes": {},
+                "created_at": time.time(),
+                "is_singleplayer": True,  # Mark as singleplayer game
+            }
+            save_game(code, game)
+            return self._send_json({
+                "code": code,
+                "theme": game["theme"]["name"],
+                "is_singleplayer": True,
+            })
+
+        # POST /api/games/{code}/add-ai - Add AI player to singleplayer lobby
+        if '/add-ai' in path and path.startswith('/api/games/'):
+            code = sanitize_game_code(path.split('/')[3])
+            if not code:
+                return self._send_error("Invalid game code format", 400)
+            
+            game = load_game(code)
+            
+            if not game:
+                return self._send_error("Game not found", 404)
+            if not game.get('is_singleplayer'):
+                return self._send_error("Can only add AI to singleplayer games", 400)
+            if game['status'] != 'waiting':
+                return self._send_error("Game has already started", 400)
+            if len(game['players']) >= MAX_PLAYERS:
+                return self._send_error("Game is full", 400)
+            
+            player_id = body.get('player_id', '')
+            # Allow AI player IDs or sanitized human player IDs
+            if not player_id.startswith('ai_'):
+                player_id = sanitize_player_id(player_id)
+            if not player_id:
+                return self._send_error("Invalid player ID format", 400)
+            
+            # Verify requester is the host
+            if game['host_id'] != player_id:
+                return self._send_error("Only the host can add AI players", 403)
+            
+            difficulty = body.get('difficulty', 'easy')
+            if difficulty not in AI_DIFFICULTY_CONFIG:
+                return self._send_error("Invalid difficulty. Choose: easy, medium, hard", 400)
+            
+            # Create AI player
+            existing_names = [p['name'] for p in game['players']]
+            ai_player = create_ai_player(difficulty, existing_names)
+            
+            game['players'].append(ai_player)
+            save_game(code, game)
+            
+            return self._send_json({
+                "status": "ai_added",
+                "ai_player": {
+                    "id": ai_player["id"],
+                    "name": ai_player["name"],
+                    "difficulty": ai_player["difficulty"],
+                    "is_ai": True,
+                },
+            })
+
+        # POST /api/games/{code}/remove-ai - Remove AI player from singleplayer lobby
+        if '/remove-ai' in path and path.startswith('/api/games/'):
+            code = sanitize_game_code(path.split('/')[3])
+            if not code:
+                return self._send_error("Invalid game code format", 400)
+            
+            game = load_game(code)
+            
+            if not game:
+                return self._send_error("Game not found", 404)
+            if not game.get('is_singleplayer'):
+                return self._send_error("Can only remove AI from singleplayer games", 400)
+            if game['status'] != 'waiting':
+                return self._send_error("Game has already started", 400)
+            
+            player_id = body.get('player_id', '')
+            # Allow AI player IDs or sanitized human player IDs
+            if not player_id.startswith('ai_'):
+                player_id = sanitize_player_id(player_id)
+            if not player_id:
+                return self._send_error("Invalid player ID format", 400)
+            
+            # Verify requester is the host
+            if game['host_id'] != player_id:
+                return self._send_error("Only the host can remove AI players", 403)
+            
+            ai_id = body.get('ai_id', '')
+            if not ai_id or not ai_id.startswith('ai_'):
+                return self._send_error("Invalid AI player ID", 400)
+            
+            # Find and remove AI player
+            ai_player = next((p for p in game['players'] if p['id'] == ai_id), None)
+            if not ai_player:
+                return self._send_error("AI player not found", 404)
+            if not ai_player.get('is_ai'):
+                return self._send_error("Cannot remove human players", 400)
+            
+            game['players'] = [p for p in game['players'] if p['id'] != ai_id]
+            save_game(code, game)
+            
+            return self._send_json({
+                "status": "ai_removed",
+                "removed_id": ai_id,
             })
 
         # POST /api/games/{code}/vote - Vote for a theme
@@ -1508,6 +1997,19 @@ class handler(BaseHTTPRequestHandler):
                 end_idx = start_idx + words_per_player
                 p['word_pool'] = sorted(shuffled_words[start_idx:end_idx])
             
+            # For singleplayer games, AI players automatically select their words
+            if game.get('is_singleplayer'):
+                for p in game['players']:
+                    if p.get('is_ai') and not p.get('secret_word'):
+                        selected_word = ai_select_secret_word(p, p['word_pool'])
+                        if selected_word:
+                            try:
+                                embedding = get_embedding(selected_word)
+                                p['secret_word'] = selected_word.lower()
+                                p['secret_embedding'] = embedding
+                            except Exception as e:
+                                print(f"AI word selection error: {e}")
+            
             # Move to word selection phase (not playing yet)
             game['status'] = 'word_selection'
             game['current_turn'] = 0
@@ -1627,9 +2129,17 @@ class handler(BaseHTTPRequestHandler):
             }
             game['history'].append(history_entry)
             
+            # Update AI memories with this guess (for singleplayer games)
+            if game.get('is_singleplayer'):
+                for p in game['players']:
+                    if p.get('is_ai'):
+                        ai_update_memory(p, word, similarities, game)
+            
             # Advance turn (but game is paused if waiting for word change)
             alive_players = [p for p in game['players'] if p['is_alive']]
             game_over = False
+            ai_turns = []  # Track AI turns for response
+            
             if len(alive_players) <= 1:
                 game['status'] = 'finished'
                 game['waiting_for_word_change'] = None  # Clear pause
@@ -1644,16 +2154,63 @@ class handler(BaseHTTPRequestHandler):
                 while not game['players'][next_turn]['is_alive']:
                     next_turn = (next_turn + 1) % num_players
                 game['current_turn'] = next_turn
+                
+                # Process AI turns in singleplayer (if not waiting for word change)
+                if game.get('is_singleplayer') and not game.get('waiting_for_word_change'):
+                    # Process all consecutive AI turns
+                    while True:
+                        current_ai = game['players'][game['current_turn']]
+                        if not current_ai.get('is_ai') or not current_ai.get('is_alive'):
+                            break
+                        
+                        # Process AI turn
+                        ai_result = process_ai_turn(game, current_ai)
+                        if ai_result:
+                            ai_turns.append({
+                                "player_id": current_ai['id'],
+                                "player_name": current_ai['name'],
+                                "word": ai_result['word'],
+                                "similarities": ai_result['similarities'],
+                                "eliminations": ai_result['eliminations'],
+                            })
+                            
+                            # Handle AI word change if they eliminated someone
+                            if ai_result['eliminations'] and current_ai.get('can_change_word'):
+                                process_ai_word_change(game, current_ai)
+                            
+                            # Check for game over after AI turn
+                            alive_players = [p for p in game['players'] if p['is_alive']]
+                            if len(alive_players) <= 1:
+                                game['status'] = 'finished'
+                                game_over = True
+                                if alive_players:
+                                    game['winner'] = alive_players[0]['id']
+                                update_game_stats(game)
+                                break
+                            
+                            # Advance to next turn
+                            next_turn = (game['current_turn'] + 1) % num_players
+                            while not game['players'][next_turn]['is_alive']:
+                                next_turn = (next_turn + 1) % num_players
+                            game['current_turn'] = next_turn
+                        else:
+                            break
             
             save_game(code, game)
             
-            return self._send_json({
+            response = {
                 "similarities": similarities,
                 "eliminations": eliminations,
                 "game_over": game_over,
                 "winner": game.get('winner'),
                 "waiting_for_word_change": game.get('waiting_for_word_change'),
-            })
+            }
+            
+            # Include AI turns in response for singleplayer
+            if ai_turns:
+                response["ai_turns"] = ai_turns
+            
+            return self._send_json(response)
 
         # POST /api/games/{code}/change-word
         if '/change-word' in path:
@@ -1724,8 +2281,55 @@ class handler(BaseHTTPRequestHandler):
             }
             game['history'].append(history_entry)
             
+            # Process AI turns in singleplayer after word change
+            ai_turns = []
+            game_over = False
+            if game.get('is_singleplayer'):
+                num_players = len(game['players'])
+                while True:
+                    current_ai = game['players'][game['current_turn']]
+                    if not current_ai.get('is_ai') or not current_ai.get('is_alive'):
+                        break
+                    
+                    ai_result = process_ai_turn(game, current_ai)
+                    if ai_result:
+                        ai_turns.append({
+                            "player_id": current_ai['id'],
+                            "player_name": current_ai['name'],
+                            "word": ai_result['word'],
+                            "similarities": ai_result['similarities'],
+                            "eliminations": ai_result['eliminations'],
+                        })
+                        
+                        if ai_result['eliminations'] and current_ai.get('can_change_word'):
+                            process_ai_word_change(game, current_ai)
+                        
+                        alive_players = [p for p in game['players'] if p['is_alive']]
+                        if len(alive_players) <= 1:
+                            game['status'] = 'finished'
+                            game_over = True
+                            if alive_players:
+                                game['winner'] = alive_players[0]['id']
+                            update_game_stats(game)
+                            break
+                        
+                        next_turn = (game['current_turn'] + 1) % num_players
+                        while not game['players'][next_turn]['is_alive']:
+                            next_turn = (next_turn + 1) % num_players
+                        game['current_turn'] = next_turn
+                    else:
+                        break
+            
             save_game(code, game)
-            return self._send_json({"status": "word_changed"})
+            
+            response = {"status": "word_changed"}
+            if ai_turns:
+                response["ai_turns"] = ai_turns
+            if game_over:
+                response["game_over"] = True
+                response["winner"] = game.get('winner')
+            
+            return self._send_json(response)
 
         # POST /api/games/{code}/skip-word-change - Skip changing word
         if '/skip-word-change' in path:
@@ -1759,8 +2363,55 @@ class handler(BaseHTTPRequestHandler):
             player['can_change_word'] = False
             game['waiting_for_word_change'] = None
             
+            # Process AI turns in singleplayer after skipping word change
+            ai_turns = []
+            game_over = False
+            if game.get('is_singleplayer'):
+                num_players = len(game['players'])
+                while True:
+                    current_ai = game['players'][game['current_turn']]
+                    if not current_ai.get('is_ai') or not current_ai.get('is_alive'):
+                        break
+                    
+                    ai_result = process_ai_turn(game, current_ai)
+                    if ai_result:
+                        ai_turns.append({
+                            "player_id": current_ai['id'],
+                            "player_name": current_ai['name'],
+                            "word": ai_result['word'],
+                            "similarities": ai_result['similarities'],
+                            "eliminations": ai_result['eliminations'],
+                        })
+                        
+                        if ai_result['eliminations'] and current_ai.get('can_change_word'):
+                            process_ai_word_change(game, current_ai)
+                        
+                        alive_players = [p for p in game['players'] if p['is_alive']]
+                        if len(alive_players) <= 1:
+                            game['status'] = 'finished'
+                            game_over = True
+                            if alive_players:
+                                game['winner'] = alive_players[0]['id']
+                            update_game_stats(game)
+                            break
+                        
+                        next_turn = (game['current_turn'] + 1) % num_players
+                        while not game['players'][next_turn]['is_alive']:
+                            next_turn = (next_turn + 1) % num_players
+                        game['current_turn'] = next_turn
+                    else:
+                        break
+            
             save_game(code, game)
-            return self._send_json({"status": "skipped"})
+            
+            response = {"status": "skipped"}
+            if ai_turns:
+                response["ai_turns"] = ai_turns
+            if game_over:
+                response["game_over"] = True
+                response["winner"] = game.get('winner')
+            
+            return self._send_json(response)
 
         # POST /api/cosmetics/equip - Equip a cosmetic
         if path == '/api/cosmetics/equip':

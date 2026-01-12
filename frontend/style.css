@@ -2672,3 +2672,242 @@ body[data-background="aurora"]::before {
     50% { background-position: 100% 50%, 0 0; }
     100% { background-position: 0% 50%, 0 0; }
 }
+
+/* ============ SINGLEPLAYER LOBBY ============ */
+
+.sp-theme-display {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    margin-bottom: 1.5rem;
+    color: var(--text-secondary);
+}
+
+.sp-theme-display .theme-name {
+    color: var(--accent-primary);
+    font-weight: 700;
+}
+
+.sp-players-section {
+    margin-bottom: 1.5rem;
+}
+
+.sp-players-section h3 {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+}
+
+.sp-players-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.sp-player-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.sp-player-item.is-you {
+    border-color: var(--accent-primary);
+    background: rgba(0, 255, 65, 0.05);
+}
+
+.sp-player-item.is-ai {
+    border-color: var(--info);
+}
+
+.sp-player-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.sp-player-icon {
+    font-size: 1.2rem;
+}
+
+.sp-player-name {
+    font-weight: 600;
+}
+
+.sp-player-badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.sp-player-badge.host {
+    background: var(--accent-primary);
+    color: var(--bg-primary);
+}
+
+.sp-player-badge.ai-easy {
+    background: var(--success);
+    color: var(--bg-primary);
+}
+
+.sp-player-badge.ai-medium {
+    background: var(--warning);
+    color: var(--bg-primary);
+}
+
+.sp-player-badge.ai-hard {
+    background: var(--danger);
+    color: var(--bg-primary);
+}
+
+.sp-remove-ai {
+    background: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all var(--transition);
+}
+
+.sp-remove-ai:hover {
+    background: var(--danger);
+    color: white;
+}
+
+.sp-ai-controls {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+}
+
+.sp-ai-controls h3 {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+.ai-difficulty-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+}
+
+.btn-ai-add {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 1rem;
+    background: var(--bg-card);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.btn-ai-add:hover:not(:disabled) {
+    border-color: var(--accent-primary);
+    transform: translateY(-2px);
+}
+
+.btn-ai-add:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-ai-add[data-difficulty="easy"]:hover:not(:disabled) {
+    border-color: var(--success);
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
+}
+
+.btn-ai-add[data-difficulty="medium"]:hover:not(:disabled) {
+    border-color: var(--warning);
+    box-shadow: 0 0 15px rgba(255, 204, 0, 0.3);
+}
+
+.btn-ai-add[data-difficulty="hard"]:hover:not(:disabled) {
+    border-color: var(--danger);
+    box-shadow: 0 0 15px rgba(255, 51, 51, 0.3);
+}
+
+.btn-ai-add .ai-icon {
+    font-size: 1.5rem;
+}
+
+.btn-ai-add .ai-label {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+
+.btn-ai-add .ai-desc {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.sp-lobby-info {
+    text-align: center;
+    margin-bottom: 1rem;
+    color: var(--text-secondary);
+}
+
+.sp-lobby-info .min-players {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.sp-host-controls {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+/* AI Player Card Indicator in Game */
+.player-card.is-ai::after {
+    content: '🤖';
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    font-size: 1rem;
+}
+
+.player-card .ai-difficulty-badge {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    margin-left: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.player-card .ai-difficulty-badge.easy {
+    background: var(--success);
+    color: var(--bg-primary);
+}
+
+.player-card .ai-difficulty-badge.medium {
+    background: var(--warning);
+    color: var(--bg-primary);
+}
+
+.player-card .ai-difficulty-badge.hard {
+    background: var(--danger);
+    color: var(--bg-primary);
+}
+
+/* Responsive for singleplayer */
+@media (max-width: 600px) {
+    .ai-difficulty-buttons {
+        grid-template-columns: 1fr;
+    }
+}
