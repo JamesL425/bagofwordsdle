@@ -199,11 +199,15 @@ def update_game_stats(game: dict):
         
         # Calculate average closeness from this player's guesses
         for entry in game.get('history', []):
-            if entry['guesser_id'] == player['id']:
+            # Skip word_change entries which don't have guesser_id
+            if entry.get('type') == 'word_change':
+                continue
+            if entry.get('guesser_id') == player['id']:
                 stats['total_guesses'] += 1
                 # Get the max similarity to other players (not self)
+                similarities = entry.get('similarities', {})
                 other_sims = [
-                    sim for pid, sim in entry['similarities'].items() 
+                    sim for pid, sim in similarities.items() 
                     if pid != player['id']
                 ]
                 if other_sims:
