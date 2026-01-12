@@ -352,6 +352,7 @@ class handler(BaseHTTPRequestHandler):
                     "name": game.get('theme', {}).get('name', ''),
                     "words": game.get('theme', {}).get('words', []),  # Full word list for guessing reference
                 },
+                "waiting_for_word_change": game.get('waiting_for_word_change'),
             }
             
             for p in game['players']:
@@ -545,6 +546,12 @@ class handler(BaseHTTPRequestHandler):
             if game['status'] != 'playing':
                 return self._send_error("Game not in progress", 400)
             
+            # Check if game is paused waiting for word change
+            if game.get('waiting_for_word_change'):
+                waiting_player = next((p for p in game['players'] if p['id'] == game['waiting_for_word_change']), None)
+                waiting_name = waiting_player['name'] if waiting_player else 'Someone'
+                return self._send_error(f"Waiting for {waiting_name} to change their word", 400)
+            
             player_id = body.get('player_id', '')
             word = body.get('word', '').strip()
             
@@ -587,6 +594,7 @@ class handler(BaseHTTPRequestHandler):
             
             if eliminations:
                 player['can_change_word'] = True
+                game['waiting_for_word_change'] = player_id  # Pause game until word is changed
             
             # Record history
             history_entry = {
@@ -598,11 +606,12 @@ class handler(BaseHTTPRequestHandler):
             }
             game['history'].append(history_entry)
             
-            # Advance turn
+            # Advance turn (but game is paused if waiting for word change)
             alive_players = [p for p in game['players'] if p['is_alive']]
             game_over = False
             if len(alive_players) <= 1:
                 game['status'] = 'finished'
+                game['waiting_for_word_change'] = None  # Clear pause
                 game_over = True
                 if alive_players:
                     game['winner'] = alive_players[0]['id']
@@ -622,6 +631,7 @@ class handler(BaseHTTPRequestHandler):
                 "eliminations": eliminations,
                 "game_over": game_over,
                 "winner": game.get('winner'),
+                "waiting_for_word_change": game.get('waiting_for_word_change'),
             })
 
         # POST /api/games/{code}/change-word
@@ -669,6 +679,9 @@ class handler(BaseHTTPRequestHandler):
             player['secret_embedding'] = embedding
             player['can_change_word'] = False
             
+            # Clear the waiting state - game can continue
+            game['waiting_for_word_change'] = None
+            
             # Add a history entry noting the word change
             history_entry = {
                 "type": "word_change",
@@ -679,5 +692,35 @@ class handler(BaseHTTPRequestHandler):
             
             save_game(code, game)
             return self._send_json({"status": "word_changed"})
+
+        # POST /api/games/{code}/skip-word-change - Skip changing word
+        if '/skip-word-change' in path:
+            code = path.split('/')[3].upper()
+            game = load_game(code)
+            
+            if not game:
+                return self._send_error("Game not found", 404)
+            if game['status'] != 'playing':
+                return self._send_error("Game not in progress", 400)
+            
+            player_id = body.get('player_id', '')
+            
+            player = None
+            for p in game['players']:
+                if p['id'] == player_id:
+                    player = p
+                    break
+            
+            if not player:
+                return self._send_error("You are not in this game", 403)
+            if not player.get('can_change_word', False):
+                return self._send_error("You don't have a word change to skip", 400)
+            
+            # Clear the ability and waiting state
+            player['can_change_word'] = False
+            game['waiting_for_word_change'] = None
+            
+            save_game(code, game)
+            return self._send_json({"status": "skipped"})
 
         self._send_error("Not found", 404)

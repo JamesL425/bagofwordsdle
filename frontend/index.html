@@ -174,7 +174,12 @@
                         <div class="change-word-input-row">
                             <input type="text" id="new-word-input" placeholder="Click a word above or type...">
                             <button id="change-word-btn" class="btn btn-small btn-accent">Change Word</button>
+                            <button id="skip-word-change-btn" class="btn btn-small btn-ghost">Keep Current</button>
                         </div>
+                    </div>
+                    
+                    <div id="waiting-for-change" class="waiting-notice hidden">
+                        <span id="waiting-player-name">Someone</span> is choosing a new word...
                     </div>
 
                     <div class="players-grid" id="players-grid">

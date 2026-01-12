@@ -389,6 +389,31 @@ header h1 {
     flex: 1;
 }
 
+/* Waiting Notice */
+.waiting-notice {
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border: 2px dashed var(--accent-secondary);
+    border-radius: var(--radius);
+    text-align: center;
+    color: var(--text-secondary);
+    animation: pulse 2s infinite;
+}
+
+.waiting-notice #waiting-player-name {
+    font-weight: 700;
+    color: var(--accent-primary);
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+.waiting-notice.hidden {
+    display: none;
+}
+
 .change-word-container input {
     padding: 0.5rem 0.75rem;
     background: var(--bg-secondary);

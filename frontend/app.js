@@ -399,13 +399,27 @@ function updateGame(game) {
     updatePlayersGrid(game);
     updateTurnIndicator(game);
     
-    const isMyTurn = game.current_player_id === gameState.playerId && myPlayer?.is_alive;
+    // Handle waiting for word change state
+    const waitingNotice = document.getElementById('waiting-for-change');
+    const isWaitingForMe = game.waiting_for_word_change === gameState.playerId;
+    const isWaitingForOther = game.waiting_for_word_change && !isWaitingForMe;
+    
+    if (isWaitingForOther) {
+        const waitingPlayer = game.players.find(p => p.id === game.waiting_for_word_change);
+        document.getElementById('waiting-player-name').textContent = waitingPlayer?.name || 'Someone';
+        waitingNotice.classList.remove('hidden');
+    } else {
+        waitingNotice.classList.add('hidden');
+    }
+    
+    // Disable guessing if waiting for word change
+    const isMyTurn = game.current_player_id === gameState.playerId && myPlayer?.is_alive && !game.waiting_for_word_change;
     const guessInput = document.getElementById('guess-input');
     const guessForm = document.getElementById('guess-form');
     guessInput.disabled = !isMyTurn;
     guessForm.querySelector('button').disabled = !isMyTurn;
     
-    if (isMyTurn) {
+    if (isMyTurn && !game.waiting_for_word_change) {
         guessInput.focus();
     }
     
@@ -685,6 +699,17 @@ document.getElementById('new-word-input').addEventListener('keydown', async (e) 
     if (e.key === 'Enter') {
         e.preventDefault();
         await submitWordChange();
+    }
+});
+
+// Skip word change button
+document.getElementById('skip-word-change-btn').addEventListener('click', async () => {
+    try {
+        await apiCall(`/api/games/${gameState.code}/skip-word-change`, 'POST', {
+            player_id: gameState.playerId,
+        });
+    } catch (error) {
+        showError(error.message);
     }
 });
 
