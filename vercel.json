@@ -13,8 +13,7 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.py" },
     { "source": "/", "destination": "/frontend/index.html" },
-    { "source": "/:path(.*\\.(js|css|ico|png|jpg|svg|json|webp))", "destination": "/frontend/:path" },
-    { "source": "/:path*", "destination": "/frontend/:path*" }
+    { "source": "/(.*)", "destination": "/frontend/$1" }
   ],
   "headers": [
     {
