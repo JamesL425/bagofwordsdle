@@ -226,26 +226,31 @@ def ai_select_secret_word(ai_player: dict, word_pool: list) -> str:
     if not word_pool:
         return None
     
-    if selection_mode == "random":
+    try:
+        if selection_mode == "random":
+            return random.choice(word_pool)
+        
+        elif selection_mode == "avoid_common":
+            # Sort by word frequency (less common = better) and pick from bottom half
+            words_with_freq = [(w, word_frequency(w.lower(), 'en')) for w in word_pool]
+            words_with_freq.sort(key=lambda x: x[1])
+            # Pick from the less common half
+            less_common = words_with_freq[:len(words_with_freq)//2 + 1]
+            return random.choice(less_common)[0]
+        
+        elif selection_mode == "obscure":
+            # Pick from the least common 25% of words
+            words_with_freq = [(w, word_frequency(w.lower(), 'en')) for w in word_pool]
+            words_with_freq.sort(key=lambda x: x[1])
+            obscure_count = max(1, len(words_with_freq)//4)
+            obscure_words = words_with_freq[:obscure_count]
+            return random.choice(obscure_words)[0]
+        
         return random.choice(word_pool)
-    
-    elif selection_mode == "avoid_common":
-        # Sort by word frequency (less common = better) and pick from bottom half
-        words_with_freq = [(w, word_frequency(w.lower(), 'en')) for w in word_pool]
-        words_with_freq.sort(key=lambda x: x[1])
-        # Pick from the less common half
-        less_common = words_with_freq[:len(words_with_freq)//2 + 1]
-        return random.choice(less_common)[0]
-    
-    elif selection_mode == "obscure":
-        # Pick from the least common 25% of words
-        words_with_freq = [(w, word_frequency(w.lower(), 'en')) for w in word_pool]
-        words_with_freq.sort(key=lambda x: x[1])
-        obscure_count = max(1, len(words_with_freq)//4)
-        obscure_words = words_with_freq[:obscure_count]
-        return random.choice(obscure_words)[0]
-    
-    return random.choice(word_pool)
+    except Exception as e:
+        print(f"Error in ai_select_secret_word: {e}")
+        # Fallback to random selection
+        return random.choice(word_pool)
 
 
 def ai_update_memory(ai_player: dict, guess_word: str, similarities: dict, game: dict):
@@ -1949,43 +1954,54 @@ class handler(BaseHTTPRequestHandler):
             if game['status'] != 'waiting':
                 return self._send_error("Game already started", 400)
             
-            # Check if host is admin (can bypass min players)
+            # Check if host is admin (can bypass min players) or if it's singleplayer
             host_player = next((p for p in game['players'] if p['id'] == player_id), None)
             is_admin_host = host_player and host_player.get('auth_user_id') == 'admin_local'
+            is_singleplayer = game.get('is_singleplayer', False)
             
-            if len(game['players']) < MIN_PLAYERS and not is_admin_host:
+            # Singleplayer needs at least 2 players (1 human + 1 AI)
+            if is_singleplayer:
+                if len(game['players']) < 2:
+                    return self._send_error("Add at least 1 AI opponent", 400)
+            elif len(game['players']) < MIN_PLAYERS and not is_admin_host:
                 return self._send_error(f"Need at least {MIN_PLAYERS} players", 400)
             
-            # Determine winning theme from votes (weighted random)
             import random
-            votes = game.get('theme_votes', {})
-            theme_options = game.get('theme_options', ['Animals'])
             
-            if votes:
-                # Build weighted list: each theme appears once per vote
-                weighted_themes = []
-                for theme_name in theme_options:
-                    vote_count = len(votes.get(theme_name, []))
-                    # Give at least 1 weight to each theme so unvoted themes have a chance
-                    weight = max(vote_count, 0)
-                    weighted_themes.extend([theme_name] * weight)
+            # For singleplayer, theme is already set; for multiplayer, determine from votes
+            if not is_singleplayer:
+                # Determine winning theme from votes (weighted random)
+                votes = game.get('theme_votes', {})
+                theme_options = game.get('theme_options', ['Animals'])
                 
-                # If no votes at all, equal weight
-                if not weighted_themes:
-                    weighted_themes = theme_options.copy()
+                if votes:
+                    # Build weighted list: each theme appears once per vote
+                    weighted_themes = []
+                    for theme_name in theme_options:
+                        vote_count = len(votes.get(theme_name, []))
+                        # Give at least 1 weight to each theme so unvoted themes have a chance
+                        weight = max(vote_count, 0)
+                        weighted_themes.extend([theme_name] * weight)
+                    
+                    # If no votes at all, equal weight
+                    if not weighted_themes:
+                        weighted_themes = theme_options.copy()
+                    
+                    winning_theme = random.choice(weighted_themes)
+                else:
+                    # Fallback to random choice if no votes
+                    winning_theme = random.choice(theme_options)
                 
-                winning_theme = random.choice(weighted_themes)
-            else:
-                # Fallback to random choice if no votes
-                winning_theme = random.choice(theme_options)
+                # Set the theme
+                theme = get_theme_words(winning_theme)
+                all_words = theme.get("words", [])
+                game['theme'] = {
+                    "name": theme.get("name", winning_theme),
+                    "words": all_words,
+                }
             
-            # Set the theme
-            theme = get_theme_words(winning_theme)
-            all_words = theme.get("words", [])
-            game['theme'] = {
-                "name": theme.get("name", winning_theme),
-                "words": all_words,
-            }
+            # Get theme words (already set for singleplayer)
+            all_words = game['theme'].get('words', [])
             
             # Assign distinct word pools to each player (20 words each, no overlap)
             shuffled_words = all_words.copy()
