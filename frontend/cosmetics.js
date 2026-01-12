@@ -8,6 +8,7 @@ let cosmeticsState = {
     catalog: null,
     userCosmetics: null,
     isDonor: false,
+    isAdmin: false,
     panelOpen: false,
 };
 
@@ -35,6 +36,7 @@ async function loadUserCosmetics() {
             const data = await response.json();
             cosmeticsState.userCosmetics = data.cosmetics;
             cosmeticsState.isDonor = data.is_donor;
+            cosmeticsState.isAdmin = data.is_admin;
             applyPersonalCosmetics();
         }
     } catch (e) {
@@ -99,19 +101,22 @@ function updateCosmeticsPanel() {
     const content = panel.querySelector('.cosmetics-content');
     if (!content) return;
     
-    const isDonor = cosmeticsState.isDonor;
+    // Admins have full access like donors
+    const hasFullAccess = cosmeticsState.isDonor || cosmeticsState.isAdmin;
     const equipped = cosmeticsState.userCosmetics || {};
     
     let html = '';
     
     // Donor status banner
-    if (!isDonor) {
+    if (!hasFullAccess) {
         html += `
             <div class="cosmetics-banner">
                 <p>🔒 Donate to unlock all cosmetics!</p>
                 <a href="https://ko-fi.com/jamesleung425" target="_blank" class="btn btn-primary btn-small">☕ Support on Ko-fi</a>
             </div>
         `;
+    } else if (cosmeticsState.isAdmin) {
+        html += `<div class="cosmetics-banner donor">👑 Admin Access - All cosmetics unlocked</div>`;
     } else {
         html += `<div class="cosmetics-banner donor">✓ Thank you for supporting Embeddle!</div>`;
     }
@@ -131,7 +136,7 @@ function updateCosmeticsPanel() {
     ];
     
     visibleCategories.forEach(([key, catalogKey, label]) => {
-        html += renderCosmeticCategory(key, catalogKey, label, equipped, isDonor);
+        html += renderCosmeticCategory(key, catalogKey, label, equipped, hasFullAccess);
     });
     
     // Personal section
@@ -145,7 +150,7 @@ function updateCosmeticsPanel() {
     ];
     
     personalCategories.forEach(([key, catalogKey, label]) => {
-        html += renderCosmeticCategory(key, catalogKey, label, equipped, isDonor);
+        html += renderCosmeticCategory(key, catalogKey, label, equipped, hasFullAccess);
     });
     
     content.innerHTML = html;
@@ -157,14 +162,14 @@ function updateCosmeticsPanel() {
             const id = el.dataset.id;
             if (!el.classList.contains('locked')) {
                 equipCosmetic(cat, id);
-            } else if (!isDonor) {
+            } else if (!hasFullAccess) {
                 showError('Donate to unlock premium cosmetics!');
             }
         });
     });
 }
 
-function renderCosmeticCategory(key, catalogKey, label, equipped, isDonor) {
+function renderCosmeticCategory(key, catalogKey, label, equipped, hasFullAccess) {
     const items = cosmeticsState.catalog[catalogKey] || {};
     const currentId = equipped[key] || Object.keys(items)[0];
     
@@ -172,7 +177,7 @@ function renderCosmeticCategory(key, catalogKey, label, equipped, isDonor) {
     
     Object.entries(items).forEach(([id, item]) => {
         const isEquipped = id === currentId;
-        const isLocked = item.premium && !isDonor;
+        const isLocked = item.premium && !hasFullAccess;
         const icon = item.icon || '';
         
         html += `

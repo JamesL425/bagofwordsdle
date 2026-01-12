@@ -416,7 +416,7 @@ def get_visible_cosmetics(user: dict) -> dict:
     }
 
 
-def validate_cosmetic(category: str, cosmetic_id: str, is_donor: bool) -> bool:
+def validate_cosmetic(category: str, cosmetic_id: str, is_donor: bool, is_admin: bool = False) -> bool:
     """Validate that a cosmetic exists and user can use it."""
     if category not in COSMETICS_CATALOG:
         return False
@@ -424,8 +424,8 @@ def validate_cosmetic(category: str, cosmetic_id: str, is_donor: bool) -> bool:
     if cosmetic_id not in category_items:
         return False
     item = category_items[cosmetic_id]
-    # Non-donors can only use non-premium cosmetics
-    if item.get('premium', False) and not is_donor:
+    # Admins can use all cosmetics, non-donors can only use non-premium cosmetics
+    if item.get('premium', False) and not is_donor and not is_admin:
         return False
     return True
 
@@ -938,6 +938,7 @@ class handler(BaseHTTPRequestHandler):
             
             return self._send_json({
                 'is_donor': user.get('is_donor', False),
+                'is_admin': user.get('is_admin', False),
                 'cosmetics': get_user_cosmetics(user),
             })
 
@@ -1758,7 +1759,8 @@ class handler(BaseHTTPRequestHandler):
                 return self._send_error("Invalid category", 400)
             
             is_donor = user.get('is_donor', False)
-            if not validate_cosmetic(catalog_key, cosmetic_id, is_donor):
+            is_admin = user.get('is_admin', False)
+            if not validate_cosmetic(catalog_key, cosmetic_id, is_donor, is_admin):
                 if cosmetic_id in COSMETICS_CATALOG.get(catalog_key, {}):
                     return self._send_error("Donate to unlock premium cosmetics!", 403)
                 return self._send_error("Invalid cosmetic", 400)
