@@ -86,6 +86,16 @@ def load_config():
 
 CONFIG = load_config()
 
+def env_bool(name: str, default: bool = False) -> bool:
+    """Parse common truthy/falsey env var values."""
+    value = os.getenv(name)
+    if value is None:
+        return default
+    value = value.strip().lower()
+    if value == '':
+        return default
+    return value in ('1', 'true', 'yes', 'y', 'on')
+
 # Game settings
 MIN_PLAYERS = CONFIG.get("game", {}).get("min_players", 3)
 MAX_PLAYERS = CONFIG.get("game", {}).get("max_players", 4)
@@ -116,6 +126,13 @@ def load_cosmetics_catalog():
     return {}
 
 COSMETICS_CATALOG = load_cosmetics_catalog()
+
+# Cosmetics monetization (feature-flagged)
+# For now the paywall is disabled; flip this later via env var or config.
+COSMETICS_PAYWALL_ENABLED = env_bool(
+    "COSMETICS_PAYWALL_ENABLED",
+    CONFIG.get("cosmetics", {}).get("paywall_enabled", False),
+)
 
 # Ko-fi webhook verification token
 KOFI_VERIFICATION_TOKEN = os.getenv('KOFI_VERIFICATION_TOKEN', '')
@@ -618,6 +635,24 @@ GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
 
+OAUTH_STATE_TTL_SECONDS = int(os.getenv('OAUTH_STATE_TTL_SECONDS', str(CONFIG.get("oauth", {}).get("state_ttl_seconds", 600))))
+
+
+def get_request_base_url(headers) -> str:
+    """Best-effort base URL for the current request (behind proxies like Vercel)."""
+    proto = (headers.get('X-Forwarded-Proto') or 'https').split(',')[0].strip().lower()
+    host = (headers.get('X-Forwarded-Host') or headers.get('Host') or '').split(',')[0].strip()
+    if proto not in ('http', 'https'):
+        proto = 'https'
+    if host.startswith('localhost') or host.startswith('127.0.0.1'):
+        proto = 'http'
+    if not host:
+        site_url = os.getenv('SITE_URL', '').rstrip('/')
+        if site_url:
+            return site_url
+        return 'http://localhost:3000'
+    return f"{proto}://{host}"
+
 
 def get_oauth_redirect_uri() -> str:
     """Get the OAuth callback URL based on environment."""
@@ -635,7 +670,8 @@ def get_oauth_redirect_uri() -> str:
     
     # Fallback to VERCEL_URL (deployment-specific, not recommended for OAuth)
     base_url = os.getenv('VERCEL_URL', 'localhost:3000')
-    protocol = 'https' if 'vercel' in base_url else 'http'
+    # Default to https unless localhost
+    protocol = 'http' if base_url.startswith(('localhost', '127.0.0.1')) else 'https'
     return f"{protocol}://{base_url}/api/auth/callback"
 
 
@@ -787,7 +823,7 @@ def validate_cosmetic(category: str, cosmetic_id: str, is_donor: bool, is_admin:
         return False
     item = category_items[cosmetic_id]
     # Admins can use all cosmetics, non-donors can only use non-premium cosmetics
-    if item.get('premium', False) and not is_donor and not is_admin:
+    if COSMETICS_PAYWALL_ENABLED and item.get('premium', False) and not is_donor and not is_admin:
         return False
     return True
 
@@ -1103,14 +1139,12 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        path = self.path.split('?')[0]
+        path = self.path.split('?', 1)[0]
         query = {}
         if '?' in self.path:
-            query_string = self.path.split('?')[1]
-            for param in query_string.split('&'):
-                if '=' in param:
-                    key, value = param.split('=', 1)
-                    query[key] = value
+            query_string = self.path.split('?', 1)[1]
+            # Properly URL-decode query params (important for OAuth `code` param)
+            query = dict(urllib.parse.parse_qsl(query_string, keep_blank_values=True))
 
         # Get client IP for rate limiting
         client_ip = get_client_ip(self.headers)
@@ -1119,10 +1153,29 @@ class handler(BaseHTTPRequestHandler):
 
         # GET /api/auth/google - Redirect to Google OAuth
         if path == '/api/auth/google':
-            if not GOOGLE_CLIENT_ID:
+            if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
                 return self._send_error("OAuth not configured", 500)
             
-            redirect_uri = get_oauth_redirect_uri()
+            # Compute redirect URI for THIS request origin and persist it in a short-lived state
+            request_base = get_request_base_url(self.headers)
+            redirect_uri = os.getenv('OAUTH_REDIRECT_URI') or f"{request_base}/api/auth/callback"
+
+            state = None
+            try:
+                state = secrets.token_urlsafe(24)
+                get_redis().setex(
+                    f"oauth_state:{state}",
+                    OAUTH_STATE_TTL_SECONDS,
+                    json.dumps({
+                        "redirect_uri": redirect_uri,
+                        "return_to": request_base,
+                        "created_at": int(time.time()),
+                    }),
+                )
+            except Exception as e:
+                print(f"OAuth state store failed: {e}")
+                state = None
+
             params = {
                 'client_id': GOOGLE_CLIENT_ID,
                 'redirect_uri': redirect_uri,
@@ -1131,6 +1184,8 @@ class handler(BaseHTTPRequestHandler):
                 'access_type': 'offline',
                 'prompt': 'consent',
             }
+            if state:
+                params['state'] = state
             auth_url = f"{GOOGLE_AUTH_URL}?{urllib.parse.urlencode(params)}"
             
             self.send_response(302)
@@ -1142,35 +1197,73 @@ class handler(BaseHTTPRequestHandler):
         if path == '/api/auth/callback':
             code = query.get('code', '')
             error = query.get('error', '')
+            state = query.get('state', '')
+
+            # Recover redirect_uri used in the auth request to avoid redirect-uri mismatch.
+            # Also recover the frontend base URL to redirect back to.
+            redirect_uri = get_oauth_redirect_uri()
+            return_to = ''
+            if state:
+                try:
+                    redis = get_redis()
+                    raw = redis.get(f"oauth_state:{state}")
+                    if raw:
+                        data = json.loads(raw)
+                        redirect_uri = data.get('redirect_uri') or redirect_uri
+                        return_to = data.get('return_to') or ''
+                        redis.delete(f"oauth_state:{state}")
+                except Exception as e:
+                    print(f"OAuth state load failed: {e}")
+
+            def _redirect_frontend(params: dict):
+                qs = urllib.parse.urlencode({k: v for k, v in params.items() if v is not None and v != ''})
+                if return_to:
+                    target = return_to.rstrip('/') + '/?' + qs
+                else:
+                    target = '/?' + qs
+                self.send_response(302)
+                self.send_header('Location', target)
+                self.end_headers()
             
             if error:
-                # Redirect to frontend with error
-                self.send_response(302)
-                self.send_header('Location', '/?auth_error=' + urllib.parse.quote(error))
-                self.end_headers()
-                return
+                return _redirect_frontend({
+                    'auth_error': error,
+                    'auth_error_description': query.get('error_description', ''),
+                })
             
             if not code:
                 return self._send_error("No authorization code provided", 400)
             
             try:
+                if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+                    return _redirect_frontend({'auth_error': 'oauth_not_configured'})
+
                 # Exchange code for tokens
-                redirect_uri = get_oauth_redirect_uri()
                 token_response = requests.post(GOOGLE_TOKEN_URL, data={
                     'client_id': GOOGLE_CLIENT_ID,
                     'client_secret': GOOGLE_CLIENT_SECRET,
                     'code': code,
                     'grant_type': 'authorization_code',
                     'redirect_uri': redirect_uri,
-                })
+                }, timeout=10)
                 
                 if not token_response.ok:
                     print(f"Token exchange failed: {token_response.status_code} - {token_response.text}")
                     print(f"Redirect URI used: {redirect_uri}")
-                    self.send_response(302)
-                    self.send_header('Location', '/?auth_error=token_exchange_failed')
-                    self.end_headers()
-                    return
+                    google_error = ''
+                    google_error_description = ''
+                    try:
+                        err = token_response.json()
+                        google_error = err.get('error', '')
+                        google_error_description = err.get('error_description', '')
+                    except Exception:
+                        pass
+                    return _redirect_frontend({
+                        'auth_error': 'token_exchange_failed',
+                        'auth_error_status': str(token_response.status_code),
+                        'google_error': google_error,
+                        'google_error_description': google_error_description,
+                    })
                 
                 tokens = token_response.json()
                 access_token = tokens.get('access_token')
@@ -1179,14 +1272,15 @@ class handler(BaseHTTPRequestHandler):
                 userinfo_response = requests.get(
                     GOOGLE_USERINFO_URL,
                     headers={'Authorization': f'Bearer {access_token}'}
+                    , timeout=10
                 )
                 
                 if not userinfo_response.ok:
                     print(f"User info failed: {userinfo_response.text}")
-                    self.send_response(302)
-                    self.send_header('Location', '/?auth_error=userinfo_failed')
-                    self.end_headers()
-                    return
+                    return _redirect_frontend({
+                        'auth_error': 'userinfo_failed',
+                        'auth_error_status': str(userinfo_response.status_code),
+                    })
                 
                 google_user = userinfo_response.json()
                 
@@ -1197,17 +1291,11 @@ class handler(BaseHTTPRequestHandler):
                 jwt_token = create_jwt_token(user)
                 
                 # Redirect to frontend with token
-                self.send_response(302)
-                self.send_header('Location', f'/?auth_token={jwt_token}')
-                self.end_headers()
-                return
+                return _redirect_frontend({'auth_token': jwt_token})
                 
             except Exception as e:
                 print(f"OAuth callback error: {e}")
-                self.send_response(302)
-                self.send_header('Location', '/?auth_error=callback_failed')
-                self.end_headers()
-                return
+                return _redirect_frontend({'auth_error': 'callback_failed'})
 
         # GET /api/auth/me - Get current user info
         if path == '/api/auth/me':
@@ -1253,6 +1341,7 @@ class handler(BaseHTTPRequestHandler):
         if path == '/api/cosmetics':
             return self._send_json({
                 "catalog": COSMETICS_CATALOG,
+                "paywall_enabled": COSMETICS_PAYWALL_ENABLED,
             })
 
         # GET /api/user/cosmetics - Get current user's cosmetics
@@ -1278,6 +1367,7 @@ class handler(BaseHTTPRequestHandler):
                     'is_donor': True,
                     'is_admin': True,
                     'cosmetics': admin_cosmetics,
+                    'paywall_enabled': COSMETICS_PAYWALL_ENABLED,
                 })
             
             user = get_user_by_id(payload['sub'])
@@ -1288,6 +1378,7 @@ class handler(BaseHTTPRequestHandler):
                 'is_donor': user.get('is_donor', False),
                 'is_admin': user.get('is_admin', False),
                 'cosmetics': get_user_cosmetics(user),
+                'paywall_enabled': COSMETICS_PAYWALL_ENABLED,
             })
 
         # GET /api/lobbies - List open lobbies
@@ -2484,7 +2575,8 @@ class handler(BaseHTTPRequestHandler):
             is_donor = user.get('is_donor', False)
             is_admin = user.get('is_admin', False)
             if not validate_cosmetic(catalog_key, cosmetic_id, is_donor, is_admin):
-                if cosmetic_id in COSMETICS_CATALOG.get(catalog_key, {}):
+                item = COSMETICS_CATALOG.get(catalog_key, {}).get(cosmetic_id)
+                if COSMETICS_PAYWALL_ENABLED and item and item.get('premium', False) and not is_donor and not is_admin:
                     return self._send_error("Donate to unlock premium cosmetics!", 403)
                 return self._send_error("Invalid cosmetic", 400)
             

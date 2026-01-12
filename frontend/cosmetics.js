@@ -9,6 +9,7 @@ let cosmeticsState = {
     userCosmetics: null,
     isDonor: false,
     isAdmin: false,
+    paywallEnabled: false,
     panelOpen: false,
 };
 
@@ -20,6 +21,7 @@ async function loadCosmeticsCatalog() {
         if (response.ok) {
             const data = await response.json();
             cosmeticsState.catalog = data.catalog;
+            cosmeticsState.paywallEnabled = Boolean(data.paywall_enabled);
         }
     } catch (e) {
         console.error('Failed to load cosmetics catalog:', e);
@@ -37,6 +39,9 @@ async function loadUserCosmetics() {
             cosmeticsState.userCosmetics = data.cosmetics;
             cosmeticsState.isDonor = data.is_donor;
             cosmeticsState.isAdmin = data.is_admin;
+            if (typeof data.paywall_enabled === 'boolean') {
+                cosmeticsState.paywallEnabled = data.paywall_enabled;
+            }
             applyPersonalCosmetics();
         }
     } catch (e) {
@@ -101,14 +106,16 @@ function updateCosmeticsPanel() {
     const content = panel.querySelector('.cosmetics-content');
     if (!content) return;
     
-    // Admins have full access like donors
-    const hasFullAccess = cosmeticsState.isDonor || cosmeticsState.isAdmin;
+    // Admins have full access like donors. If paywall is disabled, everyone has access.
+    const hasFullAccess = !cosmeticsState.paywallEnabled || cosmeticsState.isDonor || cosmeticsState.isAdmin;
     const equipped = cosmeticsState.userCosmetics || {};
     
     let html = '';
     
-    // Donor status banner
-    if (!hasFullAccess) {
+    // Donor status banner / paywall banner
+    if (!cosmeticsState.paywallEnabled) {
+        html += `<div class="cosmetics-banner donor">🎨 All cosmetics unlocked (paywall disabled)</div>`;
+    } else if (!hasFullAccess) {
         html += `
             <div class="cosmetics-banner">
                 <p>🔒 Donate to unlock all cosmetics!</p>
@@ -162,7 +169,7 @@ function updateCosmeticsPanel() {
             const id = el.dataset.id;
             if (!el.classList.contains('locked')) {
                 equipCosmetic(cat, id);
-            } else if (!hasFullAccess) {
+            } else if (cosmeticsState.paywallEnabled && !hasFullAccess) {
                 showError('Donate to unlock premium cosmetics!');
             }
         });
@@ -177,7 +184,7 @@ function renderCosmeticCategory(key, catalogKey, label, equipped, hasFullAccess)
     
     Object.entries(items).forEach(([id, item]) => {
         const isEquipped = id === currentId;
-        const isLocked = item.premium && !hasFullAccess;
+        const isLocked = cosmeticsState.paywallEnabled && item.premium && !hasFullAccess;
         const icon = item.icon || '';
         
         html += `

@@ -100,9 +100,16 @@ function initLogin() {
     const urlParams = new URLSearchParams(window.location.search);
     const authToken = urlParams.get('auth_token');
     const authError = urlParams.get('auth_error');
+    const authErrorDescription = urlParams.get('auth_error_description') || urlParams.get('google_error_description') || '';
+    const googleError = urlParams.get('google_error') || '';
+    const authErrorStatus = urlParams.get('auth_error_status') || '';
     
     if (authError) {
-        showError('Login failed: ' + authError);
+        let msg = 'Login failed: ' + authError;
+        if (googleError) msg += ` (${googleError})`;
+        if (authErrorDescription) msg += ` - ${authErrorDescription}`;
+        if (authErrorStatus) msg += ` [${authErrorStatus}]`;
+        showError(msg);
         // Clean URL
         window.history.replaceState({}, document.title, window.location.pathname);
     }

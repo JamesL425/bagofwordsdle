@@ -9,6 +9,12 @@
     "model": "text-embedding-3-large",
     "cache_expiry_seconds": 86400
   },
+  "cosmetics": {
+    "paywall_enabled": false
+  },
+  "oauth": {
+    "state_ttl_seconds": 600
+  },
   "theme_categories": [
     "Animals",
     "Food & Cooking",
