@@ -1293,17 +1293,27 @@ class handler(BaseHTTPRequestHandler):
             if not game:
                 return self._send_error("Game not found", 404)
             
-            name = sanitize_player_name(body.get('name', ''))
+            # Check if user is admin (allow "admin" name for actual admin)
+            auth_user_id = body.get('auth_user_id', '')
+            is_admin_user = auth_user_id == 'admin_local'
+            
+            name = sanitize_player_name(body.get('name', ''), allow_admin=is_admin_user)
             if not name:
                 return self._send_error("Invalid name. Use only letters, numbers, underscores, and spaces (1-20 chars)", 400)
             
             # Get user cosmetics if authenticated
             user_cosmetics = None
-            auth_user_id = body.get('auth_user_id', '')
             if auth_user_id:
-                auth_user = get_user_by_id(auth_user_id)
-                if auth_user:
-                    user_cosmetics = get_visible_cosmetics(auth_user)
+                if is_admin_user:
+                    # Get admin cosmetics from Redis
+                    redis = get_redis()
+                    existing = redis.get('admin_cosmetics')
+                    admin_cosmetics = json.loads(existing) if existing else DEFAULT_COSMETICS.copy()
+                    user_cosmetics = admin_cosmetics
+                else:
+                    auth_user = get_user_by_id(auth_user_id)
+                    if auth_user:
+                        user_cosmetics = get_visible_cosmetics(auth_user)
             
             # Check if player is trying to rejoin
             existing_player = next((p for p in game['players'] if p['name'].lower() == name.lower()), None)
