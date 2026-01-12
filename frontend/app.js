@@ -477,6 +477,31 @@ function showGame(game) {
 
 function updateGame(game) {
     const myPlayer = game.players.find(p => p.id === gameState.playerId);
+    
+    // Check if waiting for other players to pick words
+    if (!game.all_words_set) {
+        // Show waiting state
+        const playersWithWords = game.players.filter(p => p.has_word).length;
+        const totalPlayers = game.players.length;
+        const waitingFor = game.players.filter(p => !p.has_word).map(p => p.name);
+        
+        document.getElementById('turn-indicator').innerHTML = `
+            <span class="waiting-for-words">
+                WAITING FOR WORD SELECTION (${playersWithWords}/${totalPlayers})
+                <br><small>Waiting for: ${waitingFor.join(', ') || 'loading...'}</small>
+            </span>
+        `;
+        
+        // Disable guessing
+        const guessInput = document.getElementById('guess-input');
+        const guessForm = document.getElementById('guess-form');
+        guessInput.disabled = true;
+        guessForm.querySelector('button').disabled = true;
+        
+        updatePlayersGrid(game);
+        return;
+    }
+    
     if (myPlayer) {
         document.getElementById('your-secret-word').textContent = myPlayer.secret_word || '???';
         

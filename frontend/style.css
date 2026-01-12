@@ -820,12 +820,27 @@ header h1 {
 
 .turn-indicator.your-turn {
     border-color: var(--accent-primary);
-    background: linear-gradient(135deg, rgba(255, 107, 74, 0.15), rgba(255, 143, 115, 0.1));
+    background: linear-gradient(135deg, rgba(0, 255, 65, 0.15), rgba(0, 255, 65, 0.1));
 }
 
 .turn-indicator.your-turn #turn-text {
     color: var(--accent-primary);
     font-weight: 700;
+}
+
+.waiting-for-words {
+    color: var(--text-secondary);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.waiting-for-words small {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
 }
 
 /* Guess Section */
