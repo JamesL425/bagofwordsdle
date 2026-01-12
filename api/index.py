@@ -874,6 +874,19 @@ class handler(BaseHTTPRequestHandler):
             if not payload:
                 return self._send_error("Invalid or expired token", 401)
             
+            # Handle admin user specially (not stored in Redis)
+            if payload['sub'] == 'admin_local':
+                return self._send_json({
+                    'id': 'admin_local',
+                    'name': 'Admin',
+                    'email': 'admin@embeddle.io',
+                    'avatar': '',
+                    'stats': {},
+                    'is_donor': True,
+                    'is_admin': True,
+                    'cosmetics': DEFAULT_COSMETICS.copy(),
+                })
+            
             user = get_user_by_id(payload['sub'])
             if not user:
                 return self._send_error("User not found", 404)
@@ -885,6 +898,7 @@ class handler(BaseHTTPRequestHandler):
                 'avatar': user.get('avatar', ''),
                 'stats': user.get('stats', {}),
                 'is_donor': user.get('is_donor', False),
+                'is_admin': user.get('is_admin', False),
                 'cosmetics': get_user_cosmetics(user),
             })
 
@@ -905,6 +919,14 @@ class handler(BaseHTTPRequestHandler):
             
             if not payload:
                 return self._send_error("Invalid or expired token", 401)
+            
+            # Handle admin user specially (not stored in Redis)
+            if payload['sub'] == 'admin_local':
+                return self._send_json({
+                    'is_donor': True,
+                    'is_admin': True,
+                    'cosmetics': DEFAULT_COSMETICS.copy(),
+                })
             
             user = get_user_by_id(payload['sub'])
             if not user:
