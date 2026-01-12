@@ -24,7 +24,6 @@ const screens = {
     lobby: document.getElementById('lobby-screen'),
     game: document.getElementById('game-screen'),
     gameover: document.getElementById('gameover-screen'),
-    leaderboard: document.getElementById('leaderboard-screen'),
 };
 
 // Utility functions
@@ -252,59 +251,6 @@ function showWordSelection(data) {
     displayWordPool(data.theme?.name, data.theme?.words || []);
     
     showScreen('join');
-}
-
-// Leaderboard
-document.getElementById('show-leaderboard-btn').addEventListener('click', async () => {
-    await loadLeaderboard();
-    showScreen('leaderboard');
-});
-
-document.getElementById('back-from-leaderboard-btn').addEventListener('click', () => {
-    showScreen('home');
-});
-
-async function loadLeaderboard() {
-    try {
-        const data = await apiCall('/api/leaderboard');
-        const tbody = document.getElementById('leaderboard-body');
-        const emptyMsg = document.getElementById('leaderboard-empty');
-        
-        tbody.innerHTML = '';
-        
-        if (!data.players || data.players.length === 0) {
-            emptyMsg.classList.remove('hidden');
-            return;
-        }
-        
-        emptyMsg.classList.add('hidden');
-        
-        data.players.forEach((player, index) => {
-            const rank = index + 1;
-            const rankClass = rank <= 3 ? `rank-${rank}` : '';
-            const winRate = player.games_played > 0 
-                ? ((player.wins / player.games_played) * 100).toFixed(0) 
-                : '0';
-            const avgCloseness = player.avg_closeness 
-                ? (player.avg_closeness * 100).toFixed(1) 
-                : '0.0';
-            
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td class="rank ${rankClass}">#${rank}</td>
-                <td class="player-name">${player.name}</td>
-                <td class="stat">${player.wins}</td>
-                <td class="stat">${player.games_played}</td>
-                <td class="stat win-rate">${winRate}%</td>
-                <td class="stat closeness">${avgCloseness}%</td>
-            `;
-            tbody.appendChild(row);
-        });
-    } catch (error) {
-        console.error('Failed to load leaderboard:', error);
-        document.getElementById('leaderboard-empty').classList.remove('hidden');
-        document.getElementById('leaderboard-empty').textContent = 'Failed to load leaderboard.';
-    }
 }
 
 // Screen: Join (for word selection after game starts)
