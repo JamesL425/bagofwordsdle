@@ -1439,13 +1439,51 @@ header h1 {
     border: 1px solid var(--accent-primary);
 }
 
+.lobby-player.ready {
+    background: rgba(0, 255, 65, 0.1);
+}
+
+.lobby-player .player-status {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-left: auto;
+}
+
+.lobby-player.ready .player-status {
+    color: var(--accent-primary);
+}
+
 .host-badge {
     font-size: 0.75rem;
     background: var(--accent-primary);
-    color: white;
+    color: var(--bg-primary);
     padding: 0.2rem 0.5rem;
     border-radius: 4px;
-    margin-left: auto;
+}
+
+/* Ready button */
+.lobby-actions {
+    margin: 1rem 0;
+    text-align: center;
+}
+
+#ready-btn.ready {
+    background: var(--accent-primary);
+    color: var(--bg-primary);
+    border-color: var(--accent-primary);
+}
+
+/* Voter names in theme voting */
+.theme-vote-btn {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+}
+
+.voter-names {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-style: italic;
 }
 
 /* Confetti */

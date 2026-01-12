@@ -406,6 +406,20 @@ class handler(BaseHTTPRequestHandler):
                 # Safely get theme data
                 theme_data = game.get('theme') or {}
                 
+                # Build vote info with player names
+                theme_votes = game.get('theme_votes', {})
+                theme_votes_with_names = {}
+                for theme, voter_ids in theme_votes.items():
+                    voters = []
+                    for vid in voter_ids:
+                        voter = next((p for p in game['players'] if p['id'] == vid), None)
+                        if voter:
+                            voters.append({"id": vid, "name": voter['name']})
+                    theme_votes_with_names[theme] = voters
+                
+                # Count ready players
+                ready_count = sum(1 for p in game['players'] if p.get('is_ready', False))
+                
                 # Build response with hidden words
                 response = {
                     "code": game['code'],
@@ -422,8 +436,9 @@ class handler(BaseHTTPRequestHandler):
                     },
                     "waiting_for_word_change": game.get('waiting_for_word_change'),
                     "theme_options": game.get('theme_options', []),
-                    "theme_votes": game.get('theme_votes', {}),
+                    "theme_votes": theme_votes_with_names,
                     "all_words_set": all_words_set,
+                    "ready_count": ready_count,
                 }
                 
                 for p in game['players']:
@@ -435,6 +450,7 @@ class handler(BaseHTTPRequestHandler):
                         "has_word": bool(p.get('secret_word')),  # Show if they've picked a word
                         "is_alive": p['is_alive'],
                         "can_change_word": p.get('can_change_word', False) if p['id'] == player_id else None,
+                        "is_ready": p.get('is_ready', False),
                     }
                     # Include this player's word pool if it's them
                     if p['id'] == player_id:
@@ -584,6 +600,7 @@ class handler(BaseHTTPRequestHandler):
                 "is_alive": True,
                 "can_change_word": False,
                 "word_pool": [],  # Will be assigned when game starts
+                "is_ready": False,  # Ready status for lobby
             }
             game['players'].append(player)
             
@@ -597,6 +614,29 @@ class handler(BaseHTTPRequestHandler):
                 "is_host": player_id == game['host_id'],
                 "theme_options": game.get('theme_options', []),
                 "theme_votes": game.get('theme_votes', {}),
+            })
+
+        # POST /api/games/{code}/ready - Toggle ready status
+        if '/ready' in path and path.startswith('/api/games/'):
+            code = path.split('/')[3].upper()
+            game = load_game(code)
+            
+            if not game:
+                return self._send_error("Game not found", 404)
+            if game['status'] != 'waiting':
+                return self._send_error("Game has already started", 400)
+            
+            player_id = body.get('player_id', '')
+            player = next((p for p in game['players'] if p['id'] == player_id), None)
+            if not player:
+                return self._send_error("You are not in this game", 403)
+            
+            # Toggle ready status
+            player['is_ready'] = not player.get('is_ready', False)
+            
+            save_game(code, game)
+            return self._send_json({
+                "is_ready": player['is_ready'],
             })
 
         # POST /api/games/{code}/set-word - Set secret word (after game starts)
@@ -655,6 +695,11 @@ class handler(BaseHTTPRequestHandler):
                 return self._send_error("Game already started", 400)
             if len(game['players']) < MIN_PLAYERS:
                 return self._send_error(f"Need at least {MIN_PLAYERS} players", 400)
+            
+            # Check all players are ready
+            not_ready = [p['name'] for p in game['players'] if not p.get('is_ready', False)]
+            if not_ready:
+                return self._send_error(f"Waiting for: {', '.join(not_ready)}", 400)
             
             # Determine winning theme from votes
             votes = game.get('theme_votes', {})

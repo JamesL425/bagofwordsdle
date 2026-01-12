@@ -134,16 +134,19 @@
                 <div id="theme-voting-section" class="theme-voting-section">
                     <h3>SELECT DATABASE</h3>
                     <div id="theme-vote-options" class="theme-vote-options">
-                        <!-- Theme options with vote counts -->
+                        <!-- Theme options with vote counts and voter names -->
                     </div>
                 </div>
                 
                 <div class="players-list" id="lobby-players">
-                    <!-- Players will be added here -->
+                    <!-- Players will be added here with ready status -->
                 </div>
                 <div class="lobby-info">
-                    <p>Operatives connected: <span id="player-count">0</span>/6</p>
-                    <p class="min-players">Minimum 2 operatives required</p>
+                    <p>Operatives: <span id="player-count">0</span>/6 | Ready: <span id="ready-count">0</span>/<span id="total-players">0</span></p>
+                    <p class="min-players">All operatives must be ready to start</p>
+                </div>
+                <div class="lobby-actions">
+                    <button id="ready-btn" class="btn btn-secondary">&gt; READY_UP</button>
                 </div>
                 <div id="host-controls" class="host-controls hidden">
                     <button id="start-game-btn" class="btn btn-primary" disabled>&gt; INITIATE_BREACH</button>

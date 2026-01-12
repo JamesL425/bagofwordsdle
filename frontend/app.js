@@ -218,25 +218,41 @@ async function updateLobby() {
     try {
         const data = await apiCall(`/api/games/${gameState.code}?player_id=${gameState.playerId}`);
         
-        // Update players list
+        // Update players list with ready status
         const playersList = document.getElementById('lobby-players');
         playersList.innerHTML = data.players.map(p => `
-            <div class="lobby-player ${p.id === data.host_id ? 'host' : ''}">
+            <div class="lobby-player ${p.id === data.host_id ? 'host' : ''} ${p.is_ready ? 'ready' : ''}">
                 <span class="player-name">${p.name}${p.id === gameState.playerId ? ' (you)' : ''}</span>
+                <span class="player-status">${p.is_ready ? '✓ READY' : '○ WAITING'}</span>
                 ${p.id === data.host_id ? '<span class="host-badge">HOST</span>' : ''}
             </div>
         `).join('');
         
         document.getElementById('player-count').textContent = data.players.length;
+        document.getElementById('ready-count').textContent = data.ready_count || 0;
+        document.getElementById('total-players').textContent = data.players.length;
         
-        // Update theme voting
+        // Update ready button state
+        const myPlayer = data.players.find(p => p.id === gameState.playerId);
+        const readyBtn = document.getElementById('ready-btn');
+        if (myPlayer?.is_ready) {
+            readyBtn.textContent = '✓ READY';
+            readyBtn.classList.add('ready');
+        } else {
+            readyBtn.textContent = '> READY_UP';
+            readyBtn.classList.remove('ready');
+        }
+        
+        // Update theme voting with voter names
         updateThemeVoting(data.theme_options, data.theme_votes);
         
         // Show/hide host controls
         const hostControls = document.getElementById('host-controls');
         if (gameState.isHost) {
             hostControls.classList.remove('hidden');
-            document.getElementById('start-game-btn').disabled = data.players.length < 2;
+            // Enable start only if all players ready and minimum met
+            const allReady = data.players.length >= 2 && data.ready_count === data.players.length;
+            document.getElementById('start-game-btn').disabled = !allReady;
         } else {
             hostControls.classList.add('hidden');
         }
@@ -258,12 +274,15 @@ function updateThemeVoting(options, votes) {
     if (!container || !options) return;
     
     container.innerHTML = options.map(theme => {
-        const voteCount = votes[theme]?.length || 0;
-        const isMyVote = votes[theme]?.includes(gameState.playerId);
+        const voters = votes[theme] || [];
+        const voteCount = voters.length;
+        const isMyVote = voters.some(v => v.id === gameState.playerId);
+        const voterNames = voters.map(v => v.name).join(', ');
         return `
             <button class="btn theme-vote-btn ${isMyVote ? 'voted' : ''}" data-theme="${theme}">
                 <span class="theme-name">${theme}</span>
                 <span class="vote-count">${voteCount} vote${voteCount !== 1 ? 's' : ''}</span>
+                ${voterNames ? `<span class="voter-names">${voterNames}</span>` : ''}
             </button>
         `;
     }).join('');
@@ -404,6 +423,18 @@ document.getElementById('leave-lobby-btn')?.addEventListener('click', () => {
     gameState.playerId = null;
     showScreen('home');
     loadLobbies();
+});
+
+// Ready button
+document.getElementById('ready-btn')?.addEventListener('click', async () => {
+    try {
+        await apiCall(`/api/games/${gameState.code}/ready`, 'POST', {
+            player_id: gameState.playerId,
+        });
+        // Update will happen via polling
+    } catch (error) {
+        showError(error.message);
+    }
 });
 
 // Screen: Game
