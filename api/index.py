@@ -391,53 +391,59 @@ class handler(BaseHTTPRequestHandler):
             if not player:
                 return self._send_error("You are not in this game", 403)
             
-            # Reveal all words if game is finished
-            game_finished = game['status'] == 'finished'
-            
-            # Check if all players have set their words (for playing status)
-            all_words_set = all(p.get('secret_word') for p in game['players']) if game['players'] else False
-            
-            # Determine current player (only if all words are set)
-            current_player_id = None
-            if game['status'] == 'playing' and game['players'] and all_words_set:
-                current_player_id = game['players'][game['current_turn']]['id']
-            
-            # Build response with hidden words
-            response = {
-                "code": game['code'],
-                "host_id": game['host_id'],
-                "players": [],
-                "current_turn": game['current_turn'],
-                "current_player_id": current_player_id,
-                "status": game['status'],
-                "winner": game.get('winner'),
-                "history": game.get('history', []),
-                "theme": {
-                    "name": game.get('theme', {}).get('name', ''),
-                    "words": game.get('theme', {}).get('words', []),
-                },
-                "waiting_for_word_change": game.get('waiting_for_word_change'),
-                "theme_options": game.get('theme_options', []),
-                "theme_votes": game.get('theme_votes', {}),
-                "all_words_set": all_words_set,
-            }
-            
-            for p in game['players']:
-                player_data = {
-                    "id": p['id'],
-                    "name": p['name'],
-                    # Reveal all words when game is finished, otherwise only show your own
-                    "secret_word": p['secret_word'] if (p['id'] == player_id or game_finished) else None,
-                    "has_word": bool(p.get('secret_word')),  # Show if they've picked a word
-                    "is_alive": p['is_alive'],
-                    "can_change_word": p.get('can_change_word', False) if p['id'] == player_id else None,
+            try:
+                # Reveal all words if game is finished
+                game_finished = game['status'] == 'finished'
+                
+                # Check if all players have set their words (for playing status)
+                all_words_set = all(p.get('secret_word') for p in game['players']) if game['players'] else False
+                
+                # Determine current player (only if all words are set)
+                current_player_id = None
+                if game['status'] == 'playing' and game['players'] and all_words_set:
+                    current_player_id = game['players'][game['current_turn']]['id']
+                
+                # Safely get theme data
+                theme_data = game.get('theme') or {}
+                
+                # Build response with hidden words
+                response = {
+                    "code": game['code'],
+                    "host_id": game['host_id'],
+                    "players": [],
+                    "current_turn": game['current_turn'],
+                    "current_player_id": current_player_id,
+                    "status": game['status'],
+                    "winner": game.get('winner'),
+                    "history": game.get('history', []),
+                    "theme": {
+                        "name": theme_data.get('name', ''),
+                        "words": theme_data.get('words', []),
+                    },
+                    "waiting_for_word_change": game.get('waiting_for_word_change'),
+                    "theme_options": game.get('theme_options', []),
+                    "theme_votes": game.get('theme_votes', {}),
+                    "all_words_set": all_words_set,
                 }
-                # Include this player's word pool if it's them
-                if p['id'] == player_id:
-                    player_data['word_pool'] = p.get('word_pool', [])
-                response['players'].append(player_data)
-            
-            return self._send_json(response)
+                
+                for p in game['players']:
+                    player_data = {
+                        "id": p['id'],
+                        "name": p['name'],
+                        # Reveal all words when game is finished, otherwise only show your own
+                        "secret_word": p['secret_word'] if (p['id'] == player_id or game_finished) else None,
+                        "has_word": bool(p.get('secret_word')),  # Show if they've picked a word
+                        "is_alive": p['is_alive'],
+                        "can_change_word": p.get('can_change_word', False) if p['id'] == player_id else None,
+                    }
+                    # Include this player's word pool if it's them
+                    if p['id'] == player_id:
+                        player_data['word_pool'] = p.get('word_pool', [])
+                    response['players'].append(player_data)
+                
+                return self._send_json(response)
+            except Exception as e:
+                return self._send_error(f"Error building game response: {str(e)}", 500)
 
         self._send_error("Not found", 404)
 

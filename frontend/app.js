@@ -96,6 +96,9 @@ async function apiCall(endpoint, method = 'GET', body = null) {
     
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
+        // Log the actual response for debugging
+        const text = await response.text();
+        console.error('Non-JSON response:', response.status, text.substring(0, 500));
         throw new Error('Server error - please try again');
     }
     
