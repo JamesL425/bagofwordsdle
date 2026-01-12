@@ -158,32 +158,26 @@ async function promptAdminPassword() {
     }
     
     try {
-        console.log('Attempting admin login...');
         const response = await fetch(`${API_BASE}/api/auth/admin`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ password: password })
         });
         
-        console.log('Admin login response status:', response.status);
-        
         if (!response.ok) {
             const err = await response.json();
-            console.error('Admin login error:', err);
             showError(err.detail || 'Invalid admin password');
             document.getElementById('login-name').value = '';
             return;
         }
         
         const data = await response.json();
-        console.log('Admin login success, got token');
         // Store admin token in sessionStorage (not localStorage) so it doesn't persist
         sessionStorage.setItem('embeddle_admin_token', data.token);
         gameState.authToken = data.token;
         gameState.isAdminSession = true;
         loadAuthenticatedUser(data.token);
     } catch (error) {
-        console.error('Admin login exception:', error);
         showError('Admin login failed');
         document.getElementById('login-name').value = '';
     }

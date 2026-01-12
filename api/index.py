@@ -779,18 +779,6 @@ class handler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        # GET /api/auth/debug - Debug OAuth configuration (temporary)
-        if path == '/api/auth/debug':
-            redirect_uri = get_oauth_redirect_uri()
-            return self._send_json({
-                'redirect_uri': redirect_uri,
-                'client_id_set': bool(GOOGLE_CLIENT_ID),
-                'client_secret_set': bool(GOOGLE_CLIENT_SECRET),
-                'admin_password_set': bool(ADMIN_PASSWORD),
-                'site_url': os.getenv('SITE_URL', ''),
-                'vercel_url': os.getenv('VERCEL_URL', ''),
-            })
-
         # GET /api/auth/callback - Handle OAuth callback
         if path == '/api/auth/callback':
             code = query.get('code', '')
