@@ -258,6 +258,19 @@ GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
 
 def get_oauth_redirect_uri() -> str:
     """Get the OAuth callback URL based on environment."""
+    # Use explicit OAUTH_REDIRECT_URI if set, otherwise construct from SITE_URL or VERCEL_URL
+    explicit_uri = os.getenv('OAUTH_REDIRECT_URI')
+    if explicit_uri:
+        return explicit_uri
+    
+    # Prefer SITE_URL (production domain) over VERCEL_URL (deployment-specific)
+    site_url = os.getenv('SITE_URL', '')
+    if site_url:
+        # Remove trailing slash if present
+        site_url = site_url.rstrip('/')
+        return f"{site_url}/api/auth/callback"
+    
+    # Fallback to VERCEL_URL (deployment-specific, not recommended for OAuth)
     base_url = os.getenv('VERCEL_URL', 'localhost:3000')
     protocol = 'https' if 'vercel' in base_url else 'http'
     return f"{protocol}://{base_url}/api/auth/callback"

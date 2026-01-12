@@ -64,19 +64,6 @@ header {
     margin-bottom: 3rem;
 }
 
-.logo-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
-}
-
-.header-logo {
-    width: 48px;
-    height: 48px;
-    filter: drop-shadow(0 0 10px var(--accent-glow));
-}
-
 header h1 {
     font-size: 2.5rem;
     font-weight: 700;
