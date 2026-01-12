@@ -398,8 +398,6 @@ function updatePlayersGrid(game) {
         topGuessesPerPlayer[p.id] = [];
     });
     
-    // Collect all guesses with their similarity to each player
-    game.history.forEach(entry => {
     // Track word changes to reset top guesses
     const wordChangeAfterIndex = {};  // playerId -> index after which they changed word
     game.history.forEach((entry, index) => {
