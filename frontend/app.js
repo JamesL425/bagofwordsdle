@@ -540,6 +540,28 @@ function updatePlayersGrid(game) {
         topGuessesPerPlayer[playerId] = topGuessesPerPlayer[playerId].slice(0, 3);
     });
     
+    // Calculate danger score for each player
+    // Formula: top1 * 0.6 + top2 * 0.25 + top3 * 0.15
+    // This weights the highest similarity most, but multiple high ones add up
+    function calculateDangerScore(topGuesses) {
+        if (!topGuesses || topGuesses.length === 0) return 0;
+        const weights = [0.6, 0.25, 0.15];
+        let score = 0;
+        topGuesses.forEach((guess, i) => {
+            score += guess.similarity * (weights[i] || 0);
+        });
+        return score;
+    }
+    
+    function getDangerLevel(score) {
+        // Returns: 'safe', 'low', 'medium', 'high', 'critical'
+        if (score < 0.3) return 'safe';
+        if (score < 0.45) return 'low';
+        if (score < 0.6) return 'medium';
+        if (score < 0.75) return 'high';
+        return 'critical';
+    }
+    
     game.players.forEach(player => {
         const isCurrentTurn = player.id === game.current_player_id;
         const isYou = player.id === gameState.playerId;
@@ -550,9 +572,19 @@ function updatePlayersGrid(game) {
         // Check if this player recently changed their word
         const hasChangedWord = wordChangeAfterIndex[player.id] !== undefined;
         
+        // Calculate danger score
+        const topGuesses = topGuessesPerPlayer[player.id];
+        const dangerScore = calculateDangerScore(topGuesses);
+        const dangerLevel = getDangerLevel(dangerScore);
+        
+        // Build danger indicator HTML (only for alive players with guesses)
+        let dangerHtml = '';
+        if (player.is_alive && topGuesses && topGuesses.length > 0) {
+            dangerHtml = `<div class="danger-indicator danger-${dangerLevel}" title="Risk: ${(dangerScore * 100).toFixed(0)}%"></div>`;
+        }
+        
         // Build top guesses HTML
         let topGuessesHtml = '';
-        const topGuesses = topGuessesPerPlayer[player.id];
         if (topGuesses && topGuesses.length > 0) {
             topGuessesHtml = '<div class="top-guesses">';
             topGuesses.forEach(guess => {
@@ -570,6 +602,7 @@ function updatePlayersGrid(game) {
         }
         
         div.innerHTML = `
+            ${dangerHtml}
             <div class="name">${player.name}${isYou ? ' (you)' : ''}</div>
             <div class="status ${player.is_alive ? 'alive' : 'eliminated'}">
                 ${player.is_alive ? 'Alive' : 'Eliminated'}
