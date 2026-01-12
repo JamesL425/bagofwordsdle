@@ -300,11 +300,19 @@ def verify_jwt_token(token: str) -> Optional[dict]:
         return None
 
 
+# Admin emails that automatically get donor status
+ADMIN_EMAILS = [
+    'jamesleung425@gmail.com',
+]
+
 def get_or_create_user(google_user: dict) -> dict:
     """Get existing user or create new one from Google user data."""
     redis = get_redis()
     user_id = f"google_{google_user['id']}"
     user_key = f"user:{user_id}"
+    
+    user_email = google_user.get('email', '').lower()
+    is_admin = user_email in [e.lower() for e in ADMIN_EMAILS]
     
     # Check if user exists
     existing = redis.get(user_key)
@@ -318,6 +326,10 @@ def get_or_create_user(google_user: dict) -> dict:
             user['cosmetics'] = DEFAULT_COSMETICS.copy()
         if 'is_donor' not in user:
             user['is_donor'] = False
+        # Auto-grant donor status to admins
+        if is_admin and not user.get('is_donor'):
+            user['is_donor'] = True
+            user['donation_date'] = int(time.time())
         redis.set(user_key, json.dumps(user))
         return user
     
@@ -328,8 +340,8 @@ def get_or_create_user(google_user: dict) -> dict:
         'name': google_user.get('name', 'Anonymous'),
         'avatar': google_user.get('picture', ''),
         'created_at': int(time.time()),
-        'is_donor': False,
-        'donation_date': None,
+        'is_donor': is_admin,  # Admins start as donors
+        'donation_date': int(time.time()) if is_admin else None,
         'cosmetics': DEFAULT_COSMETICS.copy(),
         'stats': {
             'wins': 0,
