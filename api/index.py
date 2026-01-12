@@ -104,6 +104,35 @@ def load_themes():
 PREGENERATED_THEMES = load_themes()
 THEME_CATEGORIES = list(PREGENERATED_THEMES.keys()) if PREGENERATED_THEMES else CONFIG.get("theme_categories", [])
 
+# Load cosmetics catalog
+def load_cosmetics_catalog():
+    cosmetics_path = Path(__file__).parent / "cosmetics.json"
+    if cosmetics_path.exists():
+        with open(cosmetics_path) as f:
+            return json.load(f)
+    return {}
+
+COSMETICS_CATALOG = load_cosmetics_catalog()
+
+# Ko-fi webhook verification token
+KOFI_VERIFICATION_TOKEN = os.getenv('KOFI_VERIFICATION_TOKEN', '')
+
+# Default cosmetics for new users
+DEFAULT_COSMETICS = {
+    "card_border": "classic",
+    "card_background": "default",
+    "name_color": "default",
+    "badge": "none",
+    "elimination_effect": "classic",
+    "guess_effect": "classic",
+    "turn_indicator": "classic",
+    "victory_effect": "classic",
+    "matrix_color": "classic",
+    "particle_overlay": "none",
+    "seasonal_theme": "none",
+    "alt_background": "matrix"
+}
+
 # Initialise clients lazily
 _openai_client = None
 _redis_client = None
@@ -271,6 +300,11 @@ def get_or_create_user(google_user: dict) -> dict:
         # Update name/avatar in case they changed
         user['name'] = google_user.get('name', user['name'])
         user['avatar'] = google_user.get('picture', user.get('avatar', ''))
+        # Ensure cosmetics field exists for existing users
+        if 'cosmetics' not in user:
+            user['cosmetics'] = DEFAULT_COSMETICS.copy()
+        if 'is_donor' not in user:
+            user['is_donor'] = False
         redis.set(user_key, json.dumps(user))
         return user
     
@@ -281,6 +315,9 @@ def get_or_create_user(google_user: dict) -> dict:
         'name': google_user.get('name', 'Anonymous'),
         'avatar': google_user.get('picture', ''),
         'created_at': int(time.time()),
+        'is_donor': False,
+        'donation_date': None,
+        'cosmetics': DEFAULT_COSMETICS.copy(),
         'stats': {
             'wins': 0,
             'games_played': 0,
@@ -295,6 +332,10 @@ def get_or_create_user(google_user: dict) -> dict:
     
     # Add to users set for leaderboard
     redis.sadd('users:all', user_id)
+    
+    # Also index by email for Ko-fi webhook lookup
+    if google_user.get('email'):
+        redis.set(f"email_to_user:{google_user['email'].lower()}", user_id)
     
     return user
 
@@ -314,6 +355,53 @@ def save_user(user: dict):
     redis = get_redis()
     user_key = f"user:{user['id']}"
     redis.set(user_key, json.dumps(user))
+
+
+def get_user_by_email(email: str) -> Optional[dict]:
+    """Get user by email address (for Ko-fi webhook)."""
+    redis = get_redis()
+    user_id = redis.get(f"email_to_user:{email.lower()}")
+    if user_id:
+        return get_user_by_id(user_id)
+    return None
+
+
+def get_user_cosmetics(user: dict) -> dict:
+    """Get user's equipped cosmetics with defaults for missing fields."""
+    cosmetics = user.get('cosmetics', {})
+    # Merge with defaults to ensure all fields exist
+    result = DEFAULT_COSMETICS.copy()
+    result.update(cosmetics)
+    return result
+
+
+def get_visible_cosmetics(user: dict) -> dict:
+    """Get only the cosmetics that are visible to other players."""
+    cosmetics = get_user_cosmetics(user)
+    return {
+        "card_border": cosmetics.get("card_border", "classic"),
+        "card_background": cosmetics.get("card_background", "default"),
+        "name_color": cosmetics.get("name_color", "default"),
+        "badge": cosmetics.get("badge", "none"),
+        "elimination_effect": cosmetics.get("elimination_effect", "classic"),
+        "guess_effect": cosmetics.get("guess_effect", "classic"),
+        "turn_indicator": cosmetics.get("turn_indicator", "classic"),
+        "victory_effect": cosmetics.get("victory_effect", "classic"),
+    }
+
+
+def validate_cosmetic(category: str, cosmetic_id: str, is_donor: bool) -> bool:
+    """Validate that a cosmetic exists and user can use it."""
+    if category not in COSMETICS_CATALOG:
+        return False
+    category_items = COSMETICS_CATALOG[category]
+    if cosmetic_id not in category_items:
+        return False
+    item = category_items[cosmetic_id]
+    # Non-donors can only use non-premium cosmetics
+    if item.get('premium', False) and not is_donor:
+        return False
+    return True
 
 
 # ============== HELPERS ==============
@@ -754,6 +842,35 @@ class handler(BaseHTTPRequestHandler):
                 'email': user.get('email', ''),
                 'avatar': user.get('avatar', ''),
                 'stats': user.get('stats', {}),
+                'is_donor': user.get('is_donor', False),
+                'cosmetics': get_user_cosmetics(user),
+            })
+
+        # GET /api/cosmetics - Get cosmetics catalog
+        if path == '/api/cosmetics':
+            return self._send_json({
+                "catalog": COSMETICS_CATALOG,
+            })
+
+        # GET /api/user/cosmetics - Get current user's cosmetics
+        if path == '/api/user/cosmetics':
+            auth_header = self.headers.get('Authorization', '')
+            if not auth_header.startswith('Bearer '):
+                return self._send_error("Not authenticated", 401)
+            
+            token = auth_header[7:]
+            payload = verify_jwt_token(token)
+            
+            if not payload:
+                return self._send_error("Invalid or expired token", 401)
+            
+            user = get_user_by_id(payload['sub'])
+            if not user:
+                return self._send_error("User not found", 404)
+            
+            return self._send_json({
+                'is_donor': user.get('is_donor', False),
+                'cosmetics': get_user_cosmetics(user),
             })
 
         # GET /api/lobbies - List open lobbies
@@ -934,6 +1051,7 @@ class handler(BaseHTTPRequestHandler):
                         "is_alive": p['is_alive'],
                         "can_change_word": p.get('can_change_word', False) if p['id'] == player_id else None,
                         "is_ready": p.get('is_ready', False),
+                        "cosmetics": p.get('cosmetics', {}),  # Include cosmetics for all players
                     }
                     # Include this player's word pool if it's them
                     if p['id'] == player_id:
@@ -1080,9 +1198,21 @@ class handler(BaseHTTPRequestHandler):
             if not name:
                 return self._send_error("Invalid name. Use only letters, numbers, underscores, and spaces (1-20 chars)", 400)
             
+            # Get user cosmetics if authenticated
+            user_cosmetics = None
+            auth_user_id = body.get('auth_user_id', '')
+            if auth_user_id:
+                auth_user = get_user_by_id(auth_user_id)
+                if auth_user:
+                    user_cosmetics = get_visible_cosmetics(auth_user)
+            
             # Check if player is trying to rejoin
             existing_player = next((p for p in game['players'] if p['name'].lower() == name.lower()), None)
             if existing_player:
+                # Update cosmetics if provided
+                if user_cosmetics:
+                    existing_player['cosmetics'] = user_cosmetics
+                    save_game(code, game)
                 # Allow rejoin - return their player_id
                 return self._send_json({
                     "player_id": existing_player['id'],
@@ -1108,6 +1238,7 @@ class handler(BaseHTTPRequestHandler):
                 "can_change_word": False,
                 "word_pool": [],  # Will be assigned when game starts
                 "is_ready": False,  # Ready status for lobby
+                "cosmetics": user_cosmetics or {},  # Player's visible cosmetics
             }
             game['players'].append(player)
             
@@ -1515,5 +1646,114 @@ class handler(BaseHTTPRequestHandler):
             
             save_game(code, game)
             return self._send_json({"status": "skipped"})
+
+        # POST /api/cosmetics/equip - Equip a cosmetic
+        if path == '/api/cosmetics/equip':
+            auth_header = self.headers.get('Authorization', '')
+            if not auth_header.startswith('Bearer '):
+                return self._send_error("Not authenticated", 401)
+            
+            token = auth_header[7:]
+            payload = verify_jwt_token(token)
+            
+            if not payload:
+                return self._send_error("Invalid or expired token", 401)
+            
+            user = get_user_by_id(payload['sub'])
+            if not user:
+                return self._send_error("User not found", 404)
+            
+            category = body.get('category', '')
+            cosmetic_id = body.get('cosmetic_id', '')
+            
+            if not category or not cosmetic_id:
+                return self._send_error("Category and cosmetic_id required", 400)
+            
+            # Map category names to cosmetics keys
+            category_map = {
+                'card_border': 'card_borders',
+                'card_background': 'card_backgrounds',
+                'name_color': 'name_colors',
+                'badge': 'badges',
+                'elimination_effect': 'elimination_effects',
+                'guess_effect': 'guess_effects',
+                'turn_indicator': 'turn_indicators',
+                'victory_effect': 'victory_effects',
+                'matrix_color': 'matrix_colors',
+                'particle_overlay': 'particle_overlays',
+                'seasonal_theme': 'seasonal_themes',
+                'alt_background': 'alt_backgrounds',
+            }
+            
+            catalog_key = category_map.get(category)
+            if not catalog_key:
+                return self._send_error("Invalid category", 400)
+            
+            is_donor = user.get('is_donor', False)
+            if not validate_cosmetic(catalog_key, cosmetic_id, is_donor):
+                if cosmetic_id in COSMETICS_CATALOG.get(catalog_key, {}):
+                    return self._send_error("Donate to unlock premium cosmetics!", 403)
+                return self._send_error("Invalid cosmetic", 400)
+            
+            # Update user's cosmetics
+            if 'cosmetics' not in user:
+                user['cosmetics'] = DEFAULT_COSMETICS.copy()
+            user['cosmetics'][category] = cosmetic_id
+            
+            save_user(user)
+            return self._send_json({
+                "status": "equipped",
+                "cosmetics": get_user_cosmetics(user),
+            })
+
+        # POST /api/webhooks/kofi - Handle Ko-fi donation webhooks
+        if path == '/api/webhooks/kofi':
+            # Ko-fi sends data as form-urlencoded with a 'data' field containing JSON
+            try:
+                # The body should contain a 'data' field with JSON
+                kofi_data = body.get('data')
+                if isinstance(kofi_data, str):
+                    kofi_data = json.loads(kofi_data)
+                elif not kofi_data:
+                    kofi_data = body  # Fallback to direct body
+                
+                # Verify the webhook token if configured
+                if KOFI_VERIFICATION_TOKEN:
+                    received_token = kofi_data.get('verification_token', '')
+                    if received_token != KOFI_VERIFICATION_TOKEN:
+                        print(f"Ko-fi webhook: Invalid verification token")
+                        return self._send_error("Invalid verification token", 403)
+                
+                # Get donor email
+                donor_email = kofi_data.get('email', '').lower().strip()
+                if not donor_email:
+                    print(f"Ko-fi webhook: No email provided")
+                    return self._send_json({"status": "ok", "message": "No email to process"})
+                
+                # Look up user by email
+                user = get_user_by_email(donor_email)
+                if not user:
+                    # Store pending donation for when user signs up
+                    redis = get_redis()
+                    redis.set(f"pending_donation:{donor_email}", json.dumps({
+                        'amount': kofi_data.get('amount', '0'),
+                        'timestamp': int(time.time()),
+                        'message': kofi_data.get('message', ''),
+                    }))
+                    print(f"Ko-fi webhook: Stored pending donation for {donor_email}")
+                    return self._send_json({"status": "ok", "message": "Pending donation stored"})
+                
+                # Mark user as donor
+                user['is_donor'] = True
+                user['donation_date'] = int(time.time())
+                user['donation_amount'] = kofi_data.get('amount', '0')
+                save_user(user)
+                
+                print(f"Ko-fi webhook: Marked {donor_email} as donor")
+                return self._send_json({"status": "ok", "message": "Donor status updated"})
+                
+            except Exception as e:
+                print(f"Ko-fi webhook error: {e}")
+                return self._send_error("Webhook processing failed", 500)
 
         self._send_error("Not found", 404)

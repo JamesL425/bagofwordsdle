@@ -43,7 +43,19 @@
     <div id="logged-in-box" class="logged-in-box hidden">
         <img id="user-avatar" class="user-avatar hidden" src="" alt="">
         <span id="logged-in-name">OPERATIVE</span>
+        <button id="cosmetics-btn" class="btn btn-ghost btn-tiny" title="Cosmetics">🎨</button>
         <button id="logout-btn" class="btn btn-ghost btn-tiny">×</button>
+    </div>
+
+    <!-- Cosmetics Panel -->
+    <div id="cosmetics-panel" class="cosmetics-panel">
+        <div class="cosmetics-header">
+            <h2>🎨 COSMETICS</h2>
+            <button id="close-cosmetics-btn" class="btn btn-ghost btn-tiny">×</button>
+        </div>
+        <div class="cosmetics-content">
+            <!-- Content populated by JS -->
+        </div>
     </div>
 
     <div class="matrix-bg" id="matrix-bg"></div>
@@ -315,6 +327,7 @@
         </footer>
     </div>
 
+    <script src="cosmetics.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

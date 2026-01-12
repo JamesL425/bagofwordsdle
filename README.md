@@ -1,81 +1,94 @@
-# Bagofwordsdle
+# Embeddle
 
 A multiplayer word deduction game where players try to guess each other's secret words using semantic similarity.
 
+**Play now at [bagofwordsdle.vercel.app](https://bagofwordsdle.vercel.app)**
+
 ## How to Play
 
-1. **Setup**: Each player joins with a name and picks a secret word
+1. **Setup**: Each player joins a lobby and picks a secret word from a themed word pool
 2. **Gameplay**: On your turn, guess any word
 3. **Reveal**: Everyone sees how similar your guess is to ALL players' secret words
-4. **Elimination**: If your guess is >95% similar to someone's word, they're eliminated!
+4. **Elimination**: Guess someone's exact word to eliminate them!
 5. **Reward**: Eliminating a player lets you change your own secret word
 6. **Win**: Be the last player standing
 
 ## Tech Stack
 
-- **Backend**: Python FastAPI
-- **Embeddings**: OpenAI `text-embedding-3-small`
+- **Backend**: Python serverless function on Vercel
+- **Embeddings**: OpenAI `text-embedding-3-large`
+- **Database**: Upstash Redis
 - **Frontend**: Vanilla HTML/CSS/JS
 
-## Setup
+## Development
 
 ### Prerequisites
 
+- Node.js (for Vercel CLI)
 - Python 3.11+
 - OpenAI API key
+- Upstash Redis account
 
-### Installation
+### Environment Variables
 
-1. Clone the repository:
+Set these in your Vercel project settings:
+
+```
+OPENAI_API_KEY=your-openai-api-key
+UPSTASH_REDIS_REST_URL=your-upstash-redis-url
+UPSTASH_REDIS_REST_TOKEN=your-upstash-redis-token
+```
+
+Optional (for Google OAuth):
+```
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+JWT_SECRET=your-jwt-secret
+```
+
+### Local Development
+
+1. Install Vercel CLI:
 ```bash
-cd bagofwordsdle
+npm i -g vercel
 ```
 
-2. Create a virtual environment and install dependencies:
+2. Link to your Vercel project and pull environment variables:
 ```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+vercel link
+vercel env pull
 ```
 
-3. Set your OpenAI API key:
+3. Run locally:
 ```bash
-export OPENAI_API_KEY="your-api-key-here"
+vercel dev
 ```
 
-Or create a `.env` file in the `backend` directory:
+### Deployment
+
+Push to main branch - Vercel will auto-deploy.
+
+## Project Structure
+
 ```
-OPENAI_API_KEY=your-api-key-here
+├── api/
+│   ├── index.py          # Serverless API handler
+│   ├── requirements.txt  # Python dependencies
+│   ├── config.json       # Game settings
+│   ├── themes.json       # Pre-generated theme word lists
+│   └── cosmetics.json    # Cosmetic items catalog
+├── frontend/
+│   ├── index.html        # Main page
+│   ├── style.css         # Styles
+│   ├── app.js            # Game logic
+│   └── cosmetics.js      # Cosmetics UI
+└── vercel.json           # Vercel configuration
 ```
-
-### Running the Game
-
-1. Start the backend server:
-```bash
-cd backend
-python main.py
-```
-
-2. Open your browser to `http://localhost:8000`
-
-3. Create a game, share the code with friends, and play!
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/games` | Create a new game |
-| POST | `/games/{code}/join` | Join with name + secret word |
-| POST | `/games/{code}/start` | Start the game (host only) |
-| GET | `/games/{code}?player_id=...` | Get game state |
-| POST | `/games/{code}/guess` | Submit a guess |
-| POST | `/games/{code}/change-word` | Change your word (if earned) |
 
 ## Game Rules
 
-- **Players**: 3-4 per game
-- **Elimination threshold**: 95% cosine similarity
+- **Players**: 2-6 per game
+- **Elimination**: Guess someone's exact word
 - **Word change reward**: Earned by eliminating another player
 
 ## Strategy Tips
@@ -84,4 +97,3 @@ python main.py
 - Your guesses reveal info about YOUR word too - be careful!
 - Use the similarity percentages to narrow down opponents' words
 - If you eliminate someone, consider changing your word to reset their intel on you
-

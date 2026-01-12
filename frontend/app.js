@@ -108,6 +108,11 @@ function setLoggedInWithAuth(user) {
         avatarEl.src = user.avatar;
         avatarEl.classList.remove('hidden');
     }
+    
+    // Load user cosmetics
+    if (typeof loadUserCosmetics === 'function') {
+        loadUserCosmetics();
+    }
 }
 
 function setLoggedIn(name) {
@@ -153,6 +158,10 @@ document.getElementById('login-name').addEventListener('keydown', (e) => {
 });
 
 document.getElementById('logout-btn').addEventListener('click', logout);
+
+// Cosmetics button
+document.getElementById('cosmetics-btn')?.addEventListener('click', toggleCosmeticsPanel);
+document.getElementById('close-cosmetics-btn')?.addEventListener('click', closeCosmeticsPanel);
 
 // DOM Elements
 const screens = {
@@ -288,7 +297,13 @@ document.getElementById('refresh-lobbies-btn')?.addEventListener('click', loadLo
 
 async function joinLobby(code, name) {
     try {
-        const data = await apiCall(`/api/games/${code}/join`, 'POST', { name });
+        const joinData = { name };
+        // Include auth user ID if logged in with Google
+        if (gameState.authUser && gameState.authUser.id) {
+            joinData.auth_user_id = gameState.authUser.id;
+        }
+        
+        const data = await apiCall(`/api/games/${code}/join`, 'POST', joinData);
         
         gameState.code = code;
         gameState.playerId = data.player_id;
@@ -903,8 +918,17 @@ function updatePlayersGrid(game) {
         const isCurrentTurn = player.id === game.current_player_id;
         const isYou = player.id === gameState.playerId;
         
+        // Get cosmetic classes
+        const cosmeticClasses = typeof getPlayerCardClasses === 'function' 
+            ? getPlayerCardClasses(player.cosmetics) : '';
+        const nameColorClass = typeof getNameColorClass === 'function'
+            ? getNameColorClass(player.cosmetics) : '';
+        const badgeHtml = typeof getBadgeHtml === 'function'
+            ? getBadgeHtml(player.cosmetics) : '';
+        
         const div = document.createElement('div');
-        div.className = `player-card${isCurrentTurn ? ' current-turn' : ''}${!player.is_alive ? ' eliminated' : ''}${isYou ? ' is-you' : ''}`;
+        div.className = `player-card${isCurrentTurn ? ' current-turn' : ''}${!player.is_alive ? ' eliminated' : ''}${isYou ? ' is-you' : ''} ${cosmeticClasses}`;
+        div.dataset.playerId = player.id;
         
         // Check if this player recently changed their word
         const hasChangedWord = wordChangeAfterIndex[player.id] !== undefined;
@@ -940,7 +964,7 @@ function updatePlayersGrid(game) {
         
         div.innerHTML = `
             ${dangerHtml}
-            <div class="name">${escapeHtml(player.name)}${isYou ? ' (you)' : ''}</div>
+            <div class="name ${nameColorClass}">${escapeHtml(player.name)}${badgeHtml}${isYou ? ' (you)' : ''}</div>
             <div class="status ${player.is_alive ? 'alive' : 'eliminated'}">
                 ${player.is_alive ? 'Alive' : 'Eliminated'}
             </div>
@@ -983,7 +1007,12 @@ function updateHistory(game) {
     const historyLog = document.getElementById('history-log');
     historyLog.innerHTML = '';
     
-    [...game.history].reverse().forEach(entry => {
+    // Track previous history length to detect new eliminations
+    const prevHistoryLength = gameState.prevHistoryLength || 0;
+    const currentHistoryLength = game.history.length;
+    
+    [...game.history].reverse().forEach((entry, reverseIdx) => {
+        const originalIdx = game.history.length - 1 - reverseIdx;
         const div = document.createElement('div');
         div.className = 'history-entry';
         
@@ -998,6 +1027,17 @@ function updateHistory(game) {
             `;
             historyLog.appendChild(div);
             return;
+        }
+        
+        // Play elimination effect for new eliminations
+        if (originalIdx >= prevHistoryLength && entry.eliminations && entry.eliminations.length > 0) {
+            const guesser = game.players.find(p => p.id === entry.guesser_id);
+            const elimEffect = guesser?.cosmetics?.elimination_effect || 'classic';
+            entry.eliminations.forEach(eliminatedId => {
+                if (typeof playEliminationEffect === 'function') {
+                    setTimeout(() => playEliminationEffect(eliminatedId, elimEffect), 100);
+                }
+            });
         }
         
         let simsHtml = '';
@@ -1033,6 +1073,9 @@ function updateHistory(game) {
         `;
         historyLog.appendChild(div);
     });
+    
+    // Store history length for next update
+    gameState.prevHistoryLength = currentHistoryLength;
 }
 
 // Guess form - handles both button click and Enter key
@@ -1057,6 +1100,12 @@ async function submitGuess() {
     if (guessInput.disabled) return;
     
     try {
+        // Play guess effect
+        const guessEffect = cosmeticsState?.userCosmetics?.guess_effect || 'classic';
+        if (typeof playGuessEffect === 'function') {
+            playGuessEffect(guessEffect);
+        }
+        
         await apiCall(`/api/games/${gameState.code}/guess`, 'POST', {
             player_id: gameState.playerId,
             word,
@@ -1122,9 +1171,21 @@ function showGameOver(game) {
         ? `${winner.name} is the last one standing!`
         : 'The game has ended.';
     
-    // Create confetti for winner
+    // Create victory effect based on winner's cosmetics
     if (isWinner) {
-        createConfetti();
+        const victoryEffect = cosmeticsState?.userCosmetics?.victory_effect || 'classic';
+        if (typeof playVictoryEffect === 'function') {
+            playVictoryEffect(victoryEffect);
+        } else {
+            createConfetti();
+        }
+    } else if (winner && winner.cosmetics && winner.cosmetics.victory_effect) {
+        // Show winner's victory effect for other players
+        if (typeof playVictoryEffect === 'function') {
+            playVictoryEffect(winner.cosmetics.victory_effect);
+        } else {
+            createConfetti();
+        }
     }
     
     // Show all players' secret words
@@ -1228,7 +1289,9 @@ function initMatrixRain() {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        ctx.fillStyle = '#00ff41';
+        // Get matrix color from CSS variable (set by cosmetics)
+        const matrixColor = getComputedStyle(document.documentElement).getPropertyValue('--matrix-color').trim() || '#00ff41';
+        ctx.fillStyle = matrixColor;
         ctx.font = fontSize + 'px Courier Prime';
         
         for (let i = 0; i < drops.length; i++) {
