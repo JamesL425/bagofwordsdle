@@ -1,19 +1,76 @@
-"""Vercel serverless function for Bagofwordsdle API with Upstash Redis storage."""
+"""Vercel serverless function for Embeddle API with Upstash Redis storage."""
 
 import json
 import os
+import re
+import html
 import secrets
 import string
+import time
+import urllib.parse
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 from typing import Optional
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
+import jwt
 import numpy as np
+import requests
 from openai import OpenAI
 from wordfreq import word_frequency
 from upstash_redis import Redis
+from upstash_ratelimit import Ratelimit, FixedWindow
+
+
+# ============== INPUT VALIDATION ==============
+
+# Validation patterns
+GAME_CODE_PATTERN = re.compile(r'^[A-Z0-9]{6}$')
+PLAYER_ID_PATTERN = re.compile(r'^[a-f0-9]{16}$')
+PLAYER_NAME_PATTERN = re.compile(r'^[a-zA-Z0-9_ ]{1,20}$')
+WORD_PATTERN = re.compile(r'^[a-zA-Z]{2,30}$')
+
+
+def sanitize_game_code(code: str) -> Optional[str]:
+    """Validate and sanitize game code. Returns None if invalid."""
+    if not code:
+        return None
+    code = code.upper().strip()
+    if not GAME_CODE_PATTERN.match(code):
+        return None
+    return code
+
+
+def sanitize_player_id(player_id: str) -> Optional[str]:
+    """Validate player ID format. Returns None if invalid."""
+    if not player_id:
+        return None
+    player_id = player_id.lower().strip()
+    if not PLAYER_ID_PATTERN.match(player_id):
+        return None
+    return player_id
+
+
+def sanitize_player_name(name: str) -> Optional[str]:
+    """Sanitize player name. Returns None if invalid."""
+    if not name:
+        return None
+    name = name.strip()
+    if not PLAYER_NAME_PATTERN.match(name):
+        return None
+    # HTML escape to prevent XSS when displayed
+    return html.escape(name)
+
+
+def sanitize_word(word: str) -> Optional[str]:
+    """Sanitize word input. Returns None if invalid."""
+    if not word:
+        return None
+    word = word.lower().strip()
+    if not WORD_PATTERN.match(word):
+        return None
+    return word
 
 # ============== CONFIG ==============
 
@@ -69,10 +126,194 @@ def get_redis():
     return _redis_client
 
 
+# ============== RATE LIMITING ==============
+
+# Rate limiters (lazy initialized)
+_ratelimit_general = None
+_ratelimit_game_create = None
+_ratelimit_join = None
+_ratelimit_guess = None
+
+
+def get_ratelimit_general():
+    """General rate limiter: 60 requests/minute per IP."""
+    global _ratelimit_general
+    if _ratelimit_general is None:
+        _ratelimit_general = Ratelimit(
+            redis=get_redis(),
+            limiter=FixedWindow(max_requests=60, window=60),
+            prefix="ratelimit:general",
+        )
+    return _ratelimit_general
+
+
+def get_ratelimit_game_create():
+    """Game creation rate limiter: 5 games/minute per IP."""
+    global _ratelimit_game_create
+    if _ratelimit_game_create is None:
+        _ratelimit_game_create = Ratelimit(
+            redis=get_redis(),
+            limiter=FixedWindow(max_requests=5, window=60),
+            prefix="ratelimit:create",
+        )
+    return _ratelimit_game_create
+
+
+def get_ratelimit_join():
+    """Join rate limiter: 10 joins/minute per IP."""
+    global _ratelimit_join
+    if _ratelimit_join is None:
+        _ratelimit_join = Ratelimit(
+            redis=get_redis(),
+            limiter=FixedWindow(max_requests=10, window=60),
+            prefix="ratelimit:join",
+        )
+    return _ratelimit_join
+
+
+def get_ratelimit_guess():
+    """Guess rate limiter: 30 guesses/minute per IP."""
+    global _ratelimit_guess
+    if _ratelimit_guess is None:
+        _ratelimit_guess = Ratelimit(
+            redis=get_redis(),
+            limiter=FixedWindow(max_requests=30, window=60),
+            prefix="ratelimit:guess",
+        )
+    return _ratelimit_guess
+
+
+def check_rate_limit(limiter, identifier: str) -> bool:
+    """Returns True if request is allowed, False if rate limited."""
+    try:
+        result = limiter.limit(identifier)
+        return result.allowed
+    except Exception:
+        # If rate limiting fails, allow the request (fail open)
+        return True
+
+
+def get_client_ip(headers) -> str:
+    """Extract client IP from headers."""
+    # X-Forwarded-For may contain multiple IPs; take the first one
+    forwarded = headers.get('X-Forwarded-For', '')
+    if forwarded:
+        return forwarded.split(',')[0].strip()
+    # Fallback to X-Real-IP
+    real_ip = headers.get('X-Real-IP', '')
+    if real_ip:
+        return real_ip.strip()
+    return 'unknown'
+
+
 def get_theme_words(category: str) -> dict:
     """Get pre-generated theme words for a category."""
     words = PREGENERATED_THEMES.get(category, [])
     return {"name": category, "words": words}
+
+
+# ============== AUTHENTICATION (Google OAuth) ==============
+
+# OAuth Configuration
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
+JWT_SECRET = os.getenv('JWT_SECRET', secrets.token_hex(32))
+JWT_ALGORITHM = 'HS256'
+JWT_EXPIRY_HOURS = 24 * 7  # 1 week
+
+# OAuth URLs
+GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
+GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
+GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
+
+
+def get_oauth_redirect_uri() -> str:
+    """Get the OAuth callback URL based on environment."""
+    base_url = os.getenv('VERCEL_URL', 'localhost:3000')
+    protocol = 'https' if 'vercel' in base_url else 'http'
+    return f"{protocol}://{base_url}/api/auth/callback"
+
+
+def create_jwt_token(user_data: dict) -> str:
+    """Create a JWT token for authenticated user."""
+    payload = {
+        'sub': user_data['id'],
+        'email': user_data.get('email', ''),
+        'name': user_data.get('name', ''),
+        'avatar': user_data.get('avatar', ''),
+        'iat': int(time.time()),
+        'exp': int(time.time()) + (JWT_EXPIRY_HOURS * 3600),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def verify_jwt_token(token: str) -> Optional[dict]:
+    """Verify and decode a JWT token. Returns None if invalid."""
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+
+
+def get_or_create_user(google_user: dict) -> dict:
+    """Get existing user or create new one from Google user data."""
+    redis = get_redis()
+    user_id = f"google_{google_user['id']}"
+    user_key = f"user:{user_id}"
+    
+    # Check if user exists
+    existing = redis.get(user_key)
+    if existing:
+        user = json.loads(existing)
+        # Update name/avatar in case they changed
+        user['name'] = google_user.get('name', user['name'])
+        user['avatar'] = google_user.get('picture', user.get('avatar', ''))
+        redis.set(user_key, json.dumps(user))
+        return user
+    
+    # Create new user
+    user = {
+        'id': user_id,
+        'email': google_user.get('email', ''),
+        'name': google_user.get('name', 'Anonymous'),
+        'avatar': google_user.get('picture', ''),
+        'created_at': int(time.time()),
+        'stats': {
+            'wins': 0,
+            'games_played': 0,
+            'eliminations': 0,
+            'times_eliminated': 0,
+            'total_guesses': 0,
+            'win_streak': 0,
+            'best_streak': 0,
+        }
+    }
+    redis.set(user_key, json.dumps(user))
+    
+    # Add to users set for leaderboard
+    redis.sadd('users:all', user_id)
+    
+    return user
+
+
+def get_user_by_id(user_id: str) -> Optional[dict]:
+    """Get user by ID."""
+    redis = get_redis()
+    user_key = f"user:{user_id}"
+    data = redis.get(user_key)
+    if data:
+        return json.loads(data)
+    return None
+
+
+def save_user(user: dict):
+    """Save user data."""
+    redis = get_redis()
+    user_key = f"user:{user['id']}"
+    redis.set(user_key, json.dumps(user))
 
 
 # ============== HELPERS ==============
@@ -167,13 +408,23 @@ def get_player_stats(name: str) -> dict:
     key = f"stats:{name.lower()}"
     data = redis.get(key)
     if data:
-        return json.loads(data)
+        stats = json.loads(data)
+        # Ensure all new fields exist for backwards compatibility
+        stats.setdefault('eliminations', 0)
+        stats.setdefault('times_eliminated', 0)
+        stats.setdefault('win_streak', 0)
+        stats.setdefault('best_streak', 0)
+        return stats
     return {
         "name": name,
         "wins": 0,
         "games_played": 0,
         "total_guesses": 0,
         "total_similarity": 0.0,
+        "eliminations": 0,
+        "times_eliminated": 0,
+        "win_streak": 0,
+        "best_streak": 0,
     }
 
 
@@ -185,18 +436,57 @@ def save_player_stats(name: str, stats: dict):
     redis.set(key, json.dumps(stats))
     # Also add to leaderboard set
     redis.sadd("leaderboard:players", name.lower())
+    
+    # Update weekly leaderboard (sorted sets)
+    week_key = get_weekly_leaderboard_key()
+    redis.zadd(f"leaderboard:weekly:{week_key}", {name.lower(): stats.get('wins', 0)})
+
+
+def get_weekly_leaderboard_key() -> str:
+    """Get the key for the current week's leaderboard."""
+    import datetime
+    today = datetime.date.today()
+    # Get the Monday of the current week
+    monday = today - datetime.timedelta(days=today.weekday())
+    return monday.strftime('%Y-%m-%d')
 
 
 def update_game_stats(game: dict):
     """Update stats for all players after a game ends."""
     winner_id = game.get('winner')
     
+    # Count eliminations per player
+    eliminations_by_player = {}
+    eliminated_players = set()
+    
+    for entry in game.get('history', []):
+        if entry.get('type') == 'word_change':
+            continue
+        guesser_id = entry.get('guesser_id')
+        if guesser_id and entry.get('eliminations'):
+            eliminations_by_player[guesser_id] = eliminations_by_player.get(guesser_id, 0) + len(entry['eliminations'])
+            eliminated_players.update(entry['eliminations'])
+    
     for player in game['players']:
         stats = get_player_stats(player['name'])
         stats['games_played'] += 1
         
+        # Track eliminations
+        stats['eliminations'] = stats.get('eliminations', 0) + eliminations_by_player.get(player['id'], 0)
+        
+        # Track times eliminated
+        if player['id'] in eliminated_players:
+            stats['times_eliminated'] = stats.get('times_eliminated', 0) + 1
+        
         if player['id'] == winner_id:
             stats['wins'] += 1
+            # Update win streak
+            stats['win_streak'] = stats.get('win_streak', 0) + 1
+            if stats['win_streak'] > stats.get('best_streak', 0):
+                stats['best_streak'] = stats['win_streak']
+        else:
+            # Reset win streak on loss
+            stats['win_streak'] = 0
         
         # Calculate average closeness from this player's guesses
         for entry in game.get('history', []):
@@ -217,9 +507,36 @@ def update_game_stats(game: dict):
         save_player_stats(player['name'], stats)
 
 
-def get_leaderboard() -> list:
-    """Get all players sorted by wins."""
+def get_leaderboard(leaderboard_type: str = 'alltime') -> list:
+    """Get all players sorted by wins.
+    
+    Args:
+        leaderboard_type: 'alltime' or 'weekly'
+    """
     redis = get_redis()
+    
+    if leaderboard_type == 'weekly':
+        # Get weekly leaderboard from sorted set
+        week_key = get_weekly_leaderboard_key()
+        weekly_data = redis.zrevrange(f"leaderboard:weekly:{week_key}", 0, 99, withscores=True)
+        
+        if not weekly_data:
+            return []
+        
+        players = []
+        for name, wins in weekly_data:
+            stats = get_player_stats(name)
+            if stats['games_played'] > 0:
+                stats['weekly_wins'] = int(wins)
+                stats['avg_closeness'] = (
+                    stats['total_similarity'] / stats['total_guesses'] 
+                    if stats['total_guesses'] > 0 else 0
+                )
+                stats['win_rate'] = stats['wins'] / stats['games_played'] if stats['games_played'] > 0 else 0
+                players.append(stats)
+        return players
+    
+    # All-time leaderboard
     player_names = redis.smembers("leaderboard:players")
     
     if not player_names:
@@ -233,27 +550,59 @@ def get_leaderboard() -> list:
                 stats['total_similarity'] / stats['total_guesses'] 
                 if stats['total_guesses'] > 0 else 0
             )
+            stats['win_rate'] = stats['wins'] / stats['games_played'] if stats['games_played'] > 0 else 0
             players.append(stats)
     
     # Sort by wins (desc), then win rate (desc), then games played (desc)
     players.sort(key=lambda p: (
         p['wins'], 
-        p['wins'] / p['games_played'] if p['games_played'] > 0 else 0,
+        p['win_rate'],
         p['games_played']
     ), reverse=True)
     
-    return players
+    return players[:100]  # Limit to top 100
 
 
 # ============== HANDLER ==============
 
+# Allowed origins for CORS
+ALLOWED_ORIGINS = [
+    'https://embeddle.vercel.app',
+    'https://www.embeddle.com',
+]
+
+# Allow localhost in development
+DEV_MODE = os.getenv('VERCEL_ENV', 'development') == 'development'
+
+
 class handler(BaseHTTPRequestHandler):
+    def _get_cors_origin(self):
+        """Get the appropriate CORS origin header value."""
+        origin = self.headers.get('Origin', '')
+        if origin in ALLOWED_ORIGINS:
+            return origin
+        # Allow localhost in development
+        if DEV_MODE and origin.startswith('http://localhost:'):
+            return origin
+        # Default to first allowed origin (or empty for security)
+        return ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else ''
+
     def _send_json(self, data, status=200):
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
+        # CORS headers - restricted to allowed origins
+        cors_origin = self._get_cors_origin()
+        if cors_origin:
+            self.send_header('Access-Control-Allow-Origin', cors_origin)
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Credentials', 'true')
+        # Security headers
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('X-Frame-Options', 'DENY')
+        self.send_header('X-XSS-Protection', '1; mode=block')
+        self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
+        self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate')
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
 
@@ -268,9 +617,13 @@ class handler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self):
         self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
+        cors_origin = self._get_cors_origin()
+        if cors_origin:
+            self.send_header('Access-Control-Allow-Origin', cors_origin)
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Credentials', 'true')
+        self.send_header('Access-Control-Max-Age', '86400')
         self.end_headers()
 
     def do_GET(self):
@@ -283,23 +636,131 @@ class handler(BaseHTTPRequestHandler):
                     key, value = param.split('=', 1)
                     query[key] = value
 
-        # GET /api/admin/clear-cache - Clear all game data (for admin use)
-        if path == '/api/admin/clear-cache':
+        # Get client IP for rate limiting
+        client_ip = get_client_ip(self.headers)
+
+        # ============== AUTH ENDPOINTS ==============
+
+        # GET /api/auth/google - Redirect to Google OAuth
+        if path == '/api/auth/google':
+            if not GOOGLE_CLIENT_ID:
+                return self._send_error("OAuth not configured", 500)
+            
+            redirect_uri = get_oauth_redirect_uri()
+            params = {
+                'client_id': GOOGLE_CLIENT_ID,
+                'redirect_uri': redirect_uri,
+                'response_type': 'code',
+                'scope': 'openid email profile',
+                'access_type': 'offline',
+                'prompt': 'consent',
+            }
+            auth_url = f"{GOOGLE_AUTH_URL}?{urllib.parse.urlencode(params)}"
+            
+            self.send_response(302)
+            self.send_header('Location', auth_url)
+            self.end_headers()
+            return
+
+        # GET /api/auth/callback - Handle OAuth callback
+        if path == '/api/auth/callback':
+            code = query.get('code', '')
+            error = query.get('error', '')
+            
+            if error:
+                # Redirect to frontend with error
+                self.send_response(302)
+                self.send_header('Location', '/?auth_error=' + urllib.parse.quote(error))
+                self.end_headers()
+                return
+            
+            if not code:
+                return self._send_error("No authorization code provided", 400)
+            
             try:
-                # Clear all game keys
-                keys = redis_client.keys("game:*")
-                for key in keys:
-                    redis_client.delete(key)
-                # Clear embedding cache
-                embed_keys = redis_client.keys("embed:*")
-                for key in embed_keys:
-                    redis_client.delete(key)
-                return self._send_json({"status": "cleared", "games_deleted": len(keys), "embeddings_deleted": len(embed_keys)})
+                # Exchange code for tokens
+                redirect_uri = get_oauth_redirect_uri()
+                token_response = requests.post(GOOGLE_TOKEN_URL, data={
+                    'client_id': GOOGLE_CLIENT_ID,
+                    'client_secret': GOOGLE_CLIENT_SECRET,
+                    'code': code,
+                    'grant_type': 'authorization_code',
+                    'redirect_uri': redirect_uri,
+                })
+                
+                if not token_response.ok:
+                    print(f"Token exchange failed: {token_response.text}")
+                    self.send_response(302)
+                    self.send_header('Location', '/?auth_error=token_exchange_failed')
+                    self.end_headers()
+                    return
+                
+                tokens = token_response.json()
+                access_token = tokens.get('access_token')
+                
+                # Get user info from Google
+                userinfo_response = requests.get(
+                    GOOGLE_USERINFO_URL,
+                    headers={'Authorization': f'Bearer {access_token}'}
+                )
+                
+                if not userinfo_response.ok:
+                    print(f"User info failed: {userinfo_response.text}")
+                    self.send_response(302)
+                    self.send_header('Location', '/?auth_error=userinfo_failed')
+                    self.end_headers()
+                    return
+                
+                google_user = userinfo_response.json()
+                
+                # Create or get user
+                user = get_or_create_user(google_user)
+                
+                # Create JWT token
+                jwt_token = create_jwt_token(user)
+                
+                # Redirect to frontend with token
+                self.send_response(302)
+                self.send_header('Location', f'/?auth_token={jwt_token}')
+                self.end_headers()
+                return
+                
             except Exception as e:
-                return self._send_error(f"Failed to clear cache: {str(e)}", 500)
+                print(f"OAuth callback error: {e}")
+                self.send_response(302)
+                self.send_header('Location', '/?auth_error=callback_failed')
+                self.end_headers()
+                return
+
+        # GET /api/auth/me - Get current user info
+        if path == '/api/auth/me':
+            auth_header = self.headers.get('Authorization', '')
+            if not auth_header.startswith('Bearer '):
+                return self._send_error("Not authenticated", 401)
+            
+            token = auth_header[7:]  # Remove 'Bearer ' prefix
+            payload = verify_jwt_token(token)
+            
+            if not payload:
+                return self._send_error("Invalid or expired token", 401)
+            
+            user = get_user_by_id(payload['sub'])
+            if not user:
+                return self._send_error("User not found", 404)
+            
+            return self._send_json({
+                'id': user['id'],
+                'name': user['name'],
+                'email': user.get('email', ''),
+                'avatar': user.get('avatar', ''),
+                'stats': user.get('stats', {}),
+            })
 
         # GET /api/lobbies - List open lobbies
         if path == '/api/lobbies':
+            # Rate limit: 30/min for lobby listing
+            if not check_rate_limit(get_ratelimit_general(), f"lobbies:{client_ip}"):
+                return self._send_error("Too many requests. Please wait.", 429)
             try:
                 import time
                 redis = get_redis()
@@ -332,16 +793,33 @@ class handler(BaseHTTPRequestHandler):
                             })
                 return self._send_json({"lobbies": lobbies})
             except Exception as e:
-                return self._send_error(f"Failed to load lobbies: {str(e)}", 500)
+                print(f"Error loading lobbies: {e}")  # Log server-side only
+                return self._send_error("Failed to load lobbies. Please try again.", 500)
 
         # GET /api/leaderboard
         if path == '/api/leaderboard':
-            players = get_leaderboard()
-            return self._send_json({"players": players})
+            # Rate limit: 30/min for leaderboard
+            if not check_rate_limit(get_ratelimit_general(), f"leaderboard:{client_ip}"):
+                return self._send_error("Too many requests. Please wait.", 429)
+            
+            # Support ?type=weekly or ?type=alltime (default)
+            leaderboard_type = query.get('type', 'alltime')
+            if leaderboard_type not in ('alltime', 'weekly'):
+                leaderboard_type = 'alltime'
+            
+            players = get_leaderboard(leaderboard_type)
+            return self._send_json({
+                "players": players,
+                "type": leaderboard_type,
+                "week": get_weekly_leaderboard_key() if leaderboard_type == 'weekly' else None,
+            })
 
         # GET /api/games/{code}/theme - Get theme for a game (before joining)
         if path.endswith('/theme') and path.startswith('/api/games/'):
-            code = path.split('/')[3].upper()
+            code = sanitize_game_code(path.split('/')[3])
+            if not code:
+                return self._send_error("Invalid game code format", 400)
+            
             game = load_game(code)
             if not game:
                 return self._send_error("Game not found", 404)
@@ -374,8 +852,13 @@ class handler(BaseHTTPRequestHandler):
 
         # GET /api/games/{code}
         if path.startswith('/api/games/') and path.count('/') == 3:
-            code = path.split('/')[3].upper()
-            player_id = query.get('player_id', '')
+            code = sanitize_game_code(path.split('/')[3])
+            if not code:
+                return self._send_error("Invalid game code format", 400)
+            
+            player_id = sanitize_player_id(query.get('player_id', ''))
+            if not player_id:
+                return self._send_error("Invalid player ID format", 400)
             
             game = load_game(code)
             if not game:
@@ -459,7 +942,8 @@ class handler(BaseHTTPRequestHandler):
                 
                 return self._send_json(response)
             except Exception as e:
-                return self._send_error(f"Error building game response: {str(e)}", 500)
+                print(f"Error building game response: {e}")  # Log server-side only
+                return self._send_error("Failed to load game. Please try again.", 500)
 
         self._send_error("Not found", 404)
 
@@ -467,8 +951,15 @@ class handler(BaseHTTPRequestHandler):
         path = self.path.split('?')[0]
         body = self._get_body()
 
+        # Get client IP for rate limiting
+        client_ip = get_client_ip(self.headers)
+
         # POST /api/games - Create lobby with theme voting
         if path == '/api/games':
+            # Rate limit: 5 games/min per IP
+            if not check_rate_limit(get_ratelimit_game_create(), client_ip):
+                return self._send_error("Too many game creations. Please wait.", 429)
+            
             import random
             import time
             
@@ -503,7 +994,10 @@ class handler(BaseHTTPRequestHandler):
 
         # POST /api/games/{code}/vote - Vote for a theme
         if '/vote' in path and path.startswith('/api/games/'):
-            code = path.split('/')[3].upper()
+            code = sanitize_game_code(path.split('/')[3])
+            if not code:
+                return self._send_error("Invalid game code format", 400)
+            
             game = load_game(code)
             
             if not game:
@@ -511,7 +1005,10 @@ class handler(BaseHTTPRequestHandler):
             if game['status'] != 'waiting':
                 return self._send_error("Voting is closed", 400)
             
-            player_id = body.get('player_id', '')
+            player_id = sanitize_player_id(body.get('player_id', ''))
+            if not player_id:
+                return self._send_error("Invalid player ID format", 400)
+            
             theme = body.get('theme', '').strip()
             
             if theme not in game.get('theme_options', []):
@@ -532,7 +1029,10 @@ class handler(BaseHTTPRequestHandler):
 
         # POST /api/games/{code}/theme - Set the theme (creator chooses)
         if '/theme' in path and path.startswith('/api/games/') and path.count('/') == 4:
-            code = path.split('/')[3].upper()
+            code = sanitize_game_code(path.split('/')[3])
+            if not code:
+                return self._send_error("Invalid game code format", 400)
+            
             game = load_game(code)
             
             if not game:
@@ -563,15 +1063,22 @@ class handler(BaseHTTPRequestHandler):
 
         # POST /api/games/{code}/join - Join lobby (just name, no word yet)
         if '/join' in path and '/set-word' not in path:
-            code = path.split('/')[3].upper()
+            # Rate limit: 10 joins/min per IP
+            if not check_rate_limit(get_ratelimit_join(), client_ip):
+                return self._send_error("Too many join attempts. Please wait.", 429)
+            
+            code = sanitize_game_code(path.split('/')[3])
+            if not code:
+                return self._send_error("Invalid game code format", 400)
+            
             game = load_game(code)
             
             if not game:
                 return self._send_error("Game not found", 404)
             
-            name = body.get('name', '').strip()
+            name = sanitize_player_name(body.get('name', ''))
             if not name:
-                return self._send_error("Name required", 400)
+                return self._send_error("Invalid name. Use only letters, numbers, underscores, and spaces (1-20 chars)", 400)
             
             # Check if player is trying to rejoin
             existing_player = next((p for p in game['players'] if p['name'].lower() == name.lower()), None)
@@ -618,7 +1125,10 @@ class handler(BaseHTTPRequestHandler):
 
         # POST /api/games/{code}/ready - Toggle ready status
         if '/ready' in path and path.startswith('/api/games/'):
-            code = path.split('/')[3].upper()
+            code = sanitize_game_code(path.split('/')[3])
+            if not code:
+                return self._send_error("Invalid game code format", 400)
+            
             game = load_game(code)
             
             if not game:
@@ -626,7 +1136,10 @@ class handler(BaseHTTPRequestHandler):
             if game['status'] != 'waiting':
                 return self._send_error("Game has already started", 400)
             
-            player_id = body.get('player_id', '')
+            player_id = sanitize_player_id(body.get('player_id', ''))
+            if not player_id:
+                return self._send_error("Invalid player ID format", 400)
+            
             player = next((p for p in game['players'] if p['id'] == player_id), None)
             if not player:
                 return self._send_error("You are not in this game", 403)
@@ -641,7 +1154,10 @@ class handler(BaseHTTPRequestHandler):
 
         # POST /api/games/{code}/set-word - Set secret word (during word selection)
         if '/set-word' in path:
-            code = path.split('/')[3].upper()
+            code = sanitize_game_code(path.split('/')[3])
+            if not code:
+                return self._send_error("Invalid game code format", 400)
+            
             game = load_game(code)
             
             if not game:
@@ -649,11 +1165,13 @@ class handler(BaseHTTPRequestHandler):
             if game['status'] not in ['word_selection', 'playing']:
                 return self._send_error("Not in word selection phase", 400)
             
-            player_id = body.get('player_id', '')
-            secret_word = body.get('secret_word', '').strip()
+            player_id = sanitize_player_id(body.get('player_id', ''))
+            if not player_id:
+                return self._send_error("Invalid player ID format", 400)
             
+            secret_word = sanitize_word(body.get('secret_word', ''))
             if not secret_word:
-                return self._send_error("Secret word required", 400)
+                return self._send_error("Invalid word. Use only letters (2-30 chars)", 400)
             
             player = next((p for p in game['players'] if p['id'] == player_id), None)
             if not player:
@@ -669,7 +1187,8 @@ class handler(BaseHTTPRequestHandler):
             try:
                 embedding = get_embedding(secret_word)
             except Exception as e:
-                return self._send_error(f"API error: {str(e)}", 503)
+                print(f"Embedding error for set-word: {e}")  # Log server-side only
+                return self._send_error("Word processing service unavailable. Please try again.", 503)
             
             player['secret_word'] = secret_word.lower()
             player['secret_embedding'] = embedding
@@ -682,13 +1201,19 @@ class handler(BaseHTTPRequestHandler):
 
         # POST /api/games/{code}/start - Move from lobby to word selection
         if '/start' in path and '/begin' not in path:
-            code = path.split('/')[3].upper()
+            code = sanitize_game_code(path.split('/')[3])
+            if not code:
+                return self._send_error("Invalid game code format", 400)
+            
             game = load_game(code)
             
             if not game:
                 return self._send_error("Game not found", 404)
             
-            player_id = body.get('player_id', '')
+            player_id = sanitize_player_id(body.get('player_id', ''))
+            if not player_id:
+                return self._send_error("Invalid player ID format", 400)
+            
             if game['host_id'] != player_id:
                 return self._send_error("Only the host can start", 403)
             if game['status'] != 'waiting':
@@ -745,13 +1270,19 @@ class handler(BaseHTTPRequestHandler):
 
         # POST /api/games/{code}/begin - Start the actual game after word selection
         if '/begin' in path:
-            code = path.split('/')[3].upper()
+            code = sanitize_game_code(path.split('/')[3])
+            if not code:
+                return self._send_error("Invalid game code format", 400)
+            
             game = load_game(code)
             
             if not game:
                 return self._send_error("Game not found", 404)
             
-            player_id = body.get('player_id', '')
+            player_id = sanitize_player_id(body.get('player_id', ''))
+            if not player_id:
+                return self._send_error("Invalid player ID format", 400)
+            
             if game['host_id'] != player_id:
                 return self._send_error("Only the host can begin", 403)
             if game['status'] != 'word_selection':
@@ -768,7 +1299,14 @@ class handler(BaseHTTPRequestHandler):
 
         # POST /api/games/{code}/guess
         if '/guess' in path:
-            code = path.split('/')[3].upper()
+            # Rate limit: 30 guesses/min per IP
+            if not check_rate_limit(get_ratelimit_guess(), client_ip):
+                return self._send_error("Too many guesses. Please wait.", 429)
+            
+            code = sanitize_game_code(path.split('/')[3])
+            if not code:
+                return self._send_error("Invalid game code format", 400)
+            
             game = load_game(code)
             
             if not game:
@@ -782,8 +1320,13 @@ class handler(BaseHTTPRequestHandler):
                 waiting_name = waiting_player['name'] if waiting_player else 'Someone'
                 return self._send_error(f"Waiting for {waiting_name} to change their word", 400)
             
-            player_id = body.get('player_id', '')
-            word = body.get('word', '').strip()
+            player_id = sanitize_player_id(body.get('player_id', ''))
+            if not player_id:
+                return self._send_error("Invalid player ID format", 400)
+            
+            word = sanitize_word(body.get('word', ''))
+            if not word:
+                return self._send_error("Invalid word. Use only letters (2-30 chars)", 400)
             
             player = None
             player_idx = -1
@@ -808,7 +1351,8 @@ class handler(BaseHTTPRequestHandler):
             try:
                 guess_embedding = get_embedding(word)
             except Exception as e:
-                return self._send_error(f"API error: {str(e)}", 503)
+                print(f"Embedding error for guess: {e}")  # Log server-side only
+                return self._send_error("Word processing service unavailable. Please try again.", 503)
             
             similarities = {}
             for p in game['players']:
@@ -867,7 +1411,10 @@ class handler(BaseHTTPRequestHandler):
 
         # POST /api/games/{code}/change-word
         if '/change-word' in path:
-            code = path.split('/')[3].upper()
+            code = sanitize_game_code(path.split('/')[3])
+            if not code:
+                return self._send_error("Invalid game code format", 400)
+            
             game = load_game(code)
             
             if not game:
@@ -875,8 +1422,13 @@ class handler(BaseHTTPRequestHandler):
             if game['status'] != 'playing':
                 return self._send_error("Game not in progress", 400)
             
-            player_id = body.get('player_id', '')
-            new_word = body.get('new_word', '').strip()
+            player_id = sanitize_player_id(body.get('player_id', ''))
+            if not player_id:
+                return self._send_error("Invalid player ID format", 400)
+            
+            new_word = sanitize_word(body.get('new_word', ''))
+            if not new_word:
+                return self._send_error("Invalid word. Use only letters (2-30 chars)", 400)
             
             player = None
             for p in game['players']:
@@ -888,6 +1440,10 @@ class handler(BaseHTTPRequestHandler):
                 return self._send_error("You are not in this game", 403)
             if not player.get('can_change_word', False):
                 return self._send_error("You don't have a word change", 400)
+            
+            # Validate the word is a real English word
+            if not is_valid_word(new_word):
+                return self._send_error("Please enter a valid English word", 400)
             
             # Check if word is in this player's word pool
             player_pool = player.get('word_pool', [])
@@ -904,7 +1460,8 @@ class handler(BaseHTTPRequestHandler):
             try:
                 embedding = get_embedding(new_word)
             except Exception as e:
-                return self._send_error(f"API error: {str(e)}", 503)
+                print(f"Embedding error for change-word: {e}")  # Log server-side only
+                return self._send_error("Word processing service unavailable. Please try again.", 503)
             
             player['secret_word'] = new_word.lower()
             player['secret_embedding'] = embedding
@@ -926,7 +1483,10 @@ class handler(BaseHTTPRequestHandler):
 
         # POST /api/games/{code}/skip-word-change - Skip changing word
         if '/skip-word-change' in path:
-            code = path.split('/')[3].upper()
+            code = sanitize_game_code(path.split('/')[3])
+            if not code:
+                return self._send_error("Invalid game code format", 400)
+            
             game = load_game(code)
             
             if not game:
@@ -934,7 +1494,9 @@ class handler(BaseHTTPRequestHandler):
             if game['status'] != 'playing':
                 return self._send_error("Game not in progress", 400)
             
-            player_id = body.get('player_id', '')
+            player_id = sanitize_player_id(body.get('player_id', ''))
+            if not player_id:
+                return self._send_error("Invalid player ID format", 400)
             
             player = None
             for p in game['players']:

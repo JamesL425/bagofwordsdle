@@ -1688,6 +1688,12 @@ header h1 {
     z-index: 100;
 }
 
+.login-box {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
 .login-box input {
     background: var(--bg-primary);
     border: 1px solid var(--border);
@@ -1695,7 +1701,7 @@ header h1 {
     font-family: 'Courier Prime', monospace;
     font-size: 0.85rem;
     padding: 0.5rem 1rem;
-    width: 200px;
+    width: 180px;
     transition: border-color var(--transition), box-shadow var(--transition);
 }
 
@@ -1707,6 +1713,33 @@ header h1 {
 
 .login-box input::placeholder {
     color: var(--text-muted);
+}
+
+.login-or {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.btn-google {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 0.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition);
+}
+
+.btn-google:hover {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.btn-google svg {
+    width: 18px;
+    height: 18px;
 }
 
 .logged-in-box {
@@ -1728,10 +1761,67 @@ header h1 {
     display: none;
 }
 
+.user-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid var(--accent-primary);
+}
+
+.user-avatar.hidden {
+    display: none;
+}
+
 .btn-tiny {
     padding: 0.2rem 0.5rem;
     font-size: 1rem;
     line-height: 1;
     border: none;
+}
+
+/* Footer */
+.site-footer {
+    margin-top: 3rem;
+    padding: 1.5rem 0;
+    border-top: 1px solid var(--border);
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.footer-text {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.footer-links {
+    display: flex;
+    gap: 1.5rem;
+}
+
+.footer-link {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: color var(--transition);
+}
+
+.footer-link:hover {
+    color: var(--accent-primary);
+}
+
+.support-link {
+    color: var(--accent-secondary);
+    font-weight: 700;
+}
+
+.support-link:hover {
+    color: var(--accent-primary);
+    text-shadow: 0 0 10px var(--accent-glow);
 }
 

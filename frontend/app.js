@@ -4,6 +4,20 @@
 
 const API_BASE = window.location.origin;
 
+// ============ SECURITY UTILITIES ============
+
+/**
+ * Escape HTML to prevent XSS attacks.
+ * @param {string} text - The text to escape
+ * @returns {string} - HTML-escaped text
+ */
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = String(text);
+    return div.innerHTML;
+}
+
 // Game state
 let gameState = {
     code: null,
@@ -15,13 +29,84 @@ let gameState = {
     wordPool: null,
     allThemeWords: null,
     myVote: null,
+    authToken: null,  // JWT token for authenticated users
+    authUser: null,   // Authenticated user data
 };
 
 // ============ LOGIN SYSTEM ============
+
 function initLogin() {
+    // Check for OAuth callback token in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const authToken = urlParams.get('auth_token');
+    const authError = urlParams.get('auth_error');
+    
+    if (authError) {
+        showError('Login failed: ' + authError);
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    if (authToken) {
+        // Store token and fetch user info
+        localStorage.setItem('embeddle_auth_token', authToken);
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        loadAuthenticatedUser(authToken);
+        return;
+    }
+    
+    // Check for existing auth token
+    const savedToken = localStorage.getItem('embeddle_auth_token');
+    if (savedToken) {
+        loadAuthenticatedUser(savedToken);
+        return;
+    }
+    
+    // Fall back to simple name-based login
     const savedName = localStorage.getItem('embeddle_name');
     if (savedName) {
         setLoggedIn(savedName);
+    }
+}
+
+async function loadAuthenticatedUser(token) {
+    try {
+        const response = await fetch(`${API_BASE}/api/auth/me`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+        
+        if (!response.ok) {
+            // Token invalid or expired
+            localStorage.removeItem('embeddle_auth_token');
+            return;
+        }
+        
+        const user = await response.json();
+        gameState.authToken = token;
+        gameState.authUser = user;
+        setLoggedInWithAuth(user);
+    } catch (error) {
+        console.error('Failed to load authenticated user:', error);
+        localStorage.removeItem('embeddle_auth_token');
+    }
+}
+
+function setLoggedInWithAuth(user) {
+    gameState.playerName = user.name;
+    gameState.authUser = user;
+    
+    document.getElementById('login-box').classList.add('hidden');
+    document.getElementById('logged-in-box').classList.remove('hidden');
+    document.getElementById('logged-in-name').textContent = user.name.toUpperCase();
+    
+    // Show avatar if available
+    const avatarEl = document.getElementById('user-avatar');
+    if (avatarEl && user.avatar) {
+        avatarEl.src = user.avatar;
+        avatarEl.classList.remove('hidden');
     }
 }
 
@@ -36,12 +121,27 @@ function setLoggedIn(name) {
 
 function logout() {
     gameState.playerName = null;
+    gameState.authToken = null;
+    gameState.authUser = null;
     localStorage.removeItem('embeddle_name');
+    localStorage.removeItem('embeddle_auth_token');
     
     document.getElementById('login-box').classList.remove('hidden');
     document.getElementById('logged-in-box').classList.add('hidden');
     document.getElementById('login-name').value = '';
+    
+    // Hide avatar
+    const avatarEl = document.getElementById('user-avatar');
+    if (avatarEl) {
+        avatarEl.classList.add('hidden');
+        avatarEl.src = '';
+    }
 }
+
+// Google login button
+document.getElementById('google-login-btn')?.addEventListener('click', () => {
+    window.location.href = `${API_BASE}/api/auth/google`;
+});
 
 document.getElementById('login-name').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
@@ -123,12 +223,12 @@ async function loadLobbies() {
             container.innerHTML = '<p class="no-lobbies">No open lobbies. Create one!</p>';
         } else {
             container.innerHTML = data.lobbies.map(lobby => `
-                <div class="lobby-item" data-code="${lobby.code}">
+                <div class="lobby-item" data-code="${escapeHtml(lobby.code)}">
                     <div class="lobby-info-row">
-                        <span class="lobby-code">${lobby.code}</span>
-                        <span class="lobby-players">${lobby.player_count}/${lobby.max_players} operatives</span>
+                        <span class="lobby-code">${escapeHtml(lobby.code)}</span>
+                        <span class="lobby-players">${escapeHtml(lobby.player_count)}/${escapeHtml(lobby.max_players)} operatives</span>
                     </div>
-                    <button class="btn btn-small btn-secondary join-lobby-btn" data-code="${lobby.code}">JOIN</button>
+                    <button class="btn btn-small btn-secondary join-lobby-btn" data-code="${escapeHtml(lobby.code)}">JOIN</button>
                 </div>
             `).join('');
             
@@ -223,7 +323,7 @@ async function updateLobby() {
         const playersList = document.getElementById('lobby-players');
         playersList.innerHTML = data.players.map(p => `
             <div class="lobby-player ${p.id === data.host_id ? 'host' : ''}">
-                <span class="player-name">${p.name}${p.id === gameState.playerId ? ' (you)' : ''}</span>
+                <span class="player-name">${escapeHtml(p.name)}${p.id === gameState.playerId ? ' (you)' : ''}</span>
                 ${p.id === data.host_id ? '<span class="host-badge">HOST</span>' : ''}
             </div>
         `).join('');
@@ -262,11 +362,11 @@ function updateThemeVoting(options, votes) {
         const voters = votes[theme] || [];
         const voteCount = voters.length;
         const isMyVote = voters.some(v => v.id === gameState.playerId);
-        const voterNames = voters.map(v => v.name).join(', ');
+        const voterNames = voters.map(v => escapeHtml(v.name)).join(', ');
         return `
-            <button class="btn theme-vote-btn ${isMyVote ? 'voted' : ''}" data-theme="${theme}">
-                <span class="theme-name">${theme}</span>
-                <span class="vote-count">${voteCount} vote${voteCount !== 1 ? 's' : ''}</span>
+            <button class="btn theme-vote-btn ${isMyVote ? 'voted' : ''}" data-theme="${escapeHtml(theme)}">
+                <span class="theme-name">${escapeHtml(theme)}</span>
+                <span class="vote-count">${escapeHtml(voteCount)} vote${voteCount !== 1 ? 's' : ''}</span>
                 ${voterNames ? `<span class="voter-names">${voterNames}</span>` : ''}
             </button>
         `;
@@ -303,7 +403,7 @@ function showWordSelectionScreen(data) {
     // Show word pool as clickable buttons
     const poolContainer = document.getElementById('word-select-pool');
     poolContainer.innerHTML = gameState.wordPool.map(word => `
-        <span class="word-option" data-word="${word}">${word}</span>
+        <span class="word-option" data-word="${escapeHtml(word)}">${escapeHtml(word)}</span>
     `).join('');
     
     // Add click handlers
@@ -347,7 +447,7 @@ async function updateWordSelectScreen() {
         const statusList = document.getElementById('player-status-list');
         statusList.innerHTML = data.players.map(p => `
             <div class="player-status-item ${p.has_word ? 'locked' : ''}">
-                <span>${p.name}${p.id === gameState.playerId ? ' (you)' : ''}</span>
+                <span>${escapeHtml(p.name)}${p.id === gameState.playerId ? ' (you)' : ''}</span>
                 <span>${p.has_word ? '✓ LOCKED' : '○ SELECTING'}</span>
             </div>
         `).join('');
@@ -565,11 +665,11 @@ function updateGame(game) {
         // Show waiting state
         const playersWithWords = game.players.filter(p => p.has_word).length;
         const totalPlayers = game.players.length;
-        const waitingFor = game.players.filter(p => !p.has_word).map(p => p.name);
+        const waitingFor = game.players.filter(p => !p.has_word).map(p => escapeHtml(p.name));
         
         document.getElementById('turn-indicator').innerHTML = `
             <span class="waiting-for-words">
-                WAITING FOR WORD SELECTION (${playersWithWords}/${totalPlayers})
+                WAITING FOR WORD SELECTION (${escapeHtml(playersWithWords)}/${escapeHtml(totalPlayers)})
                 <br><small>Waiting for: ${waitingFor.join(', ') || 'loading...'}</small>
             </span>
         `;
@@ -828,8 +928,8 @@ function updatePlayersGrid(game) {
                 const simClass = getSimilarityClass(guess.similarity);
                 topGuessesHtml += `
                     <div class="top-guess">
-                        <span class="guess-word">${guess.word}</span>
-                        <span class="guess-sim ${simClass}">${(guess.similarity * 100).toFixed(0)}%</span>
+                        <span class="guess-word">${escapeHtml(guess.word)}</span>
+                        <span class="guess-sim ${simClass}">${escapeHtml((guess.similarity * 100).toFixed(0))}%</span>
                     </div>
                 `;
             });
@@ -840,7 +940,7 @@ function updatePlayersGrid(game) {
         
         div.innerHTML = `
             ${dangerHtml}
-            <div class="name">${player.name}${isYou ? ' (you)' : ''}</div>
+            <div class="name">${escapeHtml(player.name)}${isYou ? ' (you)' : ''}</div>
             <div class="status ${player.is_alive ? 'alive' : 'eliminated'}">
                 ${player.is_alive ? 'Alive' : 'Eliminated'}
             </div>
@@ -893,7 +993,7 @@ function updateHistory(game) {
             div.innerHTML = `
                 <div class="word-change-notice">
                     <span class="change-icon">🔄</span>
-                    <span><strong>${entry.player_name}</strong> changed their secret word!</span>
+                    <span><strong>${escapeHtml(entry.player_name)}</strong> changed their secret word!</span>
                 </div>
             `;
             historyLog.appendChild(div);
@@ -907,8 +1007,8 @@ function updateHistory(game) {
                 const simClass = getSimilarityClass(sim);
                 simsHtml += `
                     <div class="sim-badge">
-                        <span>${player.name}</span>
-                        <span class="score ${simClass}">${(sim * 100).toFixed(0)}%</span>
+                        <span>${escapeHtml(player.name)}</span>
+                        <span class="score ${simClass}">${escapeHtml((sim * 100).toFixed(0))}%</span>
                     </div>
                 `;
             }
@@ -918,15 +1018,15 @@ function updateHistory(game) {
         if (entry.eliminations && entry.eliminations.length > 0) {
             const eliminatedNames = entry.eliminations.map(id => {
                 const p = game.players.find(pl => pl.id === id);
-                return p ? p.name : 'Unknown';
+                return p ? escapeHtml(p.name) : 'Unknown';
             });
             eliminationHtml = `<div class="elimination">Eliminated: ${eliminatedNames.join(', ')}</div>`;
         }
         
         div.innerHTML = `
             <div class="header">
-                <span class="guesser">${entry.guesser_name}</span>
-                <span class="word">"${entry.word}"</span>
+                <span class="guesser">${escapeHtml(entry.guesser_name)}</span>
+                <span class="word">"${escapeHtml(entry.word)}"</span>
             </div>
             <div class="similarities">${simsHtml}</div>
             ${eliminationHtml}
@@ -1036,8 +1136,8 @@ function showGameOver(game) {
         const div = document.createElement('div');
         div.className = `revealed-word-item${isWinnerPlayer ? ' winner' : ''}${!player.is_alive ? ' eliminated' : ''}`;
         div.innerHTML = `
-            <span class="player-name">${player.name}${isWinnerPlayer ? ' 👑' : ''}</span>
-            <span class="player-word">${player.secret_word || '???'}</span>
+            <span class="player-name">${escapeHtml(player.name)}${isWinnerPlayer ? ' 👑' : ''}</span>
+            <span class="player-word">${escapeHtml(player.secret_word) || '???'}</span>
         `;
         revealedWords.appendChild(div);
     });
