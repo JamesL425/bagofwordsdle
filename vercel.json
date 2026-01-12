@@ -10,11 +10,11 @@
       "use": "@vercel/static"
     }
   ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/index.py" },
-    { "src": "/(.*\\.(js|css|ico|png|jpg|svg|json|webp))", "dest": "/frontend/$1" },
-    { "src": "/", "dest": "/frontend/index.html" },
-    { "src": "/(.*)", "dest": "/frontend/$1" }
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index.py" },
+    { "source": "/", "destination": "/frontend/index.html" },
+    { "source": "/:path(.*\\.(js|css|ico|png|jpg|svg|json|webp))", "destination": "/frontend/:path" },
+    { "source": "/:path*", "destination": "/frontend/:path*" }
   ],
   "headers": [
     {
