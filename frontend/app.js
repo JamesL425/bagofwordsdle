@@ -1147,8 +1147,24 @@ function updateGame(game) {
                 .filter(e => e.word)
                 .map(e => e.word.toLowerCase()));
             
-            const availableWords = (myPlayer.word_pool || gameState.wordPool || [])
-                .filter(w => !guessedWords.has(w.toLowerCase()));
+            const offeredSample = Array.isArray(myPlayer.word_change_options) && myPlayer.word_change_options.length > 0
+                ? myPlayer.word_change_options
+                : null;
+
+            const sourceWords = offeredSample || (myPlayer.word_pool || gameState.wordPool || []);
+            const availableWords = sourceWords.filter(w => !guessedWords.has(w.toLowerCase()));
+
+            // Only allow keeping your current word if it's in the offered sample
+            const keepBtn = document.getElementById('skip-word-change-btn');
+            if (keepBtn) {
+                if (offeredSample) {
+                    const current = (myPlayer.secret_word || '').toLowerCase();
+                    const canKeep = offeredSample.some(w => String(w).toLowerCase() === current);
+                    keepBtn.classList.toggle('hidden', !canKeep);
+                } else {
+                    keepBtn.classList.remove('hidden');
+                }
+            }
             
             if (wordPoolOptions) {
                 wordPoolOptions.innerHTML = '';

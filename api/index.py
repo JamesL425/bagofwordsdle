@@ -101,6 +101,7 @@ MIN_PLAYERS = CONFIG.get("game", {}).get("min_players", 3)
 MAX_PLAYERS = CONFIG.get("game", {}).get("max_players", 4)
 GAME_EXPIRY_SECONDS = CONFIG.get("game", {}).get("game_expiry_seconds", 7200)
 LOBBY_EXPIRY_SECONDS = CONFIG.get("game", {}).get("lobby_expiry_seconds", 600)
+WORD_CHANGE_SAMPLE_SIZE = CONFIG.get("game", {}).get("word_change_sample_size", 6)
 
 # Embedding settings
 EMBEDDING_MODEL = CONFIG.get("embedding", {}).get("model", "text-embedding-3-small")
@@ -857,6 +858,34 @@ def is_word_in_theme(word: str, theme_words: list) -> bool:
     # Normalize theme words for comparison
     normalized_theme = [w.lower().strip() for w in theme_words]
     return word_lower in normalized_theme
+
+
+def build_word_change_options(player: dict, game: dict) -> list:
+    """
+    Build a random sample of words offered when a player earns a word change.
+    The sample is stored in game state so it remains stable across refresh/polling.
+    """
+    import random
+
+    pool = player.get('word_pool', []) or (game.get('theme', {}) or {}).get('words', [])
+
+    guessed_words = set()
+    for entry in game.get('history', []):
+        w = entry.get('word')
+        if w:
+            guessed_words.add(str(w).lower())
+
+    available = [w for w in pool if str(w).lower() not in guessed_words]
+
+    if not available:
+        # Fallback: allow keeping current word if nothing else is available
+        current = player.get('secret_word')
+        return [current] if current else []
+
+    if len(available) <= WORD_CHANGE_SAMPLE_SIZE:
+        return sorted(available)
+
+    return sorted(random.sample(available, WORD_CHANGE_SAMPLE_SIZE))
 
 
 def get_embedding(word: str) -> list:
@@ -1638,6 +1667,8 @@ class handler(BaseHTTPRequestHandler):
                     # Include this player's word pool if it's them
                     if p['id'] == player_id:
                         player_data['word_pool'] = p.get('word_pool', [])
+                        if p.get('word_change_options') is not None:
+                            player_data['word_change_options'] = p.get('word_change_options', [])
                     response['players'].append(player_data)
                 
                 return self._send_json(response)
@@ -2464,6 +2495,14 @@ class handler(BaseHTTPRequestHandler):
                 "eliminations": eliminations,
             }
             game['history'].append(history_entry)
+
+            # If the player earned a word change, offer a random sample of allowed words (including their current
+            # word only if it happens to be in the sample). Store on the player so it persists across refresh.
+            if eliminations:
+                try:
+                    player['word_change_options'] = build_word_change_options(player, game)
+                except Exception as e:
+                    print(f"Error building word change options: {e}")
             
             # Update AI memories with this guess (for singleplayer games)
             if game.get('is_singleplayer'):
@@ -2542,6 +2581,13 @@ class handler(BaseHTTPRequestHandler):
             player_pool = player.get('word_pool', [])
             if player_pool and new_word.lower() not in [w.lower() for w in player_pool]:
                 return self._send_error("Please choose a word from your word pool", 400)
+
+            # If we offered a random sample for this word change, enforce it.
+            offered = player.get('word_change_options')
+            if offered:
+                offered_lower = [str(w).lower() for w in offered]
+                if new_word.lower() not in offered_lower:
+                    return self._send_error("Please choose a word from the offered sample", 400)
             
             # Check if word has been guessed before
             guessed_words = set()
@@ -2559,6 +2605,7 @@ class handler(BaseHTTPRequestHandler):
             player['secret_word'] = new_word.lower()
             player['secret_embedding'] = embedding
             player['can_change_word'] = False
+            player.pop('word_change_options', None)
             
             # Clear the waiting state - game can continue
             game['waiting_for_word_change'] = None
@@ -2601,10 +2648,26 @@ class handler(BaseHTTPRequestHandler):
                 return self._send_error("You are not in this game", 403)
             if not player.get('can_change_word', False):
                 return self._send_error("You don't have a word change to skip", 400)
+
+            # If we offered a random sample, allow keeping the current word only if it's in the sample.
+            offered = player.get('word_change_options')
+            if offered:
+                current_word = (player.get('secret_word') or '').lower()
+                offered_lower = [str(w).lower() for w in offered]
+                if current_word not in offered_lower:
+                    return self._send_error("You must pick a new word from the offered sample", 400)
             
             # Clear the ability and waiting state
             player['can_change_word'] = False
             game['waiting_for_word_change'] = None
+            player.pop('word_change_options', None)
+
+            # Record a word-change event even if the player keeps the same word, so it behaves like a re-encryption
+            game['history'].append({
+                "type": "word_change",
+                "player_id": player['id'],
+                "player_name": player['name'],
+            })
             
             save_game(code, game)
             return self._send_json({"status": "skipped"})
