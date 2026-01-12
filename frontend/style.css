@@ -1580,9 +1580,10 @@ header h1 {
     display: flex;
     gap: 1rem;
     margin-bottom: 1rem;
+    align-items: center;
 }
 
-.word-select-controls input {
+.selected-word-display {
     flex: 1;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
@@ -1590,6 +1591,7 @@ header h1 {
     padding: 0.75rem 1rem;
     font-family: 'Courier Prime', monospace;
     font-size: 1rem;
+    border-radius: var(--radius-sm);
 }
 
 .word-locked-notice {

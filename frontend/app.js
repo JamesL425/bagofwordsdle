@@ -312,12 +312,14 @@ function showWordSelectionScreen(data) {
             // Deselect others
             poolContainer.querySelectorAll('.word-option').forEach(w => w.classList.remove('selected'));
             el.classList.add('selected');
-            document.getElementById('selected-word-input').value = el.dataset.word;
+            document.getElementById('selected-word-display').textContent = el.dataset.word.toUpperCase();
+            document.getElementById('selected-word-display').dataset.word = el.dataset.word;
         });
     });
     
     // Reset state
-    document.getElementById('selected-word-input').value = '';
+    document.getElementById('selected-word-display').textContent = 'Click a word above';
+    document.getElementById('selected-word-display').dataset.word = '';
     document.getElementById('word-select-controls').classList.remove('hidden');
     document.getElementById('word-locked-notice').classList.add('hidden');
     
@@ -370,7 +372,8 @@ async function updateWordSelectScreen() {
 
 // Lock in word button
 document.getElementById('lock-word-btn')?.addEventListener('click', async () => {
-    const word = document.getElementById('selected-word-input').value.trim();
+    const wordDisplay = document.getElementById('selected-word-display');
+    const word = wordDisplay.dataset.word;
     if (!word) {
         showError('Please select a word');
         return;
