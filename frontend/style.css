@@ -522,6 +522,34 @@ header h1 {
     padding: 1rem;
 }
 
+.history-entry.word-change-entry {
+    background: var(--bg-secondary);
+    border-color: var(--accent-primary);
+    border-style: dashed;
+}
+
+.word-change-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+}
+
+.word-change-notice .change-icon {
+    font-size: 1.2rem;
+}
+
+.word-changed-note {
+    margin-top: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    background: var(--bg-secondary);
+    border: 1px dashed var(--accent-primary);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    color: var(--accent-primary);
+    text-align: center;
+}
+
 .history-entry .header {
     display: flex;
     justify-content: space-between;

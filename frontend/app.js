@@ -377,7 +377,25 @@ function updatePlayersGrid(game) {
     
     // Collect all guesses with their similarity to each player
     game.history.forEach(entry => {
+    // Track word changes to reset top guesses
+    const wordChangeAfterIndex = {};  // playerId -> index after which they changed word
+    game.history.forEach((entry, index) => {
+        if (entry.type === 'word_change') {
+            wordChangeAfterIndex[entry.player_id] = index;
+        }
+    });
+    
+    // Calculate top 3 guesses for each player (only after their last word change)
+    game.history.forEach((entry, index) => {
+        if (entry.type === 'word_change') return;  // Skip word change entries
+        
         game.players.forEach(player => {
+            // Skip if this guess was before the player's word change
+            const changeIndex = wordChangeAfterIndex[player.id];
+            if (changeIndex !== undefined && index < changeIndex) {
+                return;  // This guess was before their word change, ignore it
+            }
+            
             const sim = entry.similarities[player.id];
             if (sim !== undefined) {
                 topGuessesPerPlayer[player.id].push({
@@ -401,6 +419,9 @@ function updatePlayersGrid(game) {
         const div = document.createElement('div');
         div.className = `player-card${isCurrentTurn ? ' current-turn' : ''}${!player.is_alive ? ' eliminated' : ''}${isYou ? ' is-you' : ''}`;
         
+        // Check if this player recently changed their word
+        const hasChangedWord = wordChangeAfterIndex[player.id] !== undefined;
+        
         // Build top guesses HTML
         let topGuessesHtml = '';
         const topGuesses = topGuessesPerPlayer[player.id];
@@ -416,6 +437,8 @@ function updatePlayersGrid(game) {
                 `;
             });
             topGuessesHtml += '</div>';
+        } else if (hasChangedWord && player.is_alive) {
+            topGuessesHtml = '<div class="word-changed-note">Word changed!</div>';
         }
         
         div.innerHTML = `
@@ -466,6 +489,19 @@ function updateHistory(game) {
         const div = document.createElement('div');
         div.className = 'history-entry';
         
+        // Handle word change entries
+        if (entry.type === 'word_change') {
+            div.className = 'history-entry word-change-entry';
+            div.innerHTML = `
+                <div class="word-change-notice">
+                    <span class="change-icon">🔄</span>
+                    <span><strong>${entry.player_name}</strong> changed their secret word!</span>
+                </div>
+            `;
+            historyLog.appendChild(div);
+            return;
+        }
+        
         let simsHtml = '';
         game.players.forEach(player => {
             const sim = entry.similarities[player.id];
@@ -481,7 +517,7 @@ function updateHistory(game) {
         });
         
         let eliminationHtml = '';
-        if (entry.eliminations.length > 0) {
+        if (entry.eliminations && entry.eliminations.length > 0) {
             const eliminatedNames = entry.eliminations.map(id => {
                 const p = game.players.find(pl => pl.id === id);
                 return p ? p.name : 'Unknown';

@@ -657,6 +657,13 @@ class handler(BaseHTTPRequestHandler):
             if player_pool and new_word.lower() not in [w.lower() for w in player_pool]:
                 return self._send_error("Please choose a word from your word pool", 400)
             
+            # Check if word has been guessed before
+            guessed_words = set()
+            for entry in game.get('history', []):
+                guessed_words.add(entry.get('word', '').lower())
+            if new_word.lower() in guessed_words:
+                return self._send_error("That word has already been guessed! Pick a different one.", 400)
+            
             try:
                 embedding = get_embedding(new_word)
             except Exception as e:
@@ -665,6 +672,14 @@ class handler(BaseHTTPRequestHandler):
             player['secret_word'] = new_word.lower()
             player['secret_embedding'] = embedding
             player['can_change_word'] = False
+            
+            # Add a history entry noting the word change
+            history_entry = {
+                "type": "word_change",
+                "player_id": player['id'],
+                "player_name": player['name'],
+            }
+            game['history'].append(history_entry)
             
             save_game(code, game)
             return self._send_json({"status": "word_changed"})
