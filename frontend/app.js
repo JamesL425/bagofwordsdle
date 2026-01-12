@@ -11,6 +11,7 @@ let gameState = {
     playerName: null,
     isHost: false,
     pollingInterval: null,
+    theme: null,
 };
 
 // DOM Elements
@@ -20,6 +21,7 @@ const screens = {
     lobby: document.getElementById('lobby-screen'),
     game: document.getElementById('game-screen'),
     gameover: document.getElementById('gameover-screen'),
+    leaderboard: document.getElementById('leaderboard-screen'),
 };
 
 // Utility functions
@@ -29,7 +31,7 @@ function showScreen(screenName) {
 }
 
 function showError(message) {
-    alert(message); // Simple for now, could be a toast
+    alert(message);
 }
 
 async function apiCall(endpoint, method = 'GET', body = null) {
@@ -57,10 +59,18 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
     try {
         const data = await apiCall('/api/games', 'POST');
         gameState.code = data.code;
+        gameState.theme = data.theme;
         
-        // Pre-fill game code and show join screen
+        // Update UI for create mode
+        document.getElementById('join-screen-title').textContent = 'Create Game';
+        document.getElementById('join-submit-btn').textContent = 'Create & Join';
         document.getElementById('game-code').value = data.code;
         document.getElementById('game-code').readOnly = true;
+        document.getElementById('game-code-group').style.display = 'none';
+        
+        // Show theme
+        displayTheme(data.theme);
+        
         showScreen('join');
     } catch (error) {
         showError(error.message);
@@ -68,10 +78,114 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
 });
 
 document.getElementById('join-game-btn').addEventListener('click', () => {
+    // Update UI for join mode
+    document.getElementById('join-screen-title').textContent = 'Join Game';
+    document.getElementById('join-submit-btn').textContent = 'Join';
     document.getElementById('game-code').value = '';
     document.getElementById('game-code').readOnly = false;
+    document.getElementById('game-code-group').style.display = 'block';
+    
+    // Hide theme until code is entered
+    document.getElementById('theme-display').classList.add('hidden');
+    gameState.theme = null;
+    
     showScreen('join');
 });
+
+// Fetch theme when game code is entered
+document.getElementById('game-code').addEventListener('blur', async () => {
+    const code = document.getElementById('game-code').value.trim().toUpperCase();
+    if (code.length === 6 && !document.getElementById('game-code').readOnly) {
+        try {
+            const data = await apiCall(`/api/games/${code}/theme`);
+            gameState.theme = data.theme;
+            gameState.code = code;
+            displayTheme(data.theme);
+        } catch (error) {
+            document.getElementById('theme-display').classList.add('hidden');
+        }
+    }
+});
+
+function displayTheme(theme) {
+    if (!theme || !theme.words || theme.words.length === 0) {
+        document.getElementById('theme-display').classList.add('hidden');
+        return;
+    }
+    
+    document.getElementById('theme-name').textContent = theme.name;
+    
+    const wordsContainer = document.getElementById('theme-words');
+    wordsContainer.innerHTML = '';
+    
+    // Sort words alphabetically
+    const sortedWords = [...theme.words].sort();
+    
+    sortedWords.forEach(word => {
+        const wordEl = document.createElement('span');
+        wordEl.className = 'theme-word';
+        wordEl.textContent = word;
+        wordEl.addEventListener('click', () => {
+            document.getElementById('secret-word').value = word;
+        });
+        wordsContainer.appendChild(wordEl);
+    });
+    
+    document.getElementById('theme-display').classList.remove('hidden');
+}
+
+// Leaderboard
+document.getElementById('show-leaderboard-btn').addEventListener('click', async () => {
+    await loadLeaderboard();
+    showScreen('leaderboard');
+});
+
+document.getElementById('back-from-leaderboard-btn').addEventListener('click', () => {
+    showScreen('home');
+});
+
+async function loadLeaderboard() {
+    try {
+        const data = await apiCall('/api/leaderboard');
+        const tbody = document.getElementById('leaderboard-body');
+        const emptyMsg = document.getElementById('leaderboard-empty');
+        
+        tbody.innerHTML = '';
+        
+        if (!data.players || data.players.length === 0) {
+            emptyMsg.classList.remove('hidden');
+            return;
+        }
+        
+        emptyMsg.classList.add('hidden');
+        
+        data.players.forEach((player, index) => {
+            const rank = index + 1;
+            const rankClass = rank <= 3 ? `rank-${rank}` : '';
+            const winRate = player.games_played > 0 
+                ? ((player.wins / player.games_played) * 100).toFixed(0) 
+                : '0';
+            const avgCloseness = player.avg_closeness 
+                ? (player.avg_closeness * 100).toFixed(1) 
+                : '0.0';
+            
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="rank ${rankClass}">#${rank}</td>
+                <td class="player-name">${player.name}</td>
+                <td class="stat">${player.wins}</td>
+                <td class="stat">${player.games_played}</td>
+                <td class="stat win-rate">${winRate}%</td>
+                <td class="stat closeness">${avgCloseness}%</td>
+            `;
+            tbody.appendChild(row);
+        });
+    } catch (error) {
+        console.error('Failed to load leaderboard:', error);
+        document.getElementById('leaderboard-empty').classList.remove('hidden');
+        document.getElementById('leaderboard-empty').textContent = 'Failed to load leaderboard.';
+    }
+}
 
 // Screen: Join
 document.getElementById('back-home-btn').addEventListener('click', () => {
@@ -101,11 +215,9 @@ document.getElementById('join-form').addEventListener('submit', async (e) => {
         gameState.playerId = data.player_id;
         gameState.playerName = name;
         
-        // Clear form
         document.getElementById('player-name').value = '';
         document.getElementById('secret-word').value = '';
         
-        // Show lobby and start polling
         showLobby();
     } catch (error) {
         showError(error.message);
@@ -154,7 +266,11 @@ function updateLobby(game) {
     
     document.getElementById('player-count').textContent = game.players.length;
     
-    // Update host status and start button
+    // Update theme display in lobby
+    if (game.theme && game.theme.name) {
+        document.getElementById('lobby-theme-name').textContent = game.theme.name;
+    }
+    
     gameState.isHost = game.host_id === gameState.playerId;
     const startBtn = document.getElementById('start-game-btn');
     startBtn.disabled = !gameState.isHost || game.players.length < 3;
@@ -168,12 +284,10 @@ function showGame(game) {
 }
 
 function updateGame(game) {
-    // Update your secret word
     const myPlayer = game.players.find(p => p.id === gameState.playerId);
     if (myPlayer) {
         document.getElementById('your-secret-word').textContent = myPlayer.secret_word || '???';
         
-        // Show/hide change word option
         const changeWordContainer = document.getElementById('change-word-container');
         if (myPlayer.can_change_word) {
             changeWordContainer.classList.remove('hidden');
@@ -182,20 +296,19 @@ function updateGame(game) {
         }
     }
     
-    // Update players grid
     updatePlayersGrid(game);
-    
-    // Update turn indicator
     updateTurnIndicator(game);
     
-    // Update guess form
     const isMyTurn = game.current_player_id === gameState.playerId && myPlayer?.is_alive;
     const guessInput = document.getElementById('guess-input');
     const guessForm = document.getElementById('guess-form');
     guessInput.disabled = !isMyTurn;
     guessForm.querySelector('button').disabled = !isMyTurn;
     
-    // Update history
+    if (isMyTurn) {
+        guessInput.focus();
+    }
+    
     updateHistory(game);
 }
 
@@ -203,12 +316,30 @@ function updatePlayersGrid(game) {
     const grid = document.getElementById('players-grid');
     grid.innerHTML = '';
     
-    // Get latest similarities from history
-    const latestSimilarities = {};
-    if (game.history.length > 0) {
-        const latest = game.history[game.history.length - 1];
-        Object.assign(latestSimilarities, latest.similarities);
-    }
+    // Build top 3 closest guesses for each player from history
+    const topGuessesPerPlayer = {};
+    game.players.forEach(p => {
+        topGuessesPerPlayer[p.id] = [];
+    });
+    
+    // Collect all guesses with their similarity to each player
+    game.history.forEach(entry => {
+        game.players.forEach(player => {
+            const sim = entry.similarities[player.id];
+            if (sim !== undefined) {
+                topGuessesPerPlayer[player.id].push({
+                    word: entry.word,
+                    similarity: sim
+                });
+            }
+        });
+    });
+    
+    // Sort and keep top 3 for each player
+    Object.keys(topGuessesPerPlayer).forEach(playerId => {
+        topGuessesPerPlayer[playerId].sort((a, b) => b.similarity - a.similarity);
+        topGuessesPerPlayer[playerId] = topGuessesPerPlayer[playerId].slice(0, 3);
+    });
     
     game.players.forEach(player => {
         const isCurrentTurn = player.id === game.current_player_id;
@@ -217,11 +348,21 @@ function updatePlayersGrid(game) {
         const div = document.createElement('div');
         div.className = `player-card${isCurrentTurn ? ' current-turn' : ''}${!player.is_alive ? ' eliminated' : ''}${isYou ? ' is-you' : ''}`;
         
-        let similarityHtml = '';
-        if (latestSimilarities[player.id] !== undefined) {
-            const sim = latestSimilarities[player.id];
-            const simClass = getSimilarityClass(sim);
-            similarityHtml = `<div class="similarity ${simClass}">${(sim * 100).toFixed(0)}%</div>`;
+        // Build top guesses HTML
+        let topGuessesHtml = '';
+        const topGuesses = topGuessesPerPlayer[player.id];
+        if (topGuesses && topGuesses.length > 0) {
+            topGuessesHtml = '<div class="top-guesses">';
+            topGuesses.forEach(guess => {
+                const simClass = getSimilarityClass(guess.similarity);
+                topGuessesHtml += `
+                    <div class="top-guess">
+                        <span class="guess-word">${guess.word}</span>
+                        <span class="guess-sim ${simClass}">${(guess.similarity * 100).toFixed(0)}%</span>
+                    </div>
+                `;
+            });
+            topGuessesHtml += '</div>';
         }
         
         div.innerHTML = `
@@ -229,7 +370,7 @@ function updatePlayersGrid(game) {
             <div class="status ${player.is_alive ? 'alive' : 'eliminated'}">
                 ${player.is_alive ? 'Alive' : 'Eliminated'}
             </div>
-            ${similarityHtml}
+            ${topGuessesHtml}
         `;
         grid.appendChild(div);
     });
@@ -268,7 +409,6 @@ function updateHistory(game) {
     const historyLog = document.getElementById('history-log');
     historyLog.innerHTML = '';
     
-    // Show history in reverse order (newest first)
     [...game.history].reverse().forEach(entry => {
         const div = document.createElement('div');
         div.className = 'history-entry';
@@ -308,14 +448,26 @@ function updateHistory(game) {
     });
 }
 
-// Guess form
+// Guess form - handles both button click and Enter key
 document.getElementById('guess-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    
+    await submitGuess();
+});
+
+// Also handle Enter key explicitly on the input
+document.getElementById('guess-input').addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        await submitGuess();
+    }
+});
+
+async function submitGuess() {
     const guessInput = document.getElementById('guess-input');
     const word = guessInput.value.trim();
     
     if (!word) return;
+    if (guessInput.disabled) return;
     
     try {
         await apiCall(`/api/games/${gameState.code}/guess`, 'POST', {
@@ -326,10 +478,21 @@ document.getElementById('guess-form').addEventListener('submit', async (e) => {
     } catch (error) {
         showError(error.message);
     }
+}
+
+// Change word - also handle Enter key
+document.getElementById('change-word-btn').addEventListener('click', async () => {
+    await submitWordChange();
 });
 
-// Change word
-document.getElementById('change-word-btn').addEventListener('click', async () => {
+document.getElementById('new-word-input').addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        await submitWordChange();
+    }
+});
+
+async function submitWordChange() {
     const newWord = document.getElementById('new-word-input').value.trim();
     
     if (!newWord) {
@@ -346,7 +509,7 @@ document.getElementById('change-word-btn').addEventListener('click', async () =>
     } catch (error) {
         showError(error.message);
     }
-});
+}
 
 // Screen: Game Over
 function showGameOver(game) {
@@ -360,8 +523,6 @@ function showGameOver(game) {
         ? `${winner.name} is the last one standing!`
         : 'The game has ended.';
     
-    // Note: We can't show all secret words since the API hides them
-    // This would require a special endpoint or storing them client-side
     const revealedWords = document.getElementById('revealed-words');
     revealedWords.innerHTML = '<p style="color: var(--text-muted);">Secret words are hidden for privacy.</p>';
 }
@@ -374,6 +535,7 @@ document.getElementById('play-again-btn').addEventListener('click', () => {
         playerName: null,
         isHost: false,
         pollingInterval: null,
+        theme: null,
     };
     showScreen('home');
 });
@@ -415,10 +577,8 @@ async function pollGameState() {
         }
     } catch (error) {
         console.error('Polling error:', error);
-        // Don't show error for polling failures
     }
 }
 
 // Initialize
 showScreen('home');
-

@@ -409,10 +409,41 @@ header h1 {
     font-weight: 700;
 }
 
-.similarity.low { color: var(--info); }
-.similarity.medium { color: var(--warning); }
-.similarity.high { color: var(--accent-primary); }
-.similarity.danger { color: var(--danger); }
+.player-card .top-guesses {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.player-card .top-guess {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.375rem 0.5rem;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+.player-card .guess-word {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 70%;
+}
+
+.player-card .guess-sim {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+}
+
+.similarity.low, .guess-sim.low { color: var(--info); }
+.similarity.medium, .guess-sim.medium { color: var(--warning); }
+.similarity.high, .guess-sim.high { color: var(--accent-primary); }
+.similarity.danger, .guess-sim.danger { color: var(--danger); }
 
 /* Turn Indicator */
 .turn-indicator {
@@ -584,6 +615,139 @@ header h1 {
 /* Utilities */
 .hidden {
     display: none !important;
+}
+
+/* Leaderboard */
+.leaderboard-link {
+    margin-top: 1rem;
+    text-align: center;
+}
+
+.leaderboard-table-container {
+    overflow-x: auto;
+    margin-bottom: 1.5rem;
+}
+
+.leaderboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+.leaderboard-table th,
+.leaderboard-table td {
+    padding: 0.875rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.leaderboard-table th {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.leaderboard-table tbody tr:hover {
+    background: var(--bg-hover);
+}
+
+.leaderboard-table .rank {
+    font-weight: 700;
+    color: var(--accent-primary);
+}
+
+.leaderboard-table .rank-1 { color: #ffd700; }
+.leaderboard-table .rank-2 { color: #c0c0c0; }
+.leaderboard-table .rank-3 { color: #cd7f32; }
+
+.leaderboard-table .player-name {
+    font-weight: 600;
+}
+
+.leaderboard-table .stat {
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.leaderboard-table .win-rate {
+    color: var(--success);
+}
+
+.leaderboard-table .closeness {
+    color: var(--info);
+}
+
+.leaderboard-empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 2rem;
+}
+
+/* Theme Display */
+.theme-display {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+}
+
+.theme-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.theme-name {
+    font-weight: 700;
+    color: var(--accent-primary);
+    font-size: 1.1rem;
+}
+
+.theme-words-label {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.theme-words {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.theme-word {
+    padding: 0.25rem 0.5rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.theme-word:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
+}
+
+.lobby-theme {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
 }
 
 /* Scrollbar */

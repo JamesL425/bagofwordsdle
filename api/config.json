@@ -1,13 +1,54 @@
 {
   "game": {
     "min_players": 3,
-    "max_players": 4,
+    "max_players": 6,
     "elimination_threshold": 0.95,
     "game_expiry_seconds": 7200
   },
   "embedding": {
-    "model": "text-embedding-3-small",
+    "model": "text-embedding-3-large",
     "cache_expiry_seconds": 86400
-  }
+  },
+  "theme_categories": [
+    "Animals",
+    "Food & Cooking",
+    "Sports & Games",
+    "Music & Instruments",
+    "Nature & Weather",
+    "Technology & Gadgets",
+    "Jobs & Professions",
+    "Clothing & Fashion",
+    "Home & Furniture",
+    "Travel & Transport",
+    "Movies & TV Shows",
+    "Books & Literature",
+    "Science & Space",
+    "History & Ancient Civilizations",
+    "Art & Painting",
+    "Ocean & Marine Life",
+    "Birds",
+    "Insects & Bugs",
+    "Trees & Plants",
+    "Fruits & Vegetables",
+    "Desserts & Sweets",
+    "Drinks & Beverages",
+    "Countries & Cities",
+    "Mountains & Landscapes",
+    "Tools & Hardware",
+    "Toys & Games",
+    "School & Education",
+    "Medical & Health",
+    "Crime & Mystery",
+    "Fantasy & Magic",
+    "Superheroes",
+    "Dinosaurs & Prehistoric",
+    "Camping & Outdoors",
+    "Beach & Summer",
+    "Winter & Snow",
+    "Halloween & Spooky",
+    "Circus & Carnival",
+    "Farm & Agriculture",
+    "Construction & Building",
+    "Emotions & Feelings"
+  ]
 }
-

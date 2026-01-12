@@ -24,6 +24,9 @@
                     <button id="create-game-btn" class="btn btn-primary">Create Game</button>
                     <button id="join-game-btn" class="btn btn-secondary">Join Game</button>
                 </div>
+                <div class="leaderboard-link">
+                    <button id="show-leaderboard-btn" class="btn btn-ghost">View Leaderboard</button>
+                </div>
             </div>
 
             <div class="card rules">
@@ -38,12 +41,50 @@
             </div>
         </div>
 
+        <!-- Leaderboard Screen -->
+        <div id="leaderboard-screen" class="screen">
+            <div class="card">
+                <h2>Leaderboard</h2>
+                <div class="leaderboard-table-container">
+                    <table class="leaderboard-table">
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Player</th>
+                                <th>Wins</th>
+                                <th>Games</th>
+                                <th>Win Rate</th>
+                                <th>Avg Closeness</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-body">
+                            <!-- Leaderboard rows will be added here -->
+                        </tbody>
+                    </table>
+                </div>
+                <p id="leaderboard-empty" class="leaderboard-empty hidden">No stats yet. Play some games!</p>
+                <button id="back-from-leaderboard-btn" class="btn btn-ghost">Back</button>
+            </div>
+        </div>
+
         <!-- Join Screen -->
         <div id="join-screen" class="screen">
             <div class="card">
-                <h2>Join Game</h2>
+                <h2 id="join-screen-title">Join Game</h2>
+                <div id="theme-display" class="theme-display hidden">
+                    <div class="theme-header">
+                        <span>Theme:</span>
+                        <span id="theme-name" class="theme-name">Loading...</span>
+                    </div>
+                    <div class="theme-words-container">
+                        <p class="theme-words-label">Pick your secret word from:</p>
+                        <div id="theme-words" class="theme-words">
+                            <!-- Words will be added here -->
+                        </div>
+                    </div>
+                </div>
                 <form id="join-form">
-                    <div class="form-group">
+                    <div class="form-group" id="game-code-group">
                         <label for="game-code">Game Code</label>
                         <input type="text" id="game-code" maxlength="6" placeholder="ABC123" required>
                     </div>
@@ -53,11 +94,11 @@
                     </div>
                     <div class="form-group">
                         <label for="secret-word">Your Secret Word</label>
-                        <input type="text" id="secret-word" maxlength="30" placeholder="Choose wisely..." required>
-                        <small>Pick a word others will try to guess!</small>
+                        <input type="text" id="secret-word" maxlength="30" placeholder="Choose from the theme..." required>
+                        <small>Pick a word from the theme above!</small>
                     </div>
                     <div class="button-group">
-                        <button type="submit" class="btn btn-primary">Join</button>
+                        <button type="submit" id="join-submit-btn" class="btn btn-primary">Join</button>
                         <button type="button" id="back-home-btn" class="btn btn-ghost">Back</button>
                     </div>
                 </form>
@@ -73,11 +114,15 @@
                     <span id="lobby-code" class="code">------</span>
                     <button id="copy-code-btn" class="btn btn-small">Copy</button>
                 </div>
+                <div class="lobby-theme">
+                    <span>Theme:</span>
+                    <span id="lobby-theme-name" class="theme-name">Loading...</span>
+                </div>
                 <div class="players-list" id="lobby-players">
                     <!-- Players will be added here -->
                 </div>
                 <div class="lobby-info">
-                    <p>Waiting for players... <span id="player-count">0</span>/4</p>
+                    <p>Waiting for players... <span id="player-count">0</span>/6</p>
                     <p class="min-players">Need at least 3 players to start</p>
                 </div>
                 <button id="start-game-btn" class="btn btn-primary" disabled>Start Game</button>
