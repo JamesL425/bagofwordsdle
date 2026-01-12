@@ -12,8 +12,9 @@ let gameState = {
     isHost: false,
     pollingInterval: null,
     theme: null,
-    wordPool: null,  // This player's assigned words
-    allThemeWords: null,  // Full theme word list
+    wordPool: null,
+    allThemeWords: null,
+    myVote: null,
 };
 
 // DOM Elements
@@ -24,13 +25,14 @@ const screens = {
     game: document.getElementById('game-screen'),
     gameover: document.getElementById('gameover-screen'),
     leaderboard: document.getElementById('leaderboard-screen'),
-    'theme-select': document.getElementById('theme-select-screen'),
 };
 
 // Utility functions
 function showScreen(screenName) {
-    Object.values(screens).forEach(screen => screen.classList.remove('active'));
-    screens[screenName].classList.add('active');
+    Object.values(screens).forEach(screen => {
+        if (screen) screen.classList.remove('active');
+    });
+    if (screens[screenName]) screens[screenName].classList.add('active');
 }
 
 function showError(message) {
@@ -49,7 +51,6 @@ async function apiCall(endpoint, method = 'GET', body = null) {
     
     const response = await fetch(`${API_BASE}${endpoint}`, options);
     
-    // Check if response is JSON
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
         throw new Error('Server error - please try again');
@@ -64,144 +65,193 @@ async function apiCall(endpoint, method = 'GET', body = null) {
     return data;
 }
 
-// Screen: Home
+// ============ HOME SCREEN ============
+
+// Load open lobbies on page load and refresh
+async function loadLobbies() {
+    const container = document.getElementById('open-lobbies');
+    try {
+        const data = await apiCall('/api/lobbies');
+        
+        if (data.lobbies.length === 0) {
+            container.innerHTML = '<p class="no-lobbies">No open lobbies. Create one!</p>';
+        } else {
+            container.innerHTML = data.lobbies.map(lobby => `
+                <div class="lobby-item" data-code="${lobby.code}">
+                    <div class="lobby-info-row">
+                        <span class="lobby-code">${lobby.code}</span>
+                        <span class="lobby-players">${lobby.player_count}/${lobby.max_players} players</span>
+                    </div>
+                    <button class="btn btn-small btn-secondary join-lobby-btn" data-code="${lobby.code}">Join</button>
+                </div>
+            `).join('');
+            
+            // Add click handlers
+            container.querySelectorAll('.join-lobby-btn').forEach(btn => {
+                btn.addEventListener('click', () => joinLobbyPrompt(btn.dataset.code));
+            });
+        }
+    } catch (error) {
+        container.innerHTML = '<p class="error">Failed to load lobbies</p>';
+    }
+}
+
+function joinLobbyPrompt(code) {
+    const name = prompt('Enter your name:');
+    if (name && name.trim()) {
+        joinLobby(code, name.trim());
+    }
+}
+
 document.getElementById('create-game-btn').addEventListener('click', async () => {
+    const name = prompt('Enter your name:');
+    if (!name || !name.trim()) return;
+    
     try {
         const data = await apiCall('/api/games', 'POST');
         gameState.code = data.code;
         
-        // Show theme selection screen
-        showThemeSelection(data.code, data.theme_options);
+        // Join the lobby we just created
+        await joinLobby(data.code, name.trim());
     } catch (error) {
-        console.error('Create game error:', error);
         showError(error.message);
     }
 });
 
-function showThemeSelection(code, themeOptions) {
-    document.getElementById('theme-select-code').textContent = code;
-    const container = document.getElementById('theme-options-container');
-    container.innerHTML = '';
-    
-    themeOptions.forEach(theme => {
-        const btn = document.createElement('button');
-        btn.className = 'btn btn-theme-option';
-        btn.textContent = theme;
-        btn.addEventListener('click', () => selectTheme(code, theme));
-        container.appendChild(btn);
-    });
-    
-    showScreen('theme-select');
-}
+document.getElementById('refresh-lobbies-btn')?.addEventListener('click', loadLobbies);
 
-async function selectTheme(code, theme) {
+// Load lobbies on page load
+loadLobbies();
+
+// ============ JOIN LOBBY ============
+
+async function joinLobby(code, name) {
     try {
-        // Disable buttons while loading
-        document.querySelectorAll('.btn-theme-option').forEach(btn => {
-            btn.disabled = true;
-            if (btn.textContent === theme) {
-                btn.textContent = 'Loading...';
-            }
-        });
+        const data = await apiCall(`/api/games/${code}/join`, 'POST', { name });
         
-        // Set the theme
-        const data = await apiCall(`/api/games/${code}/theme`, 'POST', { theme });
-        gameState.theme = data.theme;
+        gameState.code = code;
+        gameState.playerId = data.player_id;
+        gameState.playerName = name;
+        gameState.isHost = data.is_host;
         
-        // Now fetch word pool for creator
-        const themeData = await apiCall(`/api/games/${code}/theme`);
-        gameState.wordPool = themeData.word_pool;
-        gameState.allThemeWords = themeData.theme.words;
+        // Go to lobby screen
+        document.getElementById('lobby-code').textContent = code;
+        showScreen('lobby');
         
-        // Update UI for create mode
-        document.getElementById('join-screen-title').textContent = 'Create Game';
-        document.getElementById('join-submit-btn').textContent = 'Create & Join';
-        document.getElementById('game-code').value = code;
-        document.getElementById('game-code').readOnly = true;
-        document.getElementById('game-code-group').style.display = 'none';
-        
-        // Show word pool
-        displayWordPool(data.theme.name, themeData.word_pool);
-        
-        showScreen('join');
+        // Start polling for lobby updates
+        startLobbyPolling();
     } catch (error) {
-        console.error('Select theme error:', error);
         showError(error.message);
-        // Re-enable buttons
-        document.querySelectorAll('.btn-theme-option').forEach(btn => {
-            btn.disabled = false;
-        });
     }
 }
 
-document.getElementById('join-game-btn').addEventListener('click', () => {
-    // Update UI for join mode
-    document.getElementById('join-screen-title').textContent = 'Join Game';
-    document.getElementById('join-submit-btn').textContent = 'Join';
-    document.getElementById('game-code').value = '';
-    document.getElementById('game-code').readOnly = false;
-    document.getElementById('game-code-group').style.display = 'block';
+function startLobbyPolling() {
+    if (gameState.pollingInterval) {
+        clearInterval(gameState.pollingInterval);
+    }
     
-    // Hide theme until code is entered
-    document.getElementById('theme-display').classList.add('hidden');
-    gameState.theme = null;
-    gameState.wordPool = null;
+    updateLobby();
+    gameState.pollingInterval = setInterval(updateLobby, 2000);
+}
+
+async function updateLobby() {
+    try {
+        const data = await apiCall(`/api/games/${gameState.code}?player_id=${gameState.playerId}`);
+        
+        // Update players list
+        const playersList = document.getElementById('lobby-players');
+        playersList.innerHTML = data.players.map(p => `
+            <div class="lobby-player ${p.id === data.host_id ? 'host' : ''}">
+                <span class="player-name">${p.name}${p.id === gameState.playerId ? ' (you)' : ''}</span>
+                ${p.id === data.host_id ? '<span class="host-badge">Host</span>' : ''}
+            </div>
+        `).join('');
+        
+        document.getElementById('player-count').textContent = data.players.length;
+        
+        // Update theme voting
+        updateThemeVoting(data.theme_options, data.theme_votes);
+        
+        // Show/hide host controls
+        const hostControls = document.getElementById('host-controls');
+        if (gameState.isHost) {
+            hostControls.classList.remove('hidden');
+            document.getElementById('start-game-btn').disabled = data.players.length < 2;
+        } else {
+            hostControls.classList.add('hidden');
+        }
+        
+        // Check if game started
+        if (data.status === 'playing') {
+            clearInterval(gameState.pollingInterval);
+            gameState.theme = data.theme;
+            gameState.allThemeWords = data.theme?.words || [];
+            showWordSelectionOrGame(data);
+        }
+    } catch (error) {
+        console.error('Lobby update error:', error);
+    }
+}
+
+function updateThemeVoting(options, votes) {
+    const container = document.getElementById('theme-vote-options');
+    if (!container || !options) return;
+    
+    container.innerHTML = options.map(theme => {
+        const voteCount = votes[theme]?.length || 0;
+        const isMyVote = votes[theme]?.includes(gameState.playerId);
+        return `
+            <button class="btn theme-vote-btn ${isMyVote ? 'voted' : ''}" data-theme="${theme}">
+                <span class="theme-name">${theme}</span>
+                <span class="vote-count">${voteCount} vote${voteCount !== 1 ? 's' : ''}</span>
+            </button>
+        `;
+    }).join('');
+    
+    container.querySelectorAll('.theme-vote-btn').forEach(btn => {
+        btn.addEventListener('click', () => voteForTheme(btn.dataset.theme));
+    });
+}
+
+async function voteForTheme(theme) {
+    try {
+        await apiCall(`/api/games/${gameState.code}/vote`, 'POST', {
+            player_id: gameState.playerId,
+            theme,
+        });
+        gameState.myVote = theme;
+    } catch (error) {
+        showError(error.message);
+    }
+}
+
+function showWordSelectionOrGame(data) {
+    const myPlayer = data.players.find(p => p.id === gameState.playerId);
+    
+    if (!myPlayer.secret_word) {
+        // Need to pick a word
+        showWordSelection(data);
+    } else {
+        // Already have a word, go to game
+        gameState.wordPool = myPlayer.word_pool || [];
+        showScreen('game');
+        startGamePolling();
+    }
+}
+
+function showWordSelection(data) {
+    // Show join screen for word selection
+    document.getElementById('join-screen-title').textContent = 'Pick Your Secret Word';
+    document.getElementById('join-submit-btn').textContent = 'Start Playing';
+    document.getElementById('game-code-group').style.display = 'none';
+    document.getElementById('player-name').value = gameState.playerName;
+    document.getElementById('player-name').readOnly = true;
+    document.querySelector('#join-form .form-group:nth-child(2)').style.display = 'none';
+    
+    // Show word pool
+    displayWordPool(data.theme?.name, data.theme?.words || []);
     
     showScreen('join');
-});
-
-// Fetch theme when game code is entered
-document.getElementById('game-code').addEventListener('blur', async () => {
-    const code = document.getElementById('game-code').value.trim().toUpperCase();
-    if (code.length === 6 && !document.getElementById('game-code').readOnly) {
-        try {
-            const data = await apiCall(`/api/games/${code}/theme`);
-            gameState.theme = data.theme;
-            gameState.wordPool = data.word_pool;
-            gameState.allThemeWords = data.theme.words;
-            gameState.code = code;
-            displayWordPool(data.theme.name, data.word_pool);
-        } catch (error) {
-            document.getElementById('theme-display').classList.add('hidden');
-        }
-    }
-});
-
-function displayWordPool(themeName, wordPool) {
-    console.log('displayWordPool called:', themeName, wordPool);
-    
-    document.getElementById('theme-name').textContent = themeName || 'Loading...';
-    
-    const wordsContainer = document.getElementById('theme-words');
-    wordsContainer.innerHTML = '';
-    
-    if (!wordPool || wordPool.length === 0) {
-        wordsContainer.innerHTML = '<span class="theme-word" style="color: var(--text-muted);">Generating words...</span>';
-        document.getElementById('theme-display').classList.remove('hidden');
-        return;
-    }
-    
-    // Sort words alphabetically
-    const sortedWords = [...wordPool].sort();
-    
-    sortedWords.forEach(word => {
-        const wordEl = document.createElement('span');
-        wordEl.className = 'theme-word';
-        wordEl.textContent = word;
-        wordEl.addEventListener('click', () => {
-            document.getElementById('secret-word').value = word;
-        });
-        wordsContainer.appendChild(wordEl);
-    });
-    
-    document.getElementById('theme-display').classList.remove('hidden');
-}
-
-function displayTheme(theme) {
-    // Legacy function - now redirects to displayWordPool
-    if (theme && theme.words) {
-        displayWordPool(theme.name, theme.words);
-    }
 }
 
 // Leaderboard
@@ -257,50 +307,67 @@ async function loadLeaderboard() {
     }
 }
 
-// Screen: Join
+// Screen: Join (for word selection after game starts)
 document.getElementById('back-home-btn').addEventListener('click', () => {
     gameState.code = null;
     showScreen('home');
+    loadLobbies();
 });
 
 document.getElementById('join-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    const code = document.getElementById('game-code').value.trim().toUpperCase();
-    const name = document.getElementById('player-name').value.trim();
     const secretWord = document.getElementById('secret-word').value.trim();
     
-    if (!code || !name || !secretWord) {
-        showError('Please fill in all fields');
+    if (!secretWord) {
+        showError('Please pick a secret word');
         return;
     }
     
     try {
-        const data = await apiCall(`/api/games/${code}/join`, 'POST', {
-            name,
+        await apiCall(`/api/games/${gameState.code}/set-word`, 'POST', {
+            player_id: gameState.playerId,
             secret_word: secretWord,
         });
         
-        gameState.code = code;
-        gameState.playerId = data.player_id;
-        gameState.playerName = name;
-        
-        document.getElementById('player-name').value = '';
         document.getElementById('secret-word').value = '';
         
-        showLobby();
+        // Go to game
+        showScreen('game');
+        startGamePolling();
     } catch (error) {
         showError(error.message);
     }
 });
 
-// Screen: Lobby
-function showLobby() {
-    document.getElementById('lobby-code').textContent = gameState.code;
-    showScreen('lobby');
-    startPolling();
+function displayWordPool(themeName, wordPool) {
+    document.getElementById('theme-name').textContent = themeName || 'Loading...';
+    
+    const wordsContainer = document.getElementById('theme-words');
+    wordsContainer.innerHTML = '';
+    
+    if (!wordPool || wordPool.length === 0) {
+        wordsContainer.innerHTML = '<span class="theme-word" style="color: var(--text-muted);">Loading words...</span>';
+        document.getElementById('theme-display').classList.remove('hidden');
+        return;
+    }
+    
+    const sortedWords = [...wordPool].sort();
+    
+    sortedWords.forEach(word => {
+        const wordEl = document.createElement('span');
+        wordEl.className = 'theme-word';
+        wordEl.textContent = word;
+        wordEl.addEventListener('click', () => {
+            document.getElementById('secret-word').value = word;
+        });
+        wordsContainer.appendChild(wordEl);
+    });
+    
+    document.getElementById('theme-display').classList.remove('hidden');
 }
 
+// Screen: Lobby
 document.getElementById('copy-code-btn').addEventListener('click', () => {
     navigator.clipboard.writeText(gameState.code);
     document.getElementById('copy-code-btn').textContent = 'Copied!';
@@ -319,35 +386,49 @@ document.getElementById('start-game-btn').addEventListener('click', async () => 
     }
 });
 
-function updateLobby(game) {
-    const playersContainer = document.getElementById('lobby-players');
-    playersContainer.innerHTML = '';
-    
-    game.players.forEach(player => {
-        const isHost = player.id === game.host_id;
-        const div = document.createElement('div');
-        div.className = `player-item${isHost ? ' host' : ''}`;
-        div.innerHTML = `
-            <div class="player-avatar">${player.name.charAt(0).toUpperCase()}</div>
-            <span>${player.name}${player.id === gameState.playerId ? ' (you)' : ''}</span>
-        `;
-        playersContainer.appendChild(div);
-    });
-    
-    document.getElementById('player-count').textContent = game.players.length;
-    
-    // Update theme display in lobby
-    if (game.theme && game.theme.name) {
-        document.getElementById('lobby-theme-name').textContent = game.theme.name;
+document.getElementById('leave-lobby-btn')?.addEventListener('click', () => {
+    if (gameState.pollingInterval) {
+        clearInterval(gameState.pollingInterval);
     }
-    
-    gameState.isHost = game.host_id === gameState.playerId;
-    const startBtn = document.getElementById('start-game-btn');
-    startBtn.disabled = !gameState.isHost || game.players.length < 3;
-    startBtn.textContent = gameState.isHost ? 'Start Game' : 'Waiting for host...';
-}
+    gameState.code = null;
+    gameState.playerId = null;
+    showScreen('home');
+    loadLobbies();
+});
 
 // Screen: Game
+function startGamePolling() {
+    if (gameState.pollingInterval) {
+        clearInterval(gameState.pollingInterval);
+    }
+    
+    pollGame();
+    gameState.pollingInterval = setInterval(pollGame, 2000);
+}
+
+async function pollGame() {
+    try {
+        const game = await apiCall(`/api/games/${gameState.code}?player_id=${gameState.playerId}`);
+        
+        if (game.status === 'finished') {
+            clearInterval(gameState.pollingInterval);
+            showGameOver(game);
+            return;
+        }
+        
+        // Check if we still need to set our word
+        const myPlayer = game.players.find(p => p.id === gameState.playerId);
+        if (!myPlayer.secret_word && game.status === 'playing') {
+            showWordSelection(game);
+            return;
+        }
+        
+        updateGame(game);
+    } catch (error) {
+        console.error('Game poll error:', error);
+    }
+}
+
 function showGame(game) {
     showScreen('game');
     updateGame(game);
@@ -779,10 +860,21 @@ function showGameOver(game) {
     const winner = game.players.find(p => p.id === game.winner);
     const isWinner = game.winner === gameState.playerId;
     
-    document.getElementById('gameover-title').textContent = isWinner ? '🏆 You Won!' : 'Game Over!';
+    // Show trophy animation for winner
+    const trophyIcon = document.getElementById('trophy-icon');
+    if (trophyIcon) {
+        trophyIcon.textContent = isWinner ? '🏆' : '🎮';
+    }
+    
+    document.getElementById('gameover-title').textContent = isWinner ? 'Victory!' : 'Game Over!';
     document.getElementById('gameover-message').textContent = winner 
         ? `${winner.name} is the last one standing!`
         : 'The game has ended.';
+    
+    // Create confetti for winner
+    if (isWinner) {
+        createConfetti();
+    }
     
     // Show all players' secret words
     const revealedWords = document.getElementById('revealed-words');
@@ -800,6 +892,39 @@ function showGameOver(game) {
     });
 }
 
+function createConfetti() {
+    const container = document.getElementById('confetti-container');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    const colors = ['#ff6b4a', '#ff8f73', '#4ade80', '#38bdf8', '#fbbf24', '#a78bfa'];
+    
+    for (let i = 0; i < 100; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = Math.random() * 100 + '%';
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.animationDelay = Math.random() * 3 + 's';
+        confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+        container.appendChild(confetti);
+    }
+    
+    // Clear confetti after animation
+    setTimeout(() => {
+        container.innerHTML = '';
+    }, 5000);
+}
+
+// Back to lobby button
+document.getElementById('back-to-lobby-btn')?.addEventListener('click', () => {
+    // TODO: Implement returning to same lobby for rematch
+    stopPolling();
+    gameState.code = null;
+    gameState.playerId = null;
+    showScreen('home');
+    loadLobbies();
+});
+
 document.getElementById('play-again-btn').addEventListener('click', () => {
     stopPolling();
     gameState = {
@@ -811,47 +936,17 @@ document.getElementById('play-again-btn').addEventListener('click', () => {
         theme: null,
         wordPool: null,
         allThemeWords: null,
+        myVote: null,
     };
     showScreen('home');
+    loadLobbies();
 });
 
-// Polling
-function startPolling() {
-    if (gameState.pollingInterval) {
-        clearInterval(gameState.pollingInterval);
-    }
-    
-    pollGameState();
-    gameState.pollingInterval = setInterval(pollGameState, 2000);
-}
-
+// Cleanup old polling functions
 function stopPolling() {
     if (gameState.pollingInterval) {
         clearInterval(gameState.pollingInterval);
         gameState.pollingInterval = null;
-    }
-}
-
-async function pollGameState() {
-    if (!gameState.code || !gameState.playerId) return;
-    
-    try {
-        const game = await apiCall(`/api/games/${gameState.code}?player_id=${gameState.playerId}`);
-        
-        if (game.status === 'waiting') {
-            updateLobby(game);
-        } else if (game.status === 'playing') {
-            if (screens.lobby.classList.contains('active')) {
-                showGame(game);
-            } else {
-                updateGame(game);
-            }
-        } else if (game.status === 'finished') {
-            stopPolling();
-            showGameOver(game);
-        }
-    } catch (error) {
-        console.error('Polling error:', error);
     }
 }
 

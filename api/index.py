@@ -297,6 +297,32 @@ class handler(BaseHTTPRequestHandler):
             except Exception as e:
                 return self._send_error(f"Failed to clear cache: {str(e)}", 500)
 
+        # GET /api/lobbies - List open lobbies
+        if path == '/api/lobbies':
+            try:
+                redis = get_redis()
+                keys = redis.keys("game:*")
+                lobbies = []
+                for key in keys:
+                    game_data = redis.get(key)
+                    if game_data:
+                        game = json.loads(game_data)
+                        # Only show waiting lobbies that aren't full
+                        if game.get('status') == 'waiting' and len(game.get('players', [])) < MAX_PLAYERS:
+                            # Get winning theme from votes
+                            votes = game.get('theme_votes', {})
+                            winning_theme = max(votes.keys(), key=lambda k: len(votes[k])) if votes else None
+                            lobbies.append({
+                                "code": game['code'],
+                                "player_count": len(game.get('players', [])),
+                                "max_players": MAX_PLAYERS,
+                                "theme_options": game.get('theme_options', []),
+                                "winning_theme": winning_theme,
+                            })
+                return self._send_json({"lobbies": lobbies})
+            except Exception as e:
+                return self._send_error(f"Failed to load lobbies: {str(e)}", 500)
+
         # GET /api/leaderboard
         if path == '/api/leaderboard':
             players = get_leaderboard()
@@ -357,21 +383,32 @@ class handler(BaseHTTPRequestHandler):
             # Reveal all words if game is finished
             game_finished = game['status'] == 'finished'
             
+            # Check if all players have set their words (for playing status)
+            all_words_set = all(p.get('secret_word') for p in game['players']) if game['players'] else False
+            
+            # Determine current player (only if all words are set)
+            current_player_id = None
+            if game['status'] == 'playing' and game['players'] and all_words_set:
+                current_player_id = game['players'][game['current_turn']]['id']
+            
             # Build response with hidden words
             response = {
                 "code": game['code'],
                 "host_id": game['host_id'],
                 "players": [],
                 "current_turn": game['current_turn'],
-                "current_player_id": game['players'][game['current_turn']]['id'] if game['status'] == 'playing' and game['players'] else None,
+                "current_player_id": current_player_id,
                 "status": game['status'],
                 "winner": game.get('winner'),
                 "history": game.get('history', []),
                 "theme": {
                     "name": game.get('theme', {}).get('name', ''),
-                    "words": game.get('theme', {}).get('words', []),  # Full word list for guessing reference
+                    "words": game.get('theme', {}).get('words', []),
                 },
                 "waiting_for_word_change": game.get('waiting_for_word_change'),
+                "theme_options": game.get('theme_options', []),
+                "theme_votes": game.get('theme_votes', {}),
+                "all_words_set": all_words_set,
             }
             
             for p in game['players']:
@@ -380,6 +417,7 @@ class handler(BaseHTTPRequestHandler):
                     "name": p['name'],
                     # Reveal all words when game is finished, otherwise only show your own
                     "secret_word": p['secret_word'] if (p['id'] == player_id or game_finished) else None,
+                    "has_word": bool(p.get('secret_word')),  # Show if they've picked a word
                     "is_alive": p['is_alive'],
                     "can_change_word": p.get('can_change_word', False) if p['id'] == player_id else None,
                 }
@@ -396,7 +434,7 @@ class handler(BaseHTTPRequestHandler):
         path = self.path.split('?')[0]
         body = self._get_body()
 
-        # POST /api/games - Create game (returns 3 theme options)
+        # POST /api/games - Create lobby with theme voting
         if path == '/api/games':
             import random
             
@@ -406,26 +444,56 @@ class handler(BaseHTTPRequestHandler):
             while load_game(code):
                 code = generate_game_code()
             
-            # Pick 3 random theme categories for the creator to choose from
+            # Pick 3 random theme categories for voting
             theme_options = random.sample(THEME_CATEGORIES, min(3, len(THEME_CATEGORIES)))
             
-            # Create game without theme yet (will be set when creator chooses)
+            # Create lobby with theme voting
             game = {
                 "code": code,
                 "host_id": "",
                 "players": [],
                 "current_turn": 0,
-                "status": "choosing_theme",  # New status
+                "status": "waiting",  # Directly in waiting state
                 "winner": None,
                 "history": [],
-                "theme": None,  # Will be set after creator chooses
-                "theme_options": theme_options,  # Store the options
+                "theme": None,  # Will be set when game starts based on votes
+                "theme_options": theme_options,
+                "theme_votes": {opt: [] for opt in theme_options},  # Track votes per theme
             }
             save_game(code, game)
             return self._send_json({
                 "code": code,
                 "theme_options": theme_options,
             })
+
+        # POST /api/games/{code}/vote - Vote for a theme
+        if '/vote' in path and path.startswith('/api/games/'):
+            code = path.split('/')[3].upper()
+            game = load_game(code)
+            
+            if not game:
+                return self._send_error("Game not found", 404)
+            if game['status'] != 'waiting':
+                return self._send_error("Voting is closed", 400)
+            
+            player_id = body.get('player_id', '')
+            theme = body.get('theme', '').strip()
+            
+            if theme not in game.get('theme_options', []):
+                return self._send_error("Invalid theme", 400)
+            
+            # Remove player's previous vote (if any)
+            for t in game.get('theme_votes', {}):
+                if player_id in game['theme_votes'][t]:
+                    game['theme_votes'][t].remove(player_id)
+            
+            # Add new vote
+            if theme not in game['theme_votes']:
+                game['theme_votes'][theme] = []
+            game['theme_votes'][theme].append(player_id)
+            
+            save_game(code, game)
+            return self._send_json({"status": "voted", "theme_votes": game['theme_votes']})
 
         # POST /api/games/{code}/theme - Set the theme (creator chooses)
         if '/theme' in path and path.startswith('/api/games/') and path.count('/') == 4:
@@ -458,84 +526,45 @@ class handler(BaseHTTPRequestHandler):
                 "theme": game['theme'],
             })
 
-        # POST /api/games/{code}/join
-        if '/join' in path:
+        # POST /api/games/{code}/join - Join lobby (just name, no word yet)
+        if '/join' in path and '/set-word' not in path:
             code = path.split('/')[3].upper()
             game = load_game(code)
             
             if not game:
                 return self._send_error("Game not found", 404)
+            
+            name = body.get('name', '').strip()
+            if not name:
+                return self._send_error("Name required", 400)
+            
+            # Check if player is trying to rejoin
+            existing_player = next((p for p in game['players'] if p['name'].lower() == name.lower()), None)
+            if existing_player:
+                # Allow rejoin - return their player_id
+                return self._send_json({
+                    "player_id": existing_player['id'],
+                    "game_code": code,
+                    "is_host": existing_player['id'] == game['host_id'],
+                    "rejoined": True,
+                    "theme_options": game.get('theme_options', []),
+                    "theme_votes": game.get('theme_votes', {}),
+                })
+            
             if game['status'] != 'waiting':
-                # Check if player is trying to rejoin
-                name = body.get('name', '').strip()
-                existing_player = next((p for p in game['players'] if p['name'].lower() == name.lower()), None)
-                if existing_player:
-                    # Allow rejoin - return their player_id
-                    return self._send_json({
-                        "player_id": existing_player['id'],
-                        "game_code": code,
-                        "is_host": existing_player['id'] == game['host_id'],
-                        "rejoined": True,
-                    })
                 return self._send_error("Game has already started", 400)
             if len(game['players']) >= MAX_PLAYERS:
                 return self._send_error("Game is full", 400)
-            
-            name = body.get('name', '').strip()
-            secret_word = body.get('secret_word', '').strip()
-            
-            if not name or not secret_word:
-                return self._send_error("Name and secret word required", 400)
-            
-            # Check if name already taken (in waiting phase)
-            if any(p['name'].lower() == name.lower() for p in game['players']):
-                return self._send_error("Name already taken", 400)
-            
-            import random
-            
-            # Get all theme words and words already assigned to other players
-            all_theme_words = game.get('theme', {}).get('words', [])
-            assigned_words = set()
-            for p in game['players']:
-                # Add ALL words from other players' pools (not just their secret words)
-                assigned_words.update(w.lower() for w in p.get('word_pool', []))
-            
-            # Check if the word is in the theme and not already taken
-            if all_theme_words and secret_word.lower() not in [w.lower() for w in all_theme_words]:
-                return self._send_error("Please choose a word from the theme", 400)
-            
-            if secret_word.lower() in assigned_words:
-                return self._send_error("That word is already taken by another player", 400)
-            
-            # Available words = all words not yet assigned to any player's pool
-            available_words = [w for w in all_theme_words if w.lower() not in assigned_words]
-            
-            # Remove the chosen secret word from available (it will be added to pool separately)
-            available_words = [w for w in available_words if w.lower() != secret_word.lower()]
-            
-            # Give this player a random 19 from unassigned words + their chosen word = 20 total
-            if len(available_words) > 19:
-                player_word_pool = random.sample(available_words, 19)
-            else:
-                player_word_pool = available_words.copy()
-            
-            # Always include their chosen word in their pool
-            player_word_pool.append(secret_word.lower())
-            
-            try:
-                embedding = get_embedding(secret_word)
-            except Exception as e:
-                return self._send_error(f"API error: {str(e)}", 503)
             
             player_id = generate_player_id()
             player = {
                 "id": player_id,
                 "name": name,
-                "secret_word": secret_word.lower(),
-                "secret_embedding": embedding,
+                "secret_word": None,  # Will be set later
+                "secret_embedding": None,
                 "is_alive": True,
                 "can_change_word": False,
-                "word_pool": sorted(player_word_pool),  # Store their distinct pool
+                "word_pool": [],  # Will be assigned when game starts
             }
             game['players'].append(player)
             
@@ -544,9 +573,72 @@ class handler(BaseHTTPRequestHandler):
             
             save_game(code, game)
             return self._send_json({
-                "player_id": player_id, 
-                "theme": {"name": game.get('theme', {}).get('name', ''), "words": all_theme_words},
-                "word_pool": player_word_pool,
+                "player_id": player_id,
+                "game_code": code,
+                "is_host": player_id == game['host_id'],
+                "theme_options": game.get('theme_options', []),
+                "theme_votes": game.get('theme_votes', {}),
+            })
+
+        # POST /api/games/{code}/set-word - Set secret word (after game starts)
+        if '/set-word' in path:
+            code = path.split('/')[3].upper()
+            game = load_game(code)
+            
+            if not game:
+                return self._send_error("Game not found", 404)
+            if game['status'] != 'playing':
+                return self._send_error("Game not started yet", 400)
+            
+            player_id = body.get('player_id', '')
+            secret_word = body.get('secret_word', '').strip()
+            
+            if not secret_word:
+                return self._send_error("Secret word required", 400)
+            
+            player = next((p for p in game['players'] if p['id'] == player_id), None)
+            if not player:
+                return self._send_error("You are not in this game", 403)
+            if player.get('secret_word'):
+                return self._send_error("You already set your word", 400)
+            
+            import random
+            
+            # Get all theme words and words already assigned
+            all_theme_words = game.get('theme', {}).get('words', [])
+            assigned_words = set()
+            for p in game['players']:
+                assigned_words.update(w.lower() for w in p.get('word_pool', []))
+            
+            if all_theme_words and secret_word.lower() not in [w.lower() for w in all_theme_words]:
+                return self._send_error("Please choose a word from the theme", 400)
+            
+            if secret_word.lower() in assigned_words:
+                return self._send_error("That word is already taken", 400)
+            
+            # Assign word pool
+            available_words = [w for w in all_theme_words if w.lower() not in assigned_words]
+            available_words = [w for w in available_words if w.lower() != secret_word.lower()]
+            
+            if len(available_words) > 19:
+                player_word_pool = random.sample(available_words, 19)
+            else:
+                player_word_pool = available_words.copy()
+            player_word_pool.append(secret_word.lower())
+            
+            try:
+                embedding = get_embedding(secret_word)
+            except Exception as e:
+                return self._send_error(f"API error: {str(e)}", 503)
+            
+            player['secret_word'] = secret_word.lower()
+            player['secret_embedding'] = embedding
+            player['word_pool'] = sorted(player_word_pool)
+            
+            save_game(code, game)
+            return self._send_json({
+                "status": "word_set",
+                "word_pool": player['word_pool'],
             })
 
         # POST /api/games/{code}/start
@@ -565,10 +657,25 @@ class handler(BaseHTTPRequestHandler):
             if len(game['players']) < MIN_PLAYERS:
                 return self._send_error(f"Need at least {MIN_PLAYERS} players", 400)
             
+            # Determine winning theme from votes
+            votes = game.get('theme_votes', {})
+            if votes:
+                winning_theme = max(votes.keys(), key=lambda k: len(votes[k]))
+            else:
+                # Fallback to first option if no votes
+                winning_theme = game.get('theme_options', ['Animals'])[0]
+            
+            # Set the theme
+            theme = get_theme_words(winning_theme)
+            game['theme'] = {
+                "name": theme.get("name", winning_theme),
+                "words": theme.get("words", []),
+            }
+            
             game['status'] = 'playing'
             game['current_turn'] = 0
             save_game(code, game)
-            return self._send_json({"status": "started"})
+            return self._send_json({"status": "started", "theme": game['theme']['name']})
 
         # POST /api/games/{code}/guess
         if '/guess' in path:

@@ -24,9 +24,17 @@
                     <p class="hero-description">Pick a secret word. Use similarity clues to deduce others' words. Guess their word to eliminate them. Last one standing wins!</p>
                 </div>
                 <div class="button-group">
-                    <button id="create-game-btn" class="btn btn-primary btn-large">Create Game</button>
-                    <button id="join-game-btn" class="btn btn-secondary btn-large">Join Game</button>
+                    <button id="create-game-btn" class="btn btn-primary btn-large">Create Lobby</button>
                 </div>
+            </div>
+
+            <!-- Open Lobbies Section -->
+            <div class="card lobbies-card">
+                <h3>🎮 Open Lobbies</h3>
+                <div id="open-lobbies" class="open-lobbies">
+                    <p class="loading-lobbies">Loading...</p>
+                </div>
+                <button id="refresh-lobbies-btn" class="btn btn-ghost btn-small">↻ Refresh</button>
             </div>
 
             <div class="card rules">
@@ -94,18 +102,7 @@
             </div>
         </div>
 
-        <!-- Theme Selection Screen -->
-        <div id="theme-select-screen" class="screen">
-            <div class="card theme-select-card">
-                <h2>Choose a Theme</h2>
-                <p class="theme-select-subtitle">Game Code: <strong id="theme-select-code">-</strong></p>
-                <div id="theme-options-container" class="theme-options-container">
-                    <!-- Theme buttons will be added here -->
-                </div>
-            </div>
-        </div>
-
-        <!-- Join Screen -->
+        <!-- Join Screen (for word selection) -->
         <div id="join-screen" class="screen">
             <div class="card">
                 <h2 id="join-screen-title">Join Game</h2>
@@ -152,18 +149,26 @@
                     <span id="lobby-code" class="code">------</span>
                     <button id="copy-code-btn" class="btn btn-small">Copy</button>
                 </div>
-                <div class="lobby-theme">
-                    <span>Theme:</span>
-                    <span id="lobby-theme-name" class="theme-name">Loading...</span>
+                
+                <!-- Theme Voting Section -->
+                <div id="theme-voting-section" class="theme-voting-section">
+                    <h3>Vote for Theme</h3>
+                    <div id="theme-vote-options" class="theme-vote-options">
+                        <!-- Theme options with vote counts -->
+                    </div>
                 </div>
+                
                 <div class="players-list" id="lobby-players">
                     <!-- Players will be added here -->
                 </div>
                 <div class="lobby-info">
                     <p>Waiting for players... <span id="player-count">0</span>/6</p>
-                    <p class="min-players">Need at least 3 players to start</p>
+                    <p class="min-players">Need at least 2 players to start</p>
                 </div>
-                <button id="start-game-btn" class="btn btn-primary" disabled>Start Game</button>
+                <div id="host-controls" class="host-controls hidden">
+                    <button id="start-game-btn" class="btn btn-primary" disabled>Start Game</button>
+                </div>
+                <button id="leave-lobby-btn" class="btn btn-ghost">Leave Lobby</button>
             </div>
         </div>
 
@@ -236,13 +241,18 @@
 
         <!-- Game Over Screen -->
         <div id="gameover-screen" class="screen">
+            <div id="confetti-container" class="confetti-container"></div>
             <div class="card gameover-card">
+                <div class="trophy-icon" id="trophy-icon">🏆</div>
                 <h2 id="gameover-title">Game Over!</h2>
                 <p id="gameover-message"></p>
                 <div class="revealed-words" id="revealed-words">
                     <!-- All secret words revealed -->
                 </div>
-                <button id="play-again-btn" class="btn btn-primary">Play Again</button>
+                <div class="gameover-buttons">
+                    <button id="back-to-lobby-btn" class="btn btn-primary">Back to Lobby</button>
+                    <button id="play-again-btn" class="btn btn-secondary">New Game</button>
+                </div>
             </div>
         </div>
     </div>
