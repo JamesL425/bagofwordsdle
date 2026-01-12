@@ -110,6 +110,11 @@ function setLoggedInWithAuth(user) {
     gameState.playerName = user.name;
     gameState.authUser = user;
     
+    // Set admin session flag if user is admin
+    if (user.is_admin) {
+        gameState.isAdminSession = true;
+    }
+    
     document.getElementById('login-box').classList.add('hidden');
     document.getElementById('logged-in-box').classList.remove('hidden');
     document.getElementById('logged-in-name').textContent = user.name.toUpperCase();
@@ -414,7 +419,8 @@ async function updateLobby() {
         if (gameState.isHost) {
             hostControls.classList.remove('hidden');
             // Admin can start with 1 player, others need at least 2
-            const minPlayers = gameState.isAdminSession ? 1 : 2;
+            const isAdmin = gameState.isAdminSession || (gameState.authUser && gameState.authUser.is_admin);
+            const minPlayers = isAdmin ? 1 : 2;
             document.getElementById('start-game-btn').disabled = data.players.length < minPlayers;
         } else {
             hostControls.classList.add('hidden');
