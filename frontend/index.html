@@ -12,32 +12,59 @@
 <body>
     <div class="container">
         <header>
-            <h1>Bagofwordsdle</h1>
-            <p class="tagline">Guess the word. Eliminate your rivals.</p>
+            <h1>🎯 Bagofwordsdle</h1>
+            <p class="tagline">The word deduction game</p>
         </header>
 
         <!-- Home Screen -->
         <div id="home-screen" class="screen active">
-            <div class="card">
-                <h2>Start Playing</h2>
-                <div class="button-group">
-                    <button id="create-game-btn" class="btn btn-primary">Create Game</button>
-                    <button id="join-game-btn" class="btn btn-secondary">Join Game</button>
+            <div class="card hero-card">
+                <div class="hero-content">
+                    <h2>Outsmart Your Friends</h2>
+                    <p class="hero-description">Pick a secret word. Use similarity clues to deduce others' words. Guess their word to eliminate them. Last one standing wins!</p>
                 </div>
-                <div class="leaderboard-link">
-                    <button id="show-leaderboard-btn" class="btn btn-ghost">View Leaderboard</button>
+                <div class="button-group">
+                    <button id="create-game-btn" class="btn btn-primary btn-large">Create Game</button>
+                    <button id="join-game-btn" class="btn btn-secondary btn-large">Join Game</button>
                 </div>
             </div>
 
             <div class="card rules">
-                <h3>How to Play</h3>
-                <ul>
-                    <li>Each player picks a secret word</li>
-                    <li>On your turn, guess a word</li>
-                    <li>See how similar your guess is to everyone's secrets</li>
-                    <li>Get &gt;95% similarity to eliminate a player</li>
-                    <li>Last one standing wins!</li>
-                </ul>
+                <h3>📖 How to Play</h3>
+                <div class="rules-grid">
+                    <div class="rule-item">
+                        <span class="rule-number">1</span>
+                        <div>
+                            <strong>Pick a Secret Word</strong>
+                            <p>Choose from your unique word pool based on the theme</p>
+                        </div>
+                    </div>
+                    <div class="rule-item">
+                        <span class="rule-number">2</span>
+                        <div>
+                            <strong>Guess on Your Turn</strong>
+                            <p>Enter any word to probe everyone's secrets</p>
+                        </div>
+                    </div>
+                    <div class="rule-item">
+                        <span class="rule-number">3</span>
+                        <div>
+                            <strong>Use Similarity Clues</strong>
+                            <p>See how similar your guess is to each player's word</p>
+                        </div>
+                    </div>
+                    <div class="rule-item">
+                        <span class="rule-number">4</span>
+                        <div>
+                            <strong>Eliminate Rivals</strong>
+                            <p>Guess someone's exact word to knock them out!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="leaderboard-link">
+                <button id="show-leaderboard-btn" class="btn btn-ghost">🏆 View Leaderboard</button>
             </div>
         </div>
 

@@ -278,6 +278,21 @@ class handler(BaseHTTPRequestHandler):
                     key, value = param.split('=', 1)
                     query[key] = value
 
+        # GET /api/admin/clear-cache - Clear all game data (for admin use)
+        if path == '/api/admin/clear-cache':
+            try:
+                # Clear all game keys
+                keys = redis_client.keys("game:*")
+                for key in keys:
+                    redis_client.delete(key)
+                # Clear embedding cache
+                embed_keys = redis_client.keys("embed:*")
+                for key in embed_keys:
+                    redis_client.delete(key)
+                return self._send_json({"status": "cleared", "games_deleted": len(keys), "embeddings_deleted": len(embed_keys)})
+            except Exception as e:
+                return self._send_error(f"Failed to clear cache: {str(e)}", 500)
+
         # GET /api/leaderboard
         if path == '/api/leaderboard':
             players = get_leaderboard()

@@ -212,6 +212,85 @@ header h1 {
 }
 
 /* Rules */
+/* Hero Card */
+.hero-card {
+    text-align: center;
+    padding: 3rem 2rem;
+}
+
+.hero-content h2 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+.hero-description {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    max-width: 500px;
+    margin: 0 auto 2rem;
+    line-height: 1.7;
+}
+
+.btn-large {
+    padding: 1rem 2.5rem;
+    font-size: 1.1rem;
+}
+
+/* Rules */
+.rules {
+    margin-top: 1.5rem;
+}
+
+.rules h3 {
+    margin-bottom: 1.5rem;
+    font-size: 1.3rem;
+}
+
+.rules-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.rule-item {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.rule-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    color: white;
+    border-radius: 50%;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.rule-item strong {
+    display: block;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.rule-item p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.leaderboard-link {
+    text-align: center;
+    margin-top: 1.5rem;
+}
+
+/* Legacy rules (for backwards compat) */
 .rules ul {
     list-style: none;
     padding-left: 0;

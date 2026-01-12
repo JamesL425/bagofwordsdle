@@ -48,6 +48,13 @@ async function apiCall(endpoint, method = 'GET', body = null) {
     }
     
     const response = await fetch(`${API_BASE}${endpoint}`, options);
+    
+    // Check if response is JSON
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Server error - please try again');
+    }
+    
     const data = await response.json();
     
     if (!response.ok) {
