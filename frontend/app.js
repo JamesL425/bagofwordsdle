@@ -393,6 +393,9 @@ function updateGame(game) {
         gameState.allThemeWords = game.theme.words || [];
     }
     
+    // Update sidebar word list with highlights
+    updateSidebarWordList(game);
+    
     updatePlayersGrid(game);
     updateTurnIndicator(game);
     
@@ -409,30 +412,67 @@ function updateGame(game) {
     updateHistory(game);
 }
 
-// Toggle wordlist visibility
-document.getElementById('toggle-wordlist-btn').addEventListener('click', () => {
+function updateSidebarWordList(game) {
     const wordlist = document.getElementById('game-wordlist');
-    const btn = document.getElementById('toggle-wordlist-btn');
+    if (!wordlist) return;
     
-    if (wordlist.classList.contains('hidden')) {
-        // Populate and show
-        wordlist.innerHTML = '';
-        if (gameState.allThemeWords && gameState.allThemeWords.length > 0) {
-            const sortedWords = [...gameState.allThemeWords].sort();
-            sortedWords.forEach(word => {
-                const wordEl = document.createElement('span');
-                wordEl.className = 'theme-word';
-                wordEl.textContent = word;
-                wordlist.appendChild(wordEl);
-            });
+    const allWords = game.theme?.words || gameState.allThemeWords || [];
+    if (allWords.length === 0) return;
+    
+    // Get guessed words
+    const guessedWords = new Set();
+    game.history.forEach(entry => {
+        if (entry.word) {
+            guessedWords.add(entry.word.toLowerCase());
         }
-        wordlist.classList.remove('hidden');
-        btn.textContent = 'Hide Words';
-    } else {
-        wordlist.classList.add('hidden');
-        btn.textContent = 'Show All Words';
-    }
-});
+    });
+    
+    // Get eliminated words (words that caused eliminations)
+    const eliminatedWords = new Set();
+    game.history.forEach(entry => {
+        if (entry.eliminations && entry.eliminations.length > 0 && entry.word) {
+            eliminatedWords.add(entry.word.toLowerCase());
+        }
+    });
+    
+    // Get my secret word
+    const myPlayer = game.players.find(p => p.id === gameState.playerId);
+    const myWord = myPlayer?.secret_word?.toLowerCase();
+    
+    // Sort and render
+    const sortedWords = [...allWords].sort();
+    
+    wordlist.innerHTML = '';
+    sortedWords.forEach(word => {
+        const wordEl = document.createElement('span');
+        wordEl.className = 'word-item';
+        wordEl.textContent = word;
+        
+        const wordLower = word.toLowerCase();
+        
+        if (wordLower === myWord) {
+            wordEl.classList.add('your-word');
+            wordEl.title = 'Your secret word';
+        } else if (eliminatedWords.has(wordLower)) {
+            wordEl.classList.add('eliminated');
+            wordEl.title = 'This word eliminated a player';
+        } else if (guessedWords.has(wordLower)) {
+            wordEl.classList.add('guessed');
+            wordEl.title = 'This word was guessed';
+        }
+        
+        // Click to fill guess input
+        wordEl.addEventListener('click', () => {
+            const guessInput = document.getElementById('guess-input');
+            if (guessInput && !guessInput.disabled) {
+                guessInput.value = word;
+                guessInput.focus();
+            }
+        });
+        
+        wordlist.appendChild(wordEl);
+    });
+}
 
 function updatePlayersGrid(game) {
     const grid = document.getElementById('players-grid');

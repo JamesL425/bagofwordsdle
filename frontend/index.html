@@ -142,53 +142,63 @@
 
         <!-- Game Screen -->
         <div id="game-screen" class="screen">
-            <div class="game-header">
-                <div class="your-word">
-                    <span>Your secret word:</span>
-                    <span id="your-secret-word" class="secret">???</span>
-                </div>
-            <div id="change-word-container" class="change-word-container hidden">
-                <p class="change-word-label">🎉 You eliminated someone! Pick a new secret word:</p>
-                <div id="word-pool-options" class="word-pool-options">
-                    <!-- Available words will be shown here -->
-                </div>
-                <div class="change-word-input-row">
-                    <input type="text" id="new-word-input" placeholder="Click a word above or type...">
-                    <button id="change-word-btn" class="btn btn-small btn-accent">Change Word</button>
-                </div>
-            </div>
-            </div>
+            <div class="game-layout">
+                <!-- Sidebar with word list -->
+                <aside class="game-sidebar">
+                    <div class="sidebar-header">
+                        <h3>Theme: <span id="game-theme-name">-</span></h3>
+                    </div>
+                    <div class="sidebar-legend">
+                        <span class="legend-item"><span class="dot guessed"></span> Guessed</span>
+                        <span class="legend-item"><span class="dot eliminated"></span> Eliminated</span>
+                    </div>
+                    <div id="game-wordlist" class="game-wordlist-sidebar">
+                        <!-- All theme words for reference -->
+                    </div>
+                </aside>
 
-            <div class="game-theme-info">
-                <div class="game-theme-header">
-                    <span>Theme: <strong id="game-theme-name">-</strong></span>
-                    <button id="toggle-wordlist-btn" class="btn btn-small btn-ghost">Show All Words</button>
-                </div>
-                <div id="game-wordlist" class="game-wordlist hidden">
-                    <!-- All theme words for reference -->
-                </div>
-            </div>
+                <!-- Main game area -->
+                <main class="game-main">
+                    <div class="game-header">
+                        <div class="your-word">
+                            <span>Your secret word:</span>
+                            <span id="your-secret-word" class="secret">???</span>
+                        </div>
+                    </div>
+                    
+                    <div id="change-word-container" class="change-word-container hidden">
+                        <p class="change-word-label">🎉 You eliminated someone! Pick a new secret word:</p>
+                        <div id="word-pool-options" class="word-pool-options">
+                            <!-- Available words will be shown here -->
+                        </div>
+                        <div class="change-word-input-row">
+                            <input type="text" id="new-word-input" placeholder="Click a word above or type...">
+                            <button id="change-word-btn" class="btn btn-small btn-accent">Change Word</button>
+                        </div>
+                    </div>
 
-            <div class="players-grid" id="players-grid">
-                <!-- Player cards will be added here -->
-            </div>
+                    <div class="players-grid" id="players-grid">
+                        <!-- Player cards will be added here -->
+                    </div>
 
-            <div class="turn-indicator" id="turn-indicator">
-                <span id="turn-text">Waiting...</span>
-            </div>
+                    <div class="turn-indicator" id="turn-indicator">
+                        <span id="turn-text">Waiting...</span>
+                    </div>
 
-            <div class="guess-section" id="guess-section">
-                <form id="guess-form">
-                    <input type="text" id="guess-input" placeholder="Enter your guess..." maxlength="30">
-                    <button type="submit" class="btn btn-primary">Guess</button>
-                </form>
-            </div>
+                    <div class="guess-section" id="guess-section">
+                        <form id="guess-form">
+                            <input type="text" id="guess-input" placeholder="Enter your guess..." maxlength="30">
+                            <button type="submit" class="btn btn-primary">Guess</button>
+                        </form>
+                    </div>
 
-            <div class="history-section">
-                <h3>Game History</h3>
-                <div id="history-log" class="history-log">
-                    <!-- History entries will be added here -->
-                </div>
+                    <div class="history-section">
+                        <h3>Game History</h3>
+                        <div id="history-log" class="history-log">
+                            <!-- History entries will be added here -->
+                        </div>
+                    </div>
+                </main>
             </div>
         </div>
 
