@@ -1178,6 +1178,28 @@ class handler(BaseHTTPRequestHandler):
         # Get client IP for rate limiting
         client_ip = get_client_ip(self.headers)
 
+        # ============== CLIENT CONFIG ==============
+        # GET /api/client-config - Lightweight config the frontend can use (audio, etc.)
+        if path == '/api/client-config':
+            bgm_cfg = (CONFIG.get('audio', {}) or {}).get('background_music', {}) or {}
+            enabled = bool(bgm_cfg.get('enabled', True))
+            track = str(bgm_cfg.get('track', '/manwithaplan.mp3') or '/manwithaplan.mp3')
+            volume_raw = bgm_cfg.get('volume', 0.12)
+            try:
+                volume = float(volume_raw)
+            except Exception:
+                volume = 0.12
+            volume = max(0.0, min(1.0, volume))
+            return self._send_json({
+                "audio": {
+                    "background_music": {
+                        "enabled": enabled,
+                        "track": track,
+                        "volume": volume,
+                    }
+                }
+            })
+
         # ============== AUTH ENDPOINTS ==============
 
         # GET /api/auth/google - Redirect to Google OAuth

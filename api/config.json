@@ -15,6 +15,13 @@
   "oauth": {
     "state_ttl_seconds": 600
   },
+  "audio": {
+    "background_music": {
+      "enabled": true,
+      "track": "/manwithaplan.mp3",
+      "volume": 0.12
+    }
+  },
   "theme_categories": [
     "Animals",
     "Food & Cooking",

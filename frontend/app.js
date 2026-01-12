@@ -18,6 +18,77 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// ============ BACKGROUND MUSIC ============
+
+const DEFAULT_BGM_CONFIG = {
+    enabled: true,
+    track: '/manwithaplan.mp3',
+    volume: 0.12, // keep it low by default
+};
+
+let bgmAudio = null;
+let bgmConfig = DEFAULT_BGM_CONFIG;
+let bgmInitStarted = false;
+
+function clamp01(n) {
+    if (typeof n !== 'number' || Number.isNaN(n)) return 0;
+    return Math.max(0, Math.min(1, n));
+}
+
+async function loadClientConfig() {
+    try {
+        const cfg = await apiCall('/api/client-config');
+        const music = cfg?.audio?.background_music;
+        if (music) {
+            bgmConfig = {
+                enabled: music.enabled !== false,
+                track: typeof music.track === 'string' ? music.track : DEFAULT_BGM_CONFIG.track,
+                volume: clamp01(Number(music.volume ?? DEFAULT_BGM_CONFIG.volume)),
+            };
+        }
+    } catch (e) {
+        // Non-fatal: fall back to defaults
+        console.warn('Failed to load client config; using defaults:', e);
+        bgmConfig = DEFAULT_BGM_CONFIG;
+    }
+}
+
+async function startBackgroundMusic() {
+    if (bgmInitStarted) return;
+    bgmInitStarted = true;
+
+    await loadClientConfig();
+    if (!bgmConfig.enabled) return;
+
+    try {
+        bgmAudio = new Audio(bgmConfig.track);
+        bgmAudio.loop = true;
+        bgmAudio.volume = clamp01(bgmConfig.volume);
+        bgmAudio.preload = 'auto';
+
+        const tryPlay = async () => {
+            try {
+                await bgmAudio.play();
+            } catch (err) {
+                // Autoplay may be blocked; retry on first user interaction.
+            }
+        };
+
+        // Attempt immediately
+        await tryPlay();
+
+        // And also on first interaction (covers autoplay restrictions)
+        const resume = () => {
+            tryPlay();
+        };
+        window.addEventListener('pointerdown', resume, { once: true, capture: true });
+        window.addEventListener('keydown', resume, { once: true, capture: true });
+        window.addEventListener('touchstart', resume, { once: true, capture: true });
+    } catch (e) {
+        console.warn('Background music init failed:', e);
+    }
+}
+
 // Game state
 let gameState = {
     code: null,
@@ -2150,6 +2221,7 @@ async function attemptRejoin() {
 // Initialise
 initLogin();
 initMatrixRain();
+startBackgroundMusic();
 
 // Try to rejoin existing game, otherwise show home
 attemptRejoin().then(rejoined => {
