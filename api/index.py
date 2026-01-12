@@ -1348,6 +1348,7 @@ class handler(BaseHTTPRequestHandler):
                 "word_pool": [],  # Will be assigned when game starts
                 "is_ready": False,  # Ready status for lobby
                 "cosmetics": user_cosmetics or {},  # Player's visible cosmetics
+                "auth_user_id": auth_user_id or None,  # For admin detection
             }
             game['players'].append(player)
             
