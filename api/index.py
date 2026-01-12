@@ -790,7 +790,8 @@ class handler(BaseHTTPRequestHandler):
                 })
                 
                 if not token_response.ok:
-                    print(f"Token exchange failed: {token_response.text}")
+                    print(f"Token exchange failed: {token_response.status_code} - {token_response.text}")
+                    print(f"Redirect URI used: {redirect_uri}")
                     self.send_response(302)
                     self.send_header('Location', '/?auth_error=token_exchange_failed')
                     self.end_headers()

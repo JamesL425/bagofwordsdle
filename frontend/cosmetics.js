@@ -109,7 +109,7 @@ function updateCosmeticsPanel() {
         html += `
             <div class="cosmetics-banner">
                 <p>🔒 Donate to unlock all cosmetics!</p>
-                <a href="https://ko-fi.com/embeddle" target="_blank" class="btn btn-primary btn-small">☕ Support on Ko-fi</a>
+                <a href="https://ko-fi.com/jamesleung425" target="_blank" class="btn btn-primary btn-small">☕ Support on Ko-fi</a>
             </div>
         `;
     } else {
