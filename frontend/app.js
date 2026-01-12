@@ -989,7 +989,7 @@ async function pollGame() {
         // Check if we still need to set our word
         const myPlayer = game.players.find(p => p.id === gameState.playerId);
         if (!myPlayer.secret_word && game.status === 'playing') {
-            showWordSelection(game);
+            showWordSelectionScreen(game);
             return;
         }
         
@@ -1799,12 +1799,16 @@ async function attemptRejoin() {
                 startLobbyPolling();
             }
         } else if (game.status === 'word_selection') {
-            showScreen('wordSelection');
-            startGamePolling();
-            updateWordSelection(game);
+            showWordSelectionScreen(game);
         } else if (game.status === 'playing') {
-            showScreen('game');
-            startGamePolling();
+            // Check if we still need to pick our word
+            const myPlayer = game.players.find(p => p.id === gameState.playerId);
+            if (!myPlayer.has_word) {
+                showWordSelectionScreen(game);
+            } else {
+                showScreen('game');
+                startGamePolling();
+            }
         }
         
         return true;
