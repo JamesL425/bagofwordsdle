@@ -24,6 +24,7 @@ const screens = {
     game: document.getElementById('game-screen'),
     gameover: document.getElementById('gameover-screen'),
     leaderboard: document.getElementById('leaderboard-screen'),
+    'theme-select': document.getElementById('theme-select-screen'),
 };
 
 // Utility functions
@@ -61,30 +62,70 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
     try {
         const data = await apiCall('/api/games', 'POST');
         gameState.code = data.code;
+        
+        // Show theme selection screen
+        showThemeSelection(data.code, data.theme_options);
+    } catch (error) {
+        console.error('Create game error:', error);
+        showError(error.message);
+    }
+});
+
+function showThemeSelection(code, themeOptions) {
+    document.getElementById('theme-select-code').textContent = code;
+    const container = document.getElementById('theme-options-container');
+    container.innerHTML = '';
+    
+    themeOptions.forEach(theme => {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-theme-option';
+        btn.textContent = theme;
+        btn.addEventListener('click', () => selectTheme(code, theme));
+        container.appendChild(btn);
+    });
+    
+    showScreen('theme-select');
+}
+
+async function selectTheme(code, theme) {
+    try {
+        // Disable buttons while loading
+        document.querySelectorAll('.btn-theme-option').forEach(btn => {
+            btn.disabled = true;
+            if (btn.textContent === theme) {
+                btn.textContent = 'Loading...';
+            }
+        });
+        
+        // Set the theme
+        const data = await apiCall(`/api/games/${code}/theme`, 'POST', { theme });
         gameState.theme = data.theme;
         
-        // For creator, fetch their word pool
-        const themeData = await apiCall(`/api/games/${data.code}/theme`);
-        console.log('Theme data:', themeData);
+        // Now fetch word pool for creator
+        const themeData = await apiCall(`/api/games/${code}/theme`);
         gameState.wordPool = themeData.word_pool;
         gameState.allThemeWords = themeData.theme.words;
         
         // Update UI for create mode
         document.getElementById('join-screen-title').textContent = 'Create Game';
         document.getElementById('join-submit-btn').textContent = 'Create & Join';
-        document.getElementById('game-code').value = data.code;
+        document.getElementById('game-code').value = code;
         document.getElementById('game-code').readOnly = true;
         document.getElementById('game-code-group').style.display = 'none';
         
-        // Show word pool (not full theme)
-        displayWordPool(themeData.theme.name, themeData.word_pool);
+        // Show word pool
+        displayWordPool(data.theme.name, themeData.word_pool);
         
         showScreen('join');
     } catch (error) {
-        console.error('Create game error:', error);
+        console.error('Select theme error:', error);
         showError(error.message);
+        // Re-enable buttons
+        document.querySelectorAll('.btn-theme-option').forEach(btn => {
+            btn.disabled = false;
+        });
     }
-});
+}
 
 document.getElementById('join-game-btn').addEventListener('click', () => {
     // Update UI for join mode

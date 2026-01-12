@@ -423,35 +423,66 @@ class handler(BaseHTTPRequestHandler):
         path = self.path.split('?')[0]
         body = self._get_body()
 
-        # POST /api/games - Create game
+        # POST /api/games - Create game (returns 3 theme options)
         if path == '/api/games':
+            import random
+            
             code = generate_game_code()
             
             # Make sure code is unique
             while load_game(code):
                 code = generate_game_code()
             
-            # Get a random theme for this game
-            theme = get_random_theme()
+            # Pick 3 random theme categories for the creator to choose from
+            theme_options = random.sample(THEME_CATEGORIES, min(3, len(THEME_CATEGORIES)))
             
+            # Create game without theme yet (will be set when creator chooses)
             game = {
                 "code": code,
                 "host_id": "",
                 "players": [],
                 "current_turn": 0,
-                "status": "waiting",
+                "status": "choosing_theme",  # New status
                 "winner": None,
                 "history": [],
-                "theme": {
-                    "name": theme.get("name", "General"),
-                    "words": theme.get("words", []),
-                },
+                "theme": None,  # Will be set after creator chooses
+                "theme_options": theme_options,  # Store the options
             }
             save_game(code, game)
             return self._send_json({
-                "code": code, 
-                "player_id": "",
-                "theme": game["theme"],
+                "code": code,
+                "theme_options": theme_options,
+            })
+
+        # POST /api/games/{code}/theme - Set the theme (creator chooses)
+        if '/theme' in path and path.startswith('/api/games/') and path.count('/') == 4:
+            code = path.split('/')[3].upper()
+            game = load_game(code)
+            
+            if not game:
+                return self._send_error("Game not found", 404)
+            if game['status'] != 'choosing_theme':
+                return self._send_error("Theme already chosen", 400)
+            
+            chosen_theme = body.get('theme', '').strip()
+            
+            # Validate the chosen theme is one of the options
+            if chosen_theme not in game.get('theme_options', []):
+                return self._send_error("Invalid theme choice", 400)
+            
+            # Generate words for the chosen theme
+            theme = generate_theme_words(chosen_theme, MAX_PLAYERS * 25)
+            
+            game['theme'] = {
+                "name": theme.get("name", chosen_theme),
+                "words": theme.get("words", []),
+            }
+            game['status'] = 'waiting'  # Now waiting for players
+            del game['theme_options']  # Clean up
+            
+            save_game(code, game)
+            return self._send_json({
+                "theme": game['theme'],
             })
 
         # POST /api/games/{code}/join

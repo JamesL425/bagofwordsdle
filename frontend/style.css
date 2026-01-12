@@ -804,6 +804,49 @@ header h1 {
     font-size: 1.1rem;
 }
 
+/* Theme Selection */
+.theme-select-card {
+    text-align: center;
+}
+
+.theme-select-subtitle {
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+}
+
+.theme-select-subtitle strong {
+    color: var(--accent-primary);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.theme-options-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.btn-theme-option {
+    padding: 1rem 1.5rem;
+    font-size: 1.1rem;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border);
+    color: var(--text-primary);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-theme-option:hover:not(:disabled) {
+    border-color: var(--accent-primary);
+    background: var(--bg-hover);
+    transform: translateY(-2px);
+}
+
+.btn-theme-option:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 /* Theme Display */
 .theme-display {
     margin-bottom: 1.5rem;
