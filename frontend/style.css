@@ -1502,3 +1502,58 @@ header h1 {
     margin-top: 1.5rem;
 }
 
+/* Login Box */
+.login-box, .logged-in-box {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 100;
+}
+
+.login-box input {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    color: var(--accent-primary);
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.85rem;
+    padding: 0.5rem 1rem;
+    width: 200px;
+    transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.login-box input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.login-box input::placeholder {
+    color: var(--text-muted);
+}
+
+.logged-in-box {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 0.5rem 1rem;
+}
+
+.logged-in-box #logged-in-name {
+    color: var(--accent-primary);
+    font-size: 0.85rem;
+    text-shadow: 0 0 10px var(--accent-glow);
+}
+
+.logged-in-box.hidden {
+    display: none;
+}
+
+.btn-tiny {
+    padding: 0.2rem 0.5rem;
+    font-size: 1rem;
+    line-height: 1;
+    border: none;
+}
+

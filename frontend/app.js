@@ -1,5 +1,5 @@
 /**
- * Bagofwordsdle - Client Application
+ * EMBEDDLE - Client Application
  */
 
 const API_BASE = window.location.origin;
@@ -16,6 +16,43 @@ let gameState = {
     allThemeWords: null,
     myVote: null,
 };
+
+// ============ LOGIN SYSTEM ============
+function initLogin() {
+    const savedName = localStorage.getItem('embeddle_name');
+    if (savedName) {
+        setLoggedIn(savedName);
+    }
+}
+
+function setLoggedIn(name) {
+    gameState.playerName = name;
+    localStorage.setItem('embeddle_name', name);
+    
+    document.getElementById('login-box').classList.add('hidden');
+    document.getElementById('logged-in-box').classList.remove('hidden');
+    document.getElementById('logged-in-name').textContent = name.toUpperCase();
+}
+
+function logout() {
+    gameState.playerName = null;
+    localStorage.removeItem('embeddle_name');
+    
+    document.getElementById('login-box').classList.remove('hidden');
+    document.getElementById('logged-in-box').classList.add('hidden');
+    document.getElementById('login-name').value = '';
+}
+
+document.getElementById('login-name').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        const name = e.target.value.trim();
+        if (name) {
+            setLoggedIn(name);
+        }
+    }
+});
+
+document.getElementById('logout-btn').addEventListener('click', logout);
 
 // DOM Elements
 const screens = {
@@ -96,22 +133,27 @@ async function loadLobbies() {
 }
 
 function joinLobbyPrompt(code) {
-    const name = prompt('Enter your name:');
-    if (name && name.trim()) {
-        joinLobby(code, name.trim());
+    if (!gameState.playerName) {
+        showError('Enter your callsign first (top right)');
+        document.getElementById('login-name').focus();
+        return;
     }
+    joinLobby(code, gameState.playerName);
 }
 
 document.getElementById('create-game-btn').addEventListener('click', async () => {
-    const name = prompt('Enter your name:');
-    if (!name || !name.trim()) return;
+    if (!gameState.playerName) {
+        showError('Enter your callsign first (top right)');
+        document.getElementById('login-name').focus();
+        return;
+    }
     
     try {
         const data = await apiCall('/api/games', 'POST');
         gameState.code = data.code;
         
         // Join the lobby we just created
-        await joinLobby(data.code, name.trim());
+        await joinLobby(data.code, gameState.playerName);
     } catch (error) {
         showError(error.message);
     }
@@ -941,5 +983,6 @@ function initMatrixRain() {
 }
 
 // Initialize
+initLogin();
 initMatrixRain();
 showScreen('home');
