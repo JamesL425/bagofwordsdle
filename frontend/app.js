@@ -56,11 +56,23 @@ function initLogin() {
         return;
     }
     
-    // Check for existing auth token
+    // Check for existing auth token (regular Google auth only, not admin)
     const savedToken = localStorage.getItem('embeddle_auth_token');
     if (savedToken) {
-        loadAuthenticatedUser(savedToken);
-        return;
+        // Decode JWT to check if it's an admin token (don't auto-restore admin sessions)
+        try {
+            const payload = JSON.parse(atob(savedToken.split('.')[1]));
+            if (payload.sub === 'admin_local') {
+                // Don't auto-restore admin sessions - clear it
+                localStorage.removeItem('embeddle_auth_token');
+            } else {
+                loadAuthenticatedUser(savedToken);
+                return;
+            }
+        } catch (e) {
+            // Invalid token, clear it
+            localStorage.removeItem('embeddle_auth_token');
+        }
     }
     
     // Fall back to simple name-based login
@@ -160,9 +172,10 @@ async function promptAdminPassword() {
         }
         
         const data = await response.json();
-        // Store token and load user
-        localStorage.setItem('embeddle_auth_token', data.token);
+        // Store admin token in sessionStorage (not localStorage) so it doesn't persist
+        sessionStorage.setItem('embeddle_admin_token', data.token);
         gameState.authToken = data.token;
+        gameState.isAdminSession = true;
         loadAuthenticatedUser(data.token);
     } catch (error) {
         showError('Admin login failed');
@@ -174,8 +187,10 @@ function logout() {
     gameState.playerName = null;
     gameState.authToken = null;
     gameState.authUser = null;
+    gameState.isAdminSession = false;
     localStorage.removeItem('embeddle_name');
     localStorage.removeItem('embeddle_auth_token');
+    sessionStorage.removeItem('embeddle_admin_token');
     
     document.getElementById('login-box').classList.remove('hidden');
     document.getElementById('logged-in-box').classList.add('hidden');

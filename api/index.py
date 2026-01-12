@@ -1765,6 +1765,24 @@ class handler(BaseHTTPRequestHandler):
             if not payload:
                 return self._send_error("Invalid or expired token", 401)
             
+            # Handle admin user specially - cosmetics are session-only (not persisted)
+            if payload['sub'] == 'admin_local':
+                category = body.get('category', '')
+                cosmetic_id = body.get('cosmetic_id', '')
+                
+                if not category or not cosmetic_id:
+                    return self._send_error("Category and cosmetic_id required", 400)
+                
+                # Admin can equip any cosmetic, but it's not persisted
+                # Just return success with the requested cosmetic
+                admin_cosmetics = DEFAULT_COSMETICS.copy()
+                admin_cosmetics[category] = cosmetic_id
+                
+                return self._send_json({
+                    "status": "equipped",
+                    "cosmetics": admin_cosmetics,
+                })
+            
             user = get_user_by_id(payload['sub'])
             if not user:
                 return self._send_error("User not found", 404)
