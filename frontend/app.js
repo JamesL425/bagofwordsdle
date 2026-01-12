@@ -96,9 +96,6 @@ async function apiCall(endpoint, method = 'GET', body = null) {
     
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
-        // Log the actual response for debugging
-        const text = await response.text();
-        console.error('Non-JSON response:', response.status, text.substring(0, 500));
         throw new Error('Server error - please try again');
     }
     
@@ -190,9 +187,7 @@ document.getElementById('refresh-lobbies-btn')?.addEventListener('click', loadLo
 
 async function joinLobby(code, name) {
     try {
-        console.log('Joining lobby:', code, 'as', name);
         const data = await apiCall(`/api/games/${code}/join`, 'POST', { name });
-        console.log('Join response:', data);
         
         gameState.code = code;
         gameState.playerId = data.player_id;
@@ -206,13 +201,11 @@ async function joinLobby(code, name) {
         // Start polling for lobby updates
         startLobbyPolling();
     } catch (error) {
-        console.error('Join error:', error);
         showError(error.message);
     }
 }
 
 function startLobbyPolling() {
-    console.log('Starting lobby polling for game:', gameState.code);
     if (gameState.pollingInterval) {
         clearInterval(gameState.pollingInterval);
     }
@@ -224,8 +217,6 @@ function startLobbyPolling() {
 async function updateLobby() {
     try {
         const data = await apiCall(`/api/games/${gameState.code}?player_id=${gameState.playerId}`);
-        
-        console.log('Lobby update:', data.players.length, 'players', data.players.map(p => p.name));
         
         // Update players list
         const playersList = document.getElementById('lobby-players');
@@ -258,7 +249,7 @@ async function updateLobby() {
             showWordSelectionOrGame(data);
         }
     } catch (error) {
-        console.error('Lobby update error:', error);
+        // Silently ignore polling errors
     }
 }
 
