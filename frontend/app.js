@@ -564,21 +564,28 @@ async function removeAI(aiId) {
 
 // Start singleplayer game
 document.getElementById('sp-start-game-btn')?.addEventListener('click', async () => {
+    const startBtn = document.getElementById('sp-start-game-btn');
+    const originalText = startBtn.textContent;
+    
     try {
-        // Immediately transition to word selection screen for responsive feel
-        showScreen('wordSelection');
-        startGamePolling();
+        // Show loading state on button for immediate feedback
+        startBtn.disabled = true;
+        startBtn.textContent = 'STARTING...';
         
-        // Then call the API (AI word selection happens server-side)
-        await apiCall(`/api/games/${gameState.code}/start`, 'POST', {
+        // Call the API (AI word selection happens server-side)
+        const response = await apiCall(`/api/games/${gameState.code}/start`, 'POST', {
             player_id: gameState.playerId,
         });
-        // Polling will update the word pool when ready
+        
+        // Fetch the updated game state with word pools
+        const data = await apiCall(`/api/games/${gameState.code}?player_id=${gameState.playerId}`);
+        
+        // Now transition to word selection with the data
+        showWordSelectionScreen(data);
     } catch (error) {
         showError(error.message);
-        // If start failed, go back to lobby
-        showScreen('singleplayerLobby');
-        startSingleplayerLobbyPolling();
+        startBtn.disabled = false;
+        startBtn.textContent = originalText;
     }
 });
 
@@ -923,21 +930,28 @@ document.getElementById('copy-code-btn').addEventListener('click', () => {
 });
 
 document.getElementById('start-game-btn').addEventListener('click', async () => {
+    const startBtn = document.getElementById('start-game-btn');
+    const originalText = startBtn.textContent;
+    
     try {
-        // Immediately transition to word selection screen for responsive feel
-        showScreen('wordSelection');
-        startGamePolling();
+        // Show loading state on button for immediate feedback
+        startBtn.disabled = true;
+        startBtn.textContent = 'STARTING...';
         
-        // Then call the API
+        // Call the API
         await apiCall(`/api/games/${gameState.code}/start`, 'POST', {
             player_id: gameState.playerId,
         });
-        // Polling will update the word pool when ready
+        
+        // Fetch the updated game state with word pools
+        const data = await apiCall(`/api/games/${gameState.code}?player_id=${gameState.playerId}`);
+        
+        // Now transition to word selection with the data
+        showWordSelectionScreen(data);
     } catch (error) {
         showError(error.message);
-        // If start failed, go back to lobby
-        showScreen('lobby');
-        startLobbyPolling();
+        startBtn.disabled = false;
+        startBtn.textContent = originalText;
     }
 });
 
