@@ -447,6 +447,22 @@
                         </div>
                         <button id="leave-game-btn" class="btn btn-ghost btn-small leave-game-btn">LEAVE GAME</button>
                     </div>
+                    
+                    <div id="change-word-container" class="change-word-container hidden">
+                        <p class="change-word-label">◈ TARGET ELIMINATED! Select new encryption:</p>
+                        <div id="word-pool-options" class="word-pool-options">
+                            <!-- Available words will be shown here -->
+                        </div>
+                        <div class="change-word-input-row">
+                            <span id="new-word-display" class="selected-word-display">Click a word above</span>
+                            <button id="change-word-btn" class="btn btn-small btn-accent">ENCRYPT</button>
+                            <button id="skip-word-change-btn" class="btn btn-small btn-ghost">KEEP</button>
+                        </div>
+                    </div>
+                    
+                    <div id="waiting-for-change" class="waiting-notice hidden">
+                        <span id="waiting-player-name">Operative</span> is re-encrypting...
+                    </div>
 
                     <!-- Mobile-only docked tabs (WORDS / LOG) -->
                     <div class="game-mobile-tabs" id="game-mobile-tabs" role="tablist" aria-label="Game panels">
@@ -470,22 +486,6 @@
                     <div class="game-mobile-panels" id="game-mobile-panels">
                         <div id="mobile-words-panel" class="game-mobile-panel" role="tabpanel" aria-labelledby="game-mobile-tab-words"></div>
                         <div id="mobile-log-panel" class="game-mobile-panel hidden" role="tabpanel" aria-labelledby="game-mobile-tab-log"></div>
-                    </div>
-                    
-                    <div id="change-word-container" class="change-word-container hidden">
-                        <p class="change-word-label">◈ TARGET ELIMINATED! Select new encryption:</p>
-                        <div id="word-pool-options" class="word-pool-options">
-                            <!-- Available words will be shown here -->
-                        </div>
-                        <div class="change-word-input-row">
-                            <span id="new-word-display" class="selected-word-display">Click a word above</span>
-                            <button id="change-word-btn" class="btn btn-small btn-accent">ENCRYPT</button>
-                            <button id="skip-word-change-btn" class="btn btn-small btn-ghost">KEEP</button>
-                        </div>
-                    </div>
-                    
-                    <div id="waiting-for-change" class="waiting-notice hidden">
-                        <span id="waiting-player-name">Operative</span> is re-encrypting...
                     </div>
 
                     <div class="players-grid" id="players-grid">

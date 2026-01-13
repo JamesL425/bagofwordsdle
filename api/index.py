@@ -2530,7 +2530,6 @@ class handler(BaseHTTPRequestHandler):
             if not check_rate_limit(get_ratelimit_general(), f"lobbies:{client_ip}"):
                 return self._send_error("Too many requests. Please wait.", 429)
             try:
-                import time
                 redis = get_redis()
                 keys = redis.keys("game:*")
                 lobbies = []
@@ -3121,7 +3120,6 @@ class handler(BaseHTTPRequestHandler):
                 return self._send_error("Too many game creations. Please wait.", 429)
             
             import random
-            import time
 
             # Lobby metadata (defaults tuned for friend-code flow)
             requested_visibility = sanitize_visibility(body.get('visibility', 'private'), default='private')
@@ -3175,7 +3173,6 @@ class handler(BaseHTTPRequestHandler):
                 return self._send_error("Too many game creations. Please wait.", 429)
             
             import random
-            import time
             
             code = generate_game_code()
             

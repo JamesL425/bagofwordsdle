@@ -910,6 +910,97 @@ const screens = {
 };
 
 // Utility functions
+// ============ RESPONSIVE IN-GAME PANELS (MOBILE WORDS/LOG DOCK) ============
+
+const GAME_MOBILE_BREAKPOINT_PX = 900;
+let responsiveGamePanelsInitialized = false;
+
+function isGameMobileLayout() {
+    try {
+        return window.matchMedia(`(max-width: ${GAME_MOBILE_BREAKPOINT_PX}px)`).matches;
+    } catch (e) {
+        return window.innerWidth <= GAME_MOBILE_BREAKPOINT_PX;
+    }
+}
+
+function moveElementTo(el, newParent) {
+    if (!el || !newParent) return;
+    if (el.parentElement === newParent) return;
+    newParent.appendChild(el);
+}
+
+function setGameMobileActiveTab(which) {
+    const wordsTab = document.getElementById('game-mobile-tab-words');
+    const logTab = document.getElementById('game-mobile-tab-log');
+    const wordsPanel = document.getElementById('mobile-words-panel');
+    const logPanel = document.getElementById('mobile-log-panel');
+
+    const wordsActive = which !== 'log';
+
+    if (wordsTab) {
+        wordsTab.classList.toggle('active', wordsActive);
+        wordsTab.setAttribute('aria-selected', String(wordsActive));
+    }
+    if (logTab) {
+        logTab.classList.toggle('active', !wordsActive);
+        logTab.setAttribute('aria-selected', String(!wordsActive));
+    }
+    if (wordsPanel) wordsPanel.classList.toggle('hidden', !wordsActive);
+    if (logPanel) logPanel.classList.toggle('hidden', wordsActive);
+}
+
+function applyResponsiveGamePanelsLayout() {
+    const wordlist = document.getElementById('game-wordlist');
+    const historySection = document.getElementById('history-section');
+
+    const sidebar = document.querySelector('#game-screen .game-sidebar');
+    const logHost = document.getElementById('game-log-host');
+
+    const mobileWordsPanel = document.getElementById('mobile-words-panel');
+    const mobileLogPanel = document.getElementById('mobile-log-panel');
+
+    const mobile = isGameMobileLayout();
+
+    if (mobile) {
+        // Default to WORDS tab when entering mobile layout
+        const wordsTabSelected = document.getElementById('game-mobile-tab-words')?.getAttribute('aria-selected') === 'true';
+        const logTabSelected = document.getElementById('game-mobile-tab-log')?.getAttribute('aria-selected') === 'true';
+        if (!wordsTabSelected && !logTabSelected) {
+            setGameMobileActiveTab('words');
+        }
+
+        moveElementTo(wordlist, mobileWordsPanel);
+        moveElementTo(historySection, mobileLogPanel);
+        return;
+    }
+
+    // Desktop/tablet: move panels back to their primary homes
+    moveElementTo(wordlist, sidebar);
+    moveElementTo(historySection, logHost);
+}
+
+function setupResponsiveGamePanels() {
+    if (responsiveGamePanelsInitialized) return;
+    responsiveGamePanelsInitialized = true;
+
+    const wordsTab = document.getElementById('game-mobile-tab-words');
+    const logTab = document.getElementById('game-mobile-tab-log');
+
+    if (wordsTab) {
+        wordsTab.addEventListener('click', () => setGameMobileActiveTab('words'));
+    }
+    if (logTab) {
+        logTab.addEventListener('click', () => setGameMobileActiveTab('log'));
+    }
+
+    // Keep layout in sync with screen size changes (rotate / resize)
+    window.addEventListener('resize', () => {
+        applyResponsiveGamePanelsLayout();
+    });
+
+    applyResponsiveGamePanelsLayout();
+}
+
 function showScreen(screenName) {
     Object.values(screens).forEach(screen => {
         if (screen) screen.classList.remove('active');
@@ -918,6 +1009,9 @@ function showScreen(screenName) {
 
     // Allow CSS to widen/adjust layout when actively in a match
     document.body.classList.toggle('in-game', screenName === 'game');
+
+    // Ensure the in-game word list / log live in the correct containers for this viewport
+    applyResponsiveGamePanelsLayout();
     
     // Start/stop lobby refresh based on screen
     if (screenName === 'home') {
@@ -929,6 +1023,8 @@ function showScreen(screenName) {
         stopSpectateRefresh();
     }
 }
+
+setupResponsiveGamePanels();
 
 function showError(message) {
     alert(message);

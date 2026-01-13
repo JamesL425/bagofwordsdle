@@ -722,26 +722,42 @@ header h1 {
 /* Game Layout with Sidebar */
 .game-layout {
     display: grid;
-    grid-template-columns: 250px 1fr;
     gap: 1.5rem;
     max-width: 1400px;
     margin: 0 auto;
     height: calc(100vh - 4rem);
+    grid-template-areas: "sidebar main log";
+    grid-template-columns: 260px minmax(0, 1fr) 360px;
 }
 
+/* Tablet: keep words on left, stack log below */
+@media (max-width: 1199px) {
+    .game-layout {
+        grid-template-areas:
+            "sidebar main"
+            "log log";
+        grid-template-columns: 260px minmax(0, 1fr);
+        /* Fixed log band to avoid pushing critical gameplay off-screen */
+        grid-template-rows: minmax(0, 1fr) clamp(220px, 30vh, 360px);
+        height: calc(100vh - 4rem);
+    }
+}
+
+/* Mobile: single column; log lives in the docked tabs */
 @media (max-width: 900px) {
     .game-layout {
+        grid-template-areas:
+            "sidebar"
+            "main";
         grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
         height: auto;
-    }
-    
-    .game-sidebar {
-        max-height: 200px;
     }
 }
 
 /* Game Sidebar */
 .game-sidebar {
+    grid-area: sidebar;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -749,6 +765,36 @@ header h1 {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-height: 0;
+}
+
+/* Transmission Log Column */
+.game-log {
+    grid-area: log;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* Let the log fill its container and scroll internally (desktop + tablet) */
+.game-log #history-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    flex: 1;
+    min-height: 0;
+}
+
+.game-log .history-log {
+    max-height: none;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
 }
 
 .sidebar-header {
@@ -862,12 +908,107 @@ header h1 {
 
 /* Game Main Area */
 .game-main {
+    grid-area: main;
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
     overflow-y: auto;
     padding-right: 0.5rem;
+    min-height: 0;
 }
+
+/* Mobile docked game panels (WORDS / LOG) */
+.game-mobile-tabs,
+.game-mobile-panels {
+    display: none;
+}
+
+@media (max-width: 900px) {
+    .game-log {
+        display: none;
+    }
+
+    .game-main {
+        overflow-y: visible;
+        padding-right: 0;
+    }
+
+    .game-mobile-tabs {
+        display: flex;
+        gap: 0.25rem;
+        padding: 0.25rem;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        align-items: stretch;
+    }
+
+    .game-mobile-tab {
+        flex: 1;
+        border: 1px solid var(--border-light);
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
+        font-family: 'Courier Prime', 'Courier New', monospace;
+        font-weight: 700;
+        font-size: 0.85rem;
+        padding: 0.65rem 0.75rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: all var(--transition);
+    }
+
+    .game-mobile-tab.active {
+        background: var(--accent-primary);
+        border-color: var(--accent-primary);
+        color: var(--bg-primary);
+        text-shadow: none;
+        box-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    .game-mobile-panels {
+        display: block;
+    }
+
+    .game-mobile-panel {
+        margin-top: 0.75rem;
+        padding: 0.75rem;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        max-height: clamp(220px, 35vh, 420px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Word list readability + tap targets on mobile */
+    #mobile-words-panel #game-wordlist {
+        overflow: visible;
+        max-height: none;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.5rem;
+        align-content: start;
+    }
+
+    #mobile-words-panel #game-wordlist .word-item {
+        font-size: 0.95rem;
+        padding: 0.6rem 0.75rem;
+    }
+
+    #mobile-words-panel #game-wordlist .word-item:not(.guessed):not(.eliminated):not(.your-word) {
+        color: var(--text-secondary);
+    }
+
+    /* Let the panel be the scroll container (avoid nested scrollbars) */
+    #mobile-log-panel .history-log {
+        max-height: none;
+        overflow: visible;
+    }
+}
+
+/* (Handled above for desktop + tablet; keep media block reserved for future tweaks) */
 
 /* Players Grid */
 .players-grid {
