@@ -92,8 +92,21 @@
                 <span id="daily-credits">0</span>
             </div>
 
+            <h3 class="daily-section-title">DAILY STREAK</h3>
+            <div id="daily-streak" class="daily-streak">
+                <div class="streak-display">
+                    <span class="streak-icon">🔥</span>
+                    <span class="streak-count">0</span>
+                </div>
+            </div>
+
             <h3 class="daily-section-title">DAILY QUESTS</h3>
             <div id="daily-quests" class="daily-quests">
+                <div class="daily-empty">Loading...</div>
+            </div>
+
+            <h3 class="daily-section-title">WEEKLY QUESTS</h3>
+            <div id="weekly-quests" class="daily-quests weekly-quests">
                 <div class="daily-empty">Loading...</div>
             </div>
 
@@ -127,6 +140,47 @@
                 <input type="checkbox" id="opt-elim-sfx-enabled">
                 <span>Elimination SFX</span>
             </label>
+            <hr class="option-divider">
+            <label class="option-row">
+                <input type="checkbox" id="opt-nerd-mode">
+                <span>🤓 Nerd Mode (show embedding details)</span>
+            </label>
+            <button id="ml-info-btn" class="btn btn-secondary btn-small" style="margin-top: 1rem; width: 100%;">📊 How Embeddings Work</button>
+        </div>
+    </div>
+
+    <!-- ML Info Modal -->
+    <div id="ml-info-modal" class="modal-overlay">
+        <div class="modal ml-info-modal">
+            <div class="ml-info-header">
+                <h2>🧠 How EMBEDDLE Works</h2>
+                <button id="close-ml-info-btn" class="btn btn-ghost btn-tiny">×</button>
+            </div>
+            <div class="ml-info-content">
+                <h3>Word Embeddings</h3>
+                <p>EMBEDDLE uses <strong>word embeddings</strong> - vectors in high-dimensional space that capture semantic meaning. Words with similar meanings are closer together in this space.</p>
+                
+                <h3>Cosine Similarity</h3>
+                <p>We measure how "close" two words are using <strong>cosine similarity</strong> - the cosine of the angle between their vectors. Values range from -1 (opposite) to 1 (identical).</p>
+                
+                <div class="ml-formula">
+                    <code>similarity(A, B) = (A · B) / (||A|| × ||B||)</code>
+                </div>
+                
+                <h3>The Game</h3>
+                <p>Each guess reveals how similar it is to each player's secret word. High similarity (>90%) eliminates that player!</p>
+                
+                <ul class="ml-tips">
+                    <li><strong>Strategy:</strong> Use words semantically close to opponents' likely words</li>
+                    <li><strong>Defense:</strong> Choose obscure words with few semantic neighbors</li>
+                    <li><strong>Pro tip:</strong> Related words often have 40-60% similarity</li>
+                </ul>
+                
+                <h3>Model</h3>
+                <p>We use <strong>GloVe embeddings</strong> (Global Vectors for Word Representation) trained on large text corpora, providing 300-dimensional vectors for ~400k words.</p>
+                
+                <p class="ml-footer">Enable <strong>Nerd Mode</strong> in options to see raw cosine similarity values!</p>
+            </div>
         </div>
     </div>
 
@@ -155,6 +209,16 @@
 
         <!-- Home Screen -->
         <div id="home-screen" class="screen active home-screen">
+            <!-- Streak Widget (shown when logged in) -->
+            <div id="home-streak-widget" class="home-streak-widget hidden">
+                <div class="streak-widget-content">
+                    <span class="streak-widget-icon">🔥</span>
+                    <span id="home-streak-count" class="streak-widget-count">0</span>
+                    <span class="streak-widget-label">day streak</span>
+                </div>
+                <div id="home-streak-bonus" class="streak-widget-bonus"></div>
+            </div>
+
             <div class="card hero-card">
                 <div class="hero-content">
                     <h2>INITIALISE BREACH</h2>
@@ -553,8 +617,53 @@
                 <div class="revealed-words" id="revealed-words">
                     <!-- All secret words revealed -->
                 </div>
+                
+                <!-- Share Results Section -->
+                <div class="share-results-section">
+                    <h3 class="share-title">// SHARE_RESULTS</h3>
+                    <div id="share-preview" class="share-preview">
+                        <!-- Generated share text preview -->
+                    </div>
+                    <div class="share-buttons">
+                        <button id="copy-results-btn" class="btn btn-secondary btn-small">📋 COPY</button>
+                        <button id="share-twitter-btn" class="btn btn-secondary btn-small">𝕏 SHARE</button>
+                        <button id="challenge-friend-btn" class="btn btn-primary btn-small">⚔️ CHALLENGE</button>
+                    </div>
+                    <div class="share-buttons" style="margin-top: 0.75rem;">
+                        <button id="watch-replay-btn" class="btn btn-secondary btn-small">🎬 WATCH REPLAY</button>
+                    </div>
+                </div>
+                
                 <div class="gameover-buttons">
                     <button id="back-to-lobby-btn" class="btn btn-primary">&gt; RETURN_TO_BASE</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Replay Modal -->
+        <div id="replay-modal" class="modal-overlay">
+            <div class="modal replay-modal">
+                <div class="replay-header">
+                    <h2>🎬 GAME REPLAY</h2>
+                    <button id="close-replay-btn" class="btn btn-ghost btn-tiny">×</button>
+                </div>
+                <div class="replay-info">
+                    <span id="replay-theme" class="replay-theme"></span>
+                    <span id="replay-turn-counter" class="replay-turn-counter">Turn 0/0</span>
+                </div>
+                <div id="replay-players" class="replay-players">
+                    <!-- Player cards will be inserted here -->
+                </div>
+                <div id="replay-current-turn" class="replay-current-turn">
+                    <!-- Current turn info -->
+                </div>
+                <div class="replay-controls">
+                    <button id="replay-prev" class="btn btn-secondary btn-small">⏮ PREV</button>
+                    <button id="replay-play" class="btn btn-primary btn-small">▶ PLAY</button>
+                    <button id="replay-next" class="btn btn-secondary btn-small">NEXT ⏭</button>
+                </div>
+                <div class="replay-timeline">
+                    <input type="range" id="replay-slider" min="0" max="0" value="0">
                 </div>
             </div>
         </div>

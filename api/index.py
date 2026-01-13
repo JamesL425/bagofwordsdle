@@ -318,6 +318,43 @@ DEFAULT_USER_STATS = {
     "ranked_losses": 0,
 }
 
+# ============== DAILY STREAK SYSTEM ==============
+#
+# Streak fields stored on authenticated users.
+# Streaks reward consecutive daily play with escalating bonuses.
+
+DEFAULT_STREAK = {
+    "streak_count": 0,           # Current consecutive days
+    "streak_last_date": "",      # Last date user played (YYYY-MM-DD UTC)
+    "longest_streak": 0,         # All-time longest streak
+    "streak_claimed_today": False,  # Whether daily streak bonus was claimed today
+}
+
+# Streak bonus configuration
+STREAK_BASE_CREDITS = 15  # Base credits for daily login
+STREAK_MULTIPLIERS = {
+    1: 1.0,    # Day 1: 15 credits
+    2: 1.5,    # Day 2: 22 credits
+    3: 2.0,    # Day 3: 30 credits
+    4: 2.0,    # Day 4: 30 credits
+    5: 2.5,    # Day 5: 37 credits
+    6: 2.5,    # Day 6: 37 credits
+    7: 3.0,    # Day 7: 45 credits (weekly milestone)
+    14: 4.0,   # Day 14: 60 credits (2-week milestone)
+    30: 5.0,   # Day 30: 75 credits (monthly milestone)
+    60: 6.0,   # Day 60: 90 credits
+    100: 8.0,  # Day 100: 120 credits
+}
+
+# Milestone bonuses (one-time bonus at these streak counts)
+STREAK_MILESTONE_BONUSES = {
+    7: 100,    # 1 week: +100 bonus
+    14: 200,   # 2 weeks: +200 bonus
+    30: 500,   # 1 month: +500 bonus
+    60: 1000,  # 2 months: +1000 bonus
+    100: 2000, # 100 days: +2000 bonus
+}
+
 # ============== DAILY QUESTS / ECONOMY ==============
 #
 # These fields live on authenticated (Google) user records stored in Redis as JSON.
@@ -1704,6 +1741,204 @@ def utc_today_str() -> str:
     return time.strftime('%Y-%m-%d', time.gmtime())
 
 
+def utc_yesterday_str() -> str:
+    """Return yesterday's date as YYYY-MM-DD in UTC."""
+    yesterday = time.time() - 86400
+    return time.strftime('%Y-%m-%d', time.gmtime(yesterday))
+
+
+# ============== STREAK SYSTEM FUNCTIONS ==============
+
+def _normalize_streak(streak) -> dict:
+    """Normalize streak data to expected shape."""
+    if not isinstance(streak, dict):
+        streak = {}
+    try:
+        count = int(streak.get('streak_count', 0) or 0)
+    except Exception:
+        count = 0
+    if count < 0:
+        count = 0
+    
+    last_date = streak.get('streak_last_date', '')
+    if not isinstance(last_date, str):
+        last_date = ''
+    
+    try:
+        longest = int(streak.get('longest_streak', 0) or 0)
+    except Exception:
+        longest = 0
+    if longest < 0:
+        longest = 0
+    if count > longest:
+        longest = count
+    
+    claimed = bool(streak.get('streak_claimed_today', False))
+    
+    return {
+        "streak_count": count,
+        "streak_last_date": last_date,
+        "longest_streak": longest,
+        "streak_claimed_today": claimed,
+    }
+
+
+def get_user_streak(user: dict) -> dict:
+    """Get user's streak data with defaults."""
+    if not isinstance(user, dict):
+        return DEFAULT_STREAK.copy()
+    return _normalize_streak(user.get('streak', {}))
+
+
+def get_streak_multiplier(streak_count: int) -> float:
+    """Get the credit multiplier for a given streak count."""
+    if streak_count <= 0:
+        return 1.0
+    # Find the highest applicable multiplier
+    best_mult = 1.0
+    for threshold, mult in sorted(STREAK_MULTIPLIERS.items()):
+        if streak_count >= threshold:
+            best_mult = mult
+        else:
+            break
+    return best_mult
+
+
+def get_streak_milestone_bonus(streak_count: int) -> int:
+    """Get one-time milestone bonus for reaching a streak count (0 if not a milestone)."""
+    return STREAK_MILESTONE_BONUSES.get(streak_count, 0)
+
+
+def check_and_update_streak(user: dict, persist: bool = True) -> dict:
+    """
+    Check and update user's daily streak. Call this when user plays a game or opens daily ops.
+    
+    Returns a dict with:
+    - streak: updated streak data
+    - credits_earned: credits earned from streak bonus (0 if already claimed today)
+    - milestone_bonus: one-time milestone bonus (0 if not applicable)
+    - is_new_day: True if this is a new day for the streak
+    - streak_broken: True if streak was reset due to missing a day
+    """
+    if not isinstance(user, dict):
+        return {
+            "streak": DEFAULT_STREAK.copy(),
+            "credits_earned": 0,
+            "milestone_bonus": 0,
+            "is_new_day": False,
+            "streak_broken": False,
+        }
+    
+    today = utc_today_str()
+    yesterday = utc_yesterday_str()
+    
+    streak = get_user_streak(user)
+    last_date = streak.get('streak_last_date', '')
+    current_count = streak.get('streak_count', 0)
+    longest = streak.get('longest_streak', 0)
+    claimed_today = streak.get('streak_claimed_today', False)
+    
+    credits_earned = 0
+    milestone_bonus = 0
+    is_new_day = False
+    streak_broken = False
+    
+    if last_date == today:
+        # Already played today - no change to streak
+        pass
+    elif last_date == yesterday:
+        # Consecutive day! Increment streak
+        is_new_day = True
+        current_count += 1
+        claimed_today = False  # Reset claim status for new day
+        if current_count > longest:
+            longest = current_count
+    elif last_date == '':
+        # First time playing
+        is_new_day = True
+        current_count = 1
+        claimed_today = False
+        if current_count > longest:
+            longest = current_count
+    else:
+        # Streak broken - reset to 1
+        is_new_day = True
+        streak_broken = current_count > 1
+        current_count = 1
+        claimed_today = False
+    
+    # Calculate credits if not already claimed today
+    if is_new_day and not claimed_today:
+        multiplier = get_streak_multiplier(current_count)
+        credits_earned = int(STREAK_BASE_CREDITS * multiplier)
+        milestone_bonus = get_streak_milestone_bonus(current_count)
+        claimed_today = True
+        
+        # Add credits to wallet
+        ensure_user_economy(user, persist=False)
+        wallet = user.get('wallet', {})
+        if not isinstance(wallet, dict):
+            wallet = {}
+        try:
+            current_credits = int(wallet.get('credits', 0) or 0)
+        except Exception:
+            current_credits = 0
+        wallet['credits'] = current_credits + credits_earned + milestone_bonus
+        user['wallet'] = wallet
+    
+    # Update streak data
+    streak = {
+        "streak_count": current_count,
+        "streak_last_date": today,
+        "longest_streak": longest,
+        "streak_claimed_today": claimed_today,
+    }
+    user['streak'] = streak
+    
+    if persist:
+        save_user(user)
+    
+    return {
+        "streak": streak,
+        "credits_earned": credits_earned,
+        "milestone_bonus": milestone_bonus,
+        "is_new_day": is_new_day,
+        "streak_broken": streak_broken,
+    }
+
+
+def get_next_streak_info(streak_count: int) -> dict:
+    """Get info about the next streak milestone/bonus."""
+    current_mult = get_streak_multiplier(streak_count)
+    current_credits = int(STREAK_BASE_CREDITS * current_mult)
+    
+    # Find next multiplier increase
+    next_mult_day = None
+    next_mult_credits = current_credits
+    for threshold in sorted(STREAK_MULTIPLIERS.keys()):
+        if threshold > streak_count:
+            next_mult_day = threshold
+            next_mult_credits = int(STREAK_BASE_CREDITS * STREAK_MULTIPLIERS[threshold])
+            break
+    
+    # Find next milestone bonus
+    next_milestone_day = None
+    next_milestone_bonus = 0
+    for threshold in sorted(STREAK_MILESTONE_BONUSES.keys()):
+        if threshold > streak_count:
+            next_milestone_day = threshold
+            next_milestone_bonus = STREAK_MILESTONE_BONUSES[threshold]
+            break
+    
+    return {
+        "current_daily_credits": current_credits,
+        "next_multiplier_day": next_mult_day,
+        "next_multiplier_credits": next_mult_credits,
+        "next_milestone_day": next_milestone_day,
+        "next_milestone_bonus": next_milestone_bonus,
+    }
+
+
 def _daily_rng(seed_text: str):
     """Deterministic RNG for daily content across serverless invocations."""
     import random
@@ -1712,7 +1947,7 @@ def _daily_rng(seed_text: str):
     return random.Random(seed_int)
 
 
-def _build_daily_quest(date_str: str, category: str, metric: str, target: int, reward_credits: int, title: str, description: str) -> dict:
+def _build_daily_quest(date_str: str, category: str, metric: str, target: int, reward_credits: int, title: str, description: str, quest_type: str = "daily") -> dict:
     try:
         target_int = int(target or 0)
     except Exception:
@@ -1725,7 +1960,7 @@ def _build_daily_quest(date_str: str, category: str, metric: str, target: int, r
         target_int = 0
     if reward_int < 0:
         reward_int = 0
-    quest_id = f"{date_str}:{metric}:{target_int}"
+    quest_id = f"{date_str}:{metric}:{target_int}:{quest_type}"
     return {
         "id": quest_id,
         "category": str(category or ""),
@@ -1736,50 +1971,108 @@ def _build_daily_quest(date_str: str, category: str, metric: str, target: int, r
         "progress": 0,
         "reward_credits": int(reward_int),
         "claimed": False,
+        "quest_type": quest_type,  # "daily" or "weekly"
     }
+
+
+def get_week_start_str() -> str:
+    """Return the start of the current week (Monday) as YYYY-MM-DD in UTC."""
+    import datetime
+    now = datetime.datetime.utcnow()
+    # Monday = 0, Sunday = 6
+    days_since_monday = now.weekday()
+    monday = now - datetime.timedelta(days=days_since_monday)
+    return monday.strftime('%Y-%m-%d')
 
 
 def generate_daily_quests_for_user(user: dict, date_str: str) -> list:
     """
     Generate a deterministic-but-random daily quest set for a user for a given UTC date.
+    Now includes enhanced quest categories and scaling based on player experience.
     """
     uid = str((user or {}).get('id', '') or '')
-    rng = _daily_rng(f"{uid}:{date_str}:daily_quests:v1")
+    rng = _daily_rng(f"{uid}:{date_str}:daily_quests:v2")
+    
+    # Get user stats for difficulty scaling
+    stats = get_user_stats(user)
+    try:
+        total_games = int(stats.get('mp_games_played', 0) or 0)
+    except Exception:
+        total_games = 0
+    
+    # Determine player tier for quest difficulty
+    # New players (0-10 games) get easier quests
+    # Mid players (11-50 games) get normal quests
+    # Veterans (50+ games) get harder quests with better rewards
+    if total_games <= 10:
+        tier = "new"
+        tier_mult = 0.7  # Easier targets
+        reward_mult = 0.8  # Slightly lower rewards
+    elif total_games <= 50:
+        tier = "mid"
+        tier_mult = 1.0
+        reward_mult = 1.0
+    else:
+        tier = "veteran"
+        tier_mult = 1.3  # Harder targets
+        reward_mult = 1.25  # Better rewards
 
     # Base categories always present
     categories = ["engagement", "combat", "victory"]
+    
+    # Get user streak for streak quests
+    streak = get_user_streak(user)
+    streak_count = streak.get('streak_count', 0)
 
     # Optional ranked wildcard (only if user has played ranked before)
     try:
-        ranked_games = int(get_user_stats(user).get('ranked_games', 0) or 0)
+        ranked_games = int(stats.get('ranked_games', 0) or 0)
     except Exception:
         ranked_games = 0
     ranked_eligible = ranked_games > 0
 
     if ranked_eligible:
-        # 25% chance to include a ranked quest, replacing a base category deterministically
+        # 25% chance to include a ranked quest
         if rng.random() < 0.25:
             replace_idx = int(rng.random() * len(categories))
             categories[replace_idx] = "ranked"
+    
+    # 20% chance for a challenge quest (special objectives)
+    if rng.random() < 0.20:
+        replace_idx = int(rng.random() * len(categories))
+        categories[replace_idx] = "challenge"
+    
+    # Quest definitions with tier scaling
+    def scale_target(base: int) -> int:
+        return max(1, int(base * tier_mult))
+    
+    def scale_reward(base: int) -> int:
+        return max(10, int(base * reward_mult))
 
     defs = {
         "engagement": [
-            ("mp_games", 2, 35, "RUN OPERATIONS", "Play 2 multiplayer games"),
-            ("mp_games", 3, 55, "FIELD WORK", "Play 3 multiplayer games"),
-            ("mp_games", 4, 75, "FULL SHIFT", "Play 4 multiplayer games"),
+            ("mp_games", scale_target(2), scale_reward(35), "RUN OPERATIONS", "Play 2 multiplayer games"),
+            ("mp_games", scale_target(3), scale_reward(55), "FIELD WORK", "Play 3 multiplayer games"),
+            ("mp_games", scale_target(4), scale_reward(75), "FULL SHIFT", "Play 4 multiplayer games"),
         ],
         "combat": [
-            ("mp_elims", 2, 45, "TARGET PRACTICE", "Get 2 eliminations in multiplayer"),
-            ("mp_elims", 4, 70, "HUNTER MODE", "Get 4 eliminations in multiplayer"),
-            ("mp_elims", 6, 95, "EXECUTION ORDER", "Get 6 eliminations in multiplayer"),
+            ("mp_elims", scale_target(2), scale_reward(45), "TARGET PRACTICE", "Get 2 eliminations"),
+            ("mp_elims", scale_target(4), scale_reward(70), "HUNTER MODE", "Get 4 eliminations"),
+            ("mp_elims", scale_target(6), scale_reward(95), "EXECUTION ORDER", "Get 6 eliminations"),
         ],
         "victory": [
-            ("mp_wins", 1, 85, "SECURE THE WIN", "Win 1 multiplayer game"),
-            ("mp_wins", 2, 140, "DOMINATE", "Win 2 multiplayer games"),
+            ("mp_wins", 1, scale_reward(85), "SECURE THE WIN", "Win 1 multiplayer game"),
+            ("mp_wins", scale_target(2), scale_reward(140), "DOMINATE", "Win 2 multiplayer games"),
         ],
         "ranked": [
-            ("ranked_games", 1, 90, "RANKED DEPLOYMENT", "Play 1 ranked game"),
-            ("ranked_wins", 1, 160, "RANKED VICTORY", "Win 1 ranked game"),
+            ("ranked_games", 1, scale_reward(90), "RANKED DEPLOYMENT", "Play 1 ranked game"),
+            ("ranked_wins", 1, scale_reward(160), "RANKED VICTORY", "Win 1 ranked game"),
+        ],
+        "challenge": [
+            ("mp_elims_single", 2, scale_reward(120), "DOUBLE KILL", "Get 2+ eliminations in one game"),
+            ("mp_elims_single", 3, scale_reward(200), "TRIPLE THREAT", "Get 3+ eliminations in one game"),
+            ("mp_first_elim", 1, scale_reward(80), "FIRST BLOOD", "Get the first elimination in a game"),
+            ("mp_flawless", 1, scale_reward(250), "FLAWLESS", "Win without being eliminated"),
         ],
     }
 
@@ -1789,11 +2082,92 @@ def generate_daily_quests_for_user(user: dict, date_str: str) -> list:
         if not options:
             continue
         metric, target, reward, title, desc = rng.choice(options)
-        quests.append(_build_daily_quest(date_str, cat, metric, target, reward, title, desc))
+        quests.append(_build_daily_quest(date_str, cat, metric, target, reward, title, desc, "daily"))
 
-    # Guarantee stable ordering (and avoid duplicates if ranked replaced a base)
+    # Guarantee stable ordering
     quests.sort(key=lambda q: (q.get('category', ''), q.get('metric', ''), int(q.get('target', 0) or 0)))
     return quests
+
+
+def generate_weekly_quests_for_user(user: dict, week_start: str) -> list:
+    """
+    Generate weekly quests for a user. These persist for 7 days and have higher rewards.
+    """
+    uid = str((user or {}).get('id', '') or '')
+    rng = _daily_rng(f"{uid}:{week_start}:weekly_quests:v1")
+    
+    # Get user stats
+    stats = get_user_stats(user)
+    try:
+        total_games = int(stats.get('mp_games_played', 0) or 0)
+    except Exception:
+        total_games = 0
+    
+    # Tier multiplier
+    if total_games <= 10:
+        reward_mult = 0.8
+    elif total_games <= 50:
+        reward_mult = 1.0
+    else:
+        reward_mult = 1.25
+    
+    def scale_reward(base: int) -> int:
+        return max(50, int(base * reward_mult))
+    
+    # Weekly quest definitions (higher targets, much higher rewards)
+    weekly_options = [
+        ("mp_games", 10, scale_reward(300), "WEEKLY OPS", "Play 10 games this week"),
+        ("mp_games", 15, scale_reward(500), "DEDICATED AGENT", "Play 15 games this week"),
+        ("mp_wins", 5, scale_reward(400), "WEEKLY CHAMPION", "Win 5 games this week"),
+        ("mp_wins", 8, scale_reward(650), "WEEKLY DOMINATOR", "Win 8 games this week"),
+        ("mp_elims", 15, scale_reward(350), "WEEKLY HUNTER", "Get 15 eliminations this week"),
+        ("mp_elims", 25, scale_reward(550), "WEEKLY EXECUTIONER", "Get 25 eliminations this week"),
+    ]
+    
+    # Check if user plays ranked
+    try:
+        ranked_games = int(stats.get('ranked_games', 0) or 0)
+    except Exception:
+        ranked_games = 0
+    
+    if ranked_games > 0:
+        weekly_options.extend([
+            ("ranked_games", 5, scale_reward(450), "RANKED WEEK", "Play 5 ranked games this week"),
+            ("ranked_wins", 3, scale_reward(600), "RANKED DOMINATION", "Win 3 ranked games this week"),
+        ])
+    
+    # Pick 2 weekly quests
+    quests = []
+    chosen = rng.sample(weekly_options, min(2, len(weekly_options)))
+    for metric, target, reward, title, desc in chosen:
+        quests.append(_build_daily_quest(week_start, "weekly", metric, target, reward, title, desc, "weekly"))
+    
+    return quests
+
+
+def ensure_weekly_quests(user: dict, persist: bool = True) -> list:
+    """Ensure user has weekly quests for the current week."""
+    if not isinstance(user, dict):
+        return []
+    
+    week_start = get_week_start_str()
+    weekly_state = user.get('weekly_quests', {})
+    
+    if not isinstance(weekly_state, dict):
+        weekly_state = {}
+    
+    if weekly_state.get('week_start') != week_start:
+        # Generate new weekly quests
+        weekly_quests = generate_weekly_quests_for_user(user, week_start)
+        weekly_state = {
+            "week_start": week_start,
+            "quests": weekly_quests,
+        }
+        user['weekly_quests'] = weekly_state
+        if persist:
+            save_user(user)
+    
+    return weekly_state.get('quests', [])
 
 
 def _is_valid_daily_quests_state(state: dict) -> bool:
@@ -3006,7 +3380,7 @@ class handler(BaseHTTPRequestHandler):
                 'unlock_all': COSMETICS_UNLOCK_ALL,
             })
 
-        # GET /api/user/daily - Get daily quests + currency + owned cosmetics
+        # GET /api/user/daily - Get daily quests + weekly quests + currency + owned cosmetics + streak
         if path == '/api/user/daily':
             auth_header = self.headers.get('Authorization', '')
             if not auth_header.startswith('Bearer '):
@@ -3024,13 +3398,23 @@ class handler(BaseHTTPRequestHandler):
                 admin_user = load_admin_economy_user(redis)
                 daily_state = ensure_daily_quests_today(admin_user, persist=False)
                 admin_user['daily_quests'] = daily_state
+                weekly_quests = ensure_weekly_quests(admin_user, persist=False)
+                # Check/update streak for admin
+                streak_result = check_and_update_streak(admin_user, persist=False)
                 save_admin_economy_user(redis, admin_user)
                 econ = ensure_user_economy(admin_user, persist=False)
+                streak_info = get_next_streak_info(streak_result['streak'].get('streak_count', 0))
                 return self._send_json({
                     "date": daily_state.get("date", ""),
                     "quests": daily_state.get("quests", []),
+                    "weekly_quests": weekly_quests,
                     "wallet": econ.get("wallet") or {"credits": 0},
                     "owned_cosmetics": econ.get("owned_cosmetics") or {},
+                    "streak": streak_result['streak'],
+                    "streak_credits_earned": streak_result['credits_earned'],
+                    "streak_milestone_bonus": streak_result['milestone_bonus'],
+                    "streak_broken": streak_result['streak_broken'],
+                    "streak_info": streak_info,
                 })
 
             user = get_user_by_id(payload.get('sub', ''))
@@ -3039,12 +3423,22 @@ class handler(BaseHTTPRequestHandler):
 
             econ = ensure_user_economy(user, persist=True)
             daily_state = ensure_daily_quests_today(user, persist=True)
+            weekly_quests = ensure_weekly_quests(user, persist=True)
+            # Check/update streak
+            streak_result = check_and_update_streak(user, persist=True)
+            streak_info = get_next_streak_info(streak_result['streak'].get('streak_count', 0))
 
             return self._send_json({
                 "date": daily_state.get("date", ""),
                 "quests": daily_state.get("quests", []),
-                "wallet": econ.get("wallet") or {"credits": 0},
+                "weekly_quests": weekly_quests,
+                "wallet": user.get('wallet') or {"credits": 0},  # Use updated wallet with streak credits
                 "owned_cosmetics": econ.get("owned_cosmetics") or {},
+                "streak": streak_result['streak'],
+                "streak_credits_earned": streak_result['credits_earned'],
+                "streak_milestone_bonus": streak_result['milestone_bonus'],
+                "streak_broken": streak_result['streak_broken'],
+                "streak_info": streak_info,
             })
 
         # GET /api/lobbies - List open lobbies
@@ -3490,6 +3884,55 @@ class handler(BaseHTTPRequestHandler):
                 print(f"Chat fetch error: {e}")
                 return self._send_error("Failed to load chat. Please try again.", 500)
 
+        # GET /api/games/{code}/replay - Get full replay data for a finished game
+        if path.endswith('/replay') and path.startswith('/api/games/'):
+            parts = path.split('/')
+            if len(parts) != 5:
+                return self._send_error("Invalid path", 400)
+            
+            code = sanitize_game_code(parts[3])
+            if not code:
+                return self._send_error("Invalid game code format", 400)
+            
+            game = load_game(code)
+            if not game:
+                return self._send_error("Game not found", 404)
+            
+            # Only allow replay for finished games
+            if game.get('status') != 'finished':
+                return self._send_error("Game is not finished yet", 400)
+            
+            # Get theme info
+            theme_data = game.get('theme') or {}
+            
+            # Build player info (with revealed words for finished games)
+            players = []
+            for p in game.get('players', []):
+                players.append({
+                    "id": p.get('id'),
+                    "name": p.get('name'),
+                    "secret_word": p.get('secret_word'),
+                    "is_alive": p.get('is_alive', True),
+                    "is_ai": p.get('is_ai', False),
+                    "cosmetics": p.get('cosmetics', {}),
+                })
+            
+            # Build replay data
+            replay_data = {
+                "code": game['code'],
+                "theme": {
+                    "name": theme_data.get('name', ''),
+                },
+                "players": players,
+                "winner": game.get('winner'),
+                "history": game.get('history', []),
+                "is_ranked": bool(game.get('is_ranked', False)),
+                "created_at": game.get('created_at'),
+                "finished_at": game.get('finished_at', game.get('created_at')),
+            }
+            
+            return self._send_json(replay_data)
+
         # GET /api/games/{code}
         if path.startswith('/api/games/') and path.count('/') == 3:
             code = sanitize_game_code(path.split('/')[3])
@@ -3708,6 +4151,127 @@ class handler(BaseHTTPRequestHandler):
                 "theme_options": theme_options,
                 "visibility": requested_visibility,
                 "is_ranked": bool(requested_ranked),
+            })
+
+        # POST /api/challenge/create - Create a challenge link with pre-configured settings
+        if path == '/api/challenge/create':
+            # Rate limit: 10 challenges/min per IP
+            if not check_rate_limit(get_ratelimit_game_create(), client_ip):
+                return self._send_error("Too many challenge creations. Please wait.", 429)
+            
+            import random
+            
+            # Get challenger info
+            auth_user_id = self._get_auth_user_id()
+            challenger_name = body.get('challenger_name', 'Anonymous')
+            if not isinstance(challenger_name, str):
+                challenger_name = 'Anonymous'
+            challenger_name = challenger_name.strip()[:20] or 'Anonymous'
+            
+            # Challenge settings
+            theme = body.get('theme', None)
+            if theme and theme not in THEME_CATEGORIES:
+                theme = None
+            
+            # Generate challenge ID
+            challenge_id = ''.join(random.choices('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', k=8))
+            
+            # Store challenge in Redis
+            redis = get_redis()
+            challenge_data = {
+                "id": challenge_id,
+                "challenger_name": challenger_name,
+                "challenger_user_id": auth_user_id,
+                "theme": theme,  # Pre-selected theme (or None for voting)
+                "created_at": time.time(),
+            }
+            
+            # Challenges expire after 7 days
+            redis.set(f"challenge:{challenge_id}", json.dumps(challenge_data), ex=604800)
+            
+            return self._send_json({
+                "challenge_id": challenge_id,
+                "challenge_url": f"/challenge/{challenge_id}",
+            })
+        
+        # GET /api/challenge/{id} - Get challenge details
+        if path.startswith('/api/challenge/') and len(path.split('/')) == 4:
+            challenge_id = path.split('/')[3].upper()
+            
+            redis = get_redis()
+            challenge_data = redis.get(f"challenge:{challenge_id}")
+            
+            if not challenge_data:
+                return self._send_error("Challenge not found or expired", 404)
+            
+            challenge = json.loads(challenge_data)
+            
+            return self._send_json({
+                "id": challenge['id'],
+                "challenger_name": challenge['challenger_name'],
+                "theme": challenge.get('theme'),
+                "created_at": challenge.get('created_at'),
+            })
+        
+        # POST /api/challenge/{id}/accept - Accept a challenge and create a game
+        if path.startswith('/api/challenge/') and path.endswith('/accept'):
+            parts = path.split('/')
+            if len(parts) != 5:
+                return self._send_error("Invalid challenge path", 400)
+            
+            challenge_id = parts[3].upper()
+            
+            # Rate limit
+            if not check_rate_limit(get_ratelimit_game_create(), client_ip):
+                return self._send_error("Too many requests. Please wait.", 429)
+            
+            redis = get_redis()
+            challenge_data = redis.get(f"challenge:{challenge_id}")
+            
+            if not challenge_data:
+                return self._send_error("Challenge not found or expired", 404)
+            
+            challenge = json.loads(challenge_data)
+            
+            import random
+            
+            # Create a new game for this challenge
+            code = generate_game_code()
+            while load_game(code):
+                code = generate_game_code()
+            
+            # If theme is pre-selected, use it; otherwise use voting
+            theme = challenge.get('theme')
+            if theme and theme in THEME_CATEGORIES:
+                theme_options = [theme]
+                theme_votes = {theme: []}
+            else:
+                theme_options = random.sample(THEME_CATEGORIES, min(3, len(THEME_CATEGORIES)))
+                theme_votes = {opt: [] for opt in theme_options}
+            
+            game = {
+                "code": code,
+                "host_id": "",
+                "players": [],
+                "current_turn": 0,
+                "status": "waiting",
+                "winner": None,
+                "history": [],
+                "theme": theme if theme else None,
+                "theme_options": theme_options,
+                "theme_votes": theme_votes,
+                "created_at": time.time(),
+                "visibility": "private",
+                "is_ranked": False,
+                "challenge_id": challenge_id,
+                "challenger_name": challenge.get('challenger_name'),
+            }
+            save_game(code, game)
+            
+            return self._send_json({
+                "code": code,
+                "theme_options": theme_options,
+                "challenger_name": challenge.get('challenger_name'),
             })
 
         # POST /api/singleplayer - Create singleplayer lobby
@@ -5033,7 +5597,7 @@ class handler(BaseHTTPRequestHandler):
             save_game(code, game)
             return self._send_json({"status": "skipped"})
 
-        # POST /api/user/daily/claim - Claim a completed daily quest for credits
+        # POST /api/user/daily/claim - Claim a completed daily or weekly quest for credits
         if path == '/api/user/daily/claim':
             auth_header = self.headers.get('Authorization', '')
             if not auth_header.startswith('Bearer '):
@@ -5048,13 +5612,23 @@ class handler(BaseHTTPRequestHandler):
             if not isinstance(quest_id, str) or not quest_id.strip():
                 return self._send_error("quest_id required", 400)
             quest_id = quest_id.strip()
+            
+            quest_type = body.get('quest_type', 'daily')
+            if quest_type not in ('daily', 'weekly'):
+                quest_type = 'daily'
 
             # Admin user: store economy separately
             if payload.get('sub') == 'admin_local':
                 redis = get_redis()
                 admin_user = load_admin_economy_user(redis)
-                daily_state = ensure_daily_quests_today(admin_user, persist=False)
-                quests = daily_state.get('quests', [])
+                
+                if quest_type == 'weekly':
+                    weekly_quests = ensure_weekly_quests(admin_user, persist=False)
+                    quests = weekly_quests
+                else:
+                    daily_state = ensure_daily_quests_today(admin_user, persist=False)
+                    quests = daily_state.get('quests', [])
+                
                 if not isinstance(quests, list):
                     quests = []
 
@@ -5076,13 +5650,18 @@ class handler(BaseHTTPRequestHandler):
 
                 quest['claimed'] = True
                 add_user_credits(admin_user, reward, persist=False)
-                admin_user['daily_quests'] = daily_state
+                
+                if quest_type == 'weekly':
+                    admin_user['weekly_quests'] = {"week_start": get_week_start_str(), "quests": quests}
+                else:
+                    admin_user['daily_quests'] = daily_state
+                    
                 save_admin_economy_user(redis, admin_user)
                 econ = ensure_user_economy(admin_user, persist=False)
                 return self._send_json({
                     "status": "claimed",
+                    "reward_credits": reward,
                     "wallet": econ.get("wallet") or {"credits": 0},
-                    "daily": daily_state,
                 })
 
             user = get_user_by_id(payload.get('sub', ''))
@@ -5090,8 +5669,14 @@ class handler(BaseHTTPRequestHandler):
                 return self._send_error("User not found", 404)
 
             ensure_user_economy(user, persist=False)
-            daily_state = ensure_daily_quests_today(user, persist=False)
-            quests = daily_state.get('quests', [])
+            
+            if quest_type == 'weekly':
+                weekly_quests = ensure_weekly_quests(user, persist=False)
+                quests = weekly_quests
+            else:
+                daily_state = ensure_daily_quests_today(user, persist=False)
+                quests = daily_state.get('quests', [])
+            
             if not isinstance(quests, list):
                 quests = []
 
@@ -5113,13 +5698,18 @@ class handler(BaseHTTPRequestHandler):
 
             quest['claimed'] = True
             add_user_credits(user, reward, persist=False)
-            user['daily_quests'] = daily_state
+            
+            if quest_type == 'weekly':
+                user['weekly_quests'] = {"week_start": get_week_start_str(), "quests": quests}
+            else:
+                user['daily_quests'] = daily_state
+                
             save_user(user)
             econ = ensure_user_economy(user, persist=False)
             return self._send_json({
                 "status": "claimed",
+                "reward_credits": reward,
                 "wallet": econ.get("wallet") or {"credits": 0},
-                "daily": daily_state,
             })
 
         # POST /api/shop/purchase - Purchase a cosmetic with credits (shop exclusives)

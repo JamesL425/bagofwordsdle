@@ -1,6 +1,12 @@
 {
   "card_borders": {
     "classic": { "name": "Classic", "description": "Default border", "premium": false },
+    "newcomer": {
+      "name": "Newcomer",
+      "description": "Welcome glow (First game!)",
+      "premium": false,
+      "requirements": [{ "metric": "mp_games_played", "min": 1 }]
+    },
     "synthwave": {
       "name": "Synthwave",
       "description": "Retro neon border (Shop)",
@@ -9,47 +15,65 @@
     },
     "neon_glow": {
       "name": "Neon Glow",
-      "description": "Animated neon pulse (25 MP games)",
+      "description": "Animated neon pulse (10 MP games)",
       "premium": false,
-      "requirements": [{ "metric": "mp_games_played", "min": 25 }]
+      "requirements": [{ "metric": "mp_games_played", "min": 10 }]
     },
     "ice": {
       "name": "Ice",
-      "description": "Cold blue edge (10 MP wins)",
+      "description": "Cold blue edge (5 MP wins)",
       "premium": false,
-      "requirements": [{ "metric": "mp_wins", "min": 10 }]
+      "requirements": [{ "metric": "mp_wins", "min": 5 }]
     },
     "fire": {
       "name": "Fire",
-      "description": "Hot animated flame edge (50 MP eliminations)",
+      "description": "Hot animated flame edge (25 MP eliminations)",
       "premium": false,
-      "requirements": [{ "metric": "mp_eliminations", "min": 50 }]
+      "requirements": [{ "metric": "mp_eliminations", "min": 25 }]
     },
     "electric": {
       "name": "Electric",
-      "description": "High-voltage flicker (200 MP eliminations)",
+      "description": "High-voltage flicker (100 MP eliminations)",
       "premium": false,
-      "requirements": [{ "metric": "mp_eliminations", "min": 200 }]
+      "requirements": [{ "metric": "mp_eliminations", "min": 100 }]
     },
     "glitch": {
       "name": "Glitch",
-      "description": "Digital corruption (50 MP wins)",
+      "description": "Digital corruption (35 MP wins)",
       "premium": false,
-      "requirements": [{ "metric": "mp_wins", "min": 50 }]
+      "requirements": [{ "metric": "mp_wins", "min": 35 }]
+    },
+    "plasma": {
+      "name": "Plasma",
+      "description": "Swirling plasma (150 MP games)",
+      "premium": false,
+      "requirements": [{ "metric": "mp_games_played", "min": 150 }]
     },
     "gold_elite": {
       "name": "Gold Elite",
-      "description": "Prestige frame (100 MP wins + 250 MP eliminations)",
+      "description": "Prestige frame (75 MP wins + 150 MP eliminations)",
       "premium": false,
       "requirements": [
-        { "metric": "mp_wins", "min": 100 },
-        { "metric": "mp_eliminations", "min": 250 }
+        { "metric": "mp_wins", "min": 75 },
+        { "metric": "mp_eliminations", "min": 150 }
       ]
+    },
+    "diamond_edge": {
+      "name": "Diamond Edge",
+      "description": "Ultimate prestige (200 MP wins)",
+      "premium": false,
+      "requirements": [{ "metric": "mp_wins", "min": 200 }]
     },
     "holographic": { "name": "Holographic", "description": "Rainbow shimmer (Supporter)", "premium": true }
   },
   "card_backgrounds": {
     "default": { "name": "Default", "description": "Standard background", "premium": false },
+    "subtle_glow": {
+      "name": "Subtle Glow",
+      "description": "Soft glow (3 MP games)",
+      "premium": false,
+      "requirements": [{ "metric": "mp_games_played", "min": 3 }]
+    },
     "midnight": {
       "name": "Midnight",
       "description": "Deep blue gradient (Shop)",
@@ -58,38 +82,50 @@
     },
     "circuit_board": {
       "name": "Circuit Board",
-      "description": "Circuit overlay (50 MP games)",
+      "description": "Circuit overlay (25 MP games)",
       "premium": false,
-      "requirements": [{ "metric": "mp_games_played", "min": 50 }]
+      "requirements": [{ "metric": "mp_games_played", "min": 25 }]
     },
     "gradient_ice": {
       "name": "Gradient Ice",
-      "description": "Blue-cyan gradient (25 MP wins)",
+      "description": "Blue-cyan gradient (15 MP wins)",
       "premium": false,
-      "requirements": [{ "metric": "mp_wins", "min": 25 }]
+      "requirements": [{ "metric": "mp_wins", "min": 15 }]
     },
     "gradient_fire": {
       "name": "Gradient Fire",
-      "description": "Red-orange gradient (100 MP eliminations)",
+      "description": "Red-orange gradient (50 MP eliminations)",
       "premium": false,
-      "requirements": [{ "metric": "mp_eliminations", "min": 100 }]
+      "requirements": [{ "metric": "mp_eliminations", "min": 50 }]
     },
     "gradient_toxic": {
       "name": "Gradient Toxic",
-      "description": "Green-purple gradient (250 MP eliminations)",
+      "description": "Green-purple gradient (150 MP eliminations)",
       "premium": false,
-      "requirements": [{ "metric": "mp_eliminations", "min": 250 }]
+      "requirements": [{ "metric": "mp_eliminations", "min": 150 }]
     },
     "matrix_code": {
       "name": "Matrix Code",
-      "description": "Deep matrix sheen (250 MP games)",
+      "description": "Deep matrix sheen (100 MP games)",
       "premium": false,
-      "requirements": [{ "metric": "mp_games_played", "min": 250 }]
+      "requirements": [{ "metric": "mp_games_played", "min": 100 }]
+    },
+    "nebula": {
+      "name": "Nebula",
+      "description": "Cosmic swirl (200 MP games)",
+      "premium": false,
+      "requirements": [{ "metric": "mp_games_played", "min": 200 }]
     },
     "holographic": { "name": "Holographic", "description": "Shifting rainbow (Supporter)", "premium": true }
   },
   "name_colors": {
     "default": { "name": "Default", "description": "Standard green", "premium": false },
+    "cyan": {
+      "name": "Cyan",
+      "description": "Cool cyan (First win!)",
+      "premium": false,
+      "requirements": [{ "metric": "mp_wins", "min": 1 }]
+    },
     "amber": {
       "name": "Amber",
       "description": "Warm orange glow (Shop)",
@@ -104,39 +140,52 @@
     },
     "ice": {
       "name": "Ice",
-      "description": "Cyan glow (10 MP wins)",
+      "description": "Cyan glow (5 MP wins)",
       "premium": false,
-      "requirements": [{ "metric": "mp_wins", "min": 10 }]
+      "requirements": [{ "metric": "mp_wins", "min": 5 }]
     },
     "fire": {
       "name": "Fire",
-      "description": "Hot red glow (50 MP eliminations)",
+      "description": "Hot red glow (25 MP eliminations)",
       "premium": false,
-      "requirements": [{ "metric": "mp_eliminations", "min": 50 }]
+      "requirements": [{ "metric": "mp_eliminations", "min": 25 }]
     },
     "electric": {
       "name": "Electric",
-      "description": "Blue flicker (150 MP eliminations)",
+      "description": "Blue flicker (75 MP eliminations)",
       "premium": false,
-      "requirements": [{ "metric": "mp_eliminations", "min": 150 }]
+      "requirements": [{ "metric": "mp_eliminations", "min": 75 }]
     },
     "shadow": {
       "name": "Shadow",
-      "description": "Purple shadow (100 MP games)",
+      "description": "Purple shadow (50 MP games)",
       "premium": false,
-      "requirements": [{ "metric": "mp_games_played", "min": 100 }]
+      "requirements": [{ "metric": "mp_games_played", "min": 50 }]
     },
     "gold": {
       "name": "Gold",
-      "description": "Prestige gold (100 MP wins)",
+      "description": "Prestige gold (75 MP wins)",
       "premium": false,
-      "requirements": [{ "metric": "mp_wins", "min": 100 }]
+      "requirements": [{ "metric": "mp_wins", "min": 75 }]
+    },
+    "crimson": {
+      "name": "Crimson",
+      "description": "Deep red (200 MP eliminations)",
+      "premium": false,
+      "requirements": [{ "metric": "mp_eliminations", "min": 200 }]
     },
     "rainbow": { "name": "Rainbow", "description": "Animated spectrum (Supporter)", "premium": true },
     "neon_pink": { "name": "Neon Pink", "description": "Neon magenta (Supporter)", "premium": true }
   },
   "badges": {
     "none": { "name": "None", "description": "No badge", "premium": false, "icon": "" },
+    "star": {
+      "name": "Star",
+      "description": "First elimination!",
+      "premium": false,
+      "icon": "⭐",
+      "requirements": [{ "metric": "mp_eliminations", "min": 1 }]
+    },
     "skull": {
       "name": "Skull",
       "description": "Menacing skull (Shop)",
@@ -160,24 +209,38 @@
     },
     "rookie": {
       "name": "Rookie",
-      "description": "25 multiplayer games",
+      "description": "10 multiplayer games",
       "premium": false,
       "icon": "🔰",
-      "requirements": [{ "metric": "mp_games_played", "min": 25 }]
+      "requirements": [{ "metric": "mp_games_played", "min": 10 }]
     },
     "hunter": {
       "name": "Hunter",
-      "description": "100 multiplayer eliminations",
+      "description": "50 multiplayer eliminations",
       "premium": false,
       "icon": "⚔️",
-      "requirements": [{ "metric": "mp_eliminations", "min": 100 }]
+      "requirements": [{ "metric": "mp_eliminations", "min": 50 }]
+    },
+    "assassin": {
+      "name": "Assassin",
+      "description": "150 multiplayer eliminations",
+      "premium": false,
+      "icon": "🗡️",
+      "requirements": [{ "metric": "mp_eliminations", "min": 150 }]
     },
     "executioner": {
       "name": "Executioner",
-      "description": "500 multiplayer eliminations",
+      "description": "300 multiplayer eliminations",
       "premium": false,
       "icon": "☠️",
-      "requirements": [{ "metric": "mp_eliminations", "min": 500 }]
+      "requirements": [{ "metric": "mp_eliminations", "min": 300 }]
+    },
+    "victor": {
+      "name": "Victor",
+      "description": "25 multiplayer wins",
+      "premium": false,
+      "icon": "🎖️",
+      "requirements": [{ "metric": "mp_wins", "min": 25 }]
     },
     "champion": {
       "name": "Champion",
@@ -188,10 +251,17 @@
     },
     "legend": {
       "name": "Legend",
-      "description": "250 multiplayer wins",
+      "description": "150 multiplayer wins",
       "premium": false,
       "icon": "👑",
-      "requirements": [{ "metric": "mp_wins", "min": 250 }]
+      "requirements": [{ "metric": "mp_wins", "min": 150 }]
+    },
+    "veteran": {
+      "name": "Veteran",
+      "description": "100 multiplayer games",
+      "premium": false,
+      "icon": "🎗️",
+      "requirements": [{ "metric": "mp_games_played", "min": 100 }]
     },
     "rank_bronze": {
       "name": "Bronze Rank",
@@ -235,27 +305,33 @@
     "classic": { "name": "Classic", "description": "Simple fade out", "premium": false },
     "shatter": {
       "name": "Shatter",
-      "description": "Break into shards (25 MP eliminations)",
+      "description": "Break into shards (10 MP eliminations)",
       "premium": false,
-      "requirements": [{ "metric": "mp_eliminations", "min": 25 }]
+      "requirements": [{ "metric": "mp_eliminations", "min": 10 }]
     },
     "explosion": {
       "name": "Explosion",
-      "description": "Explosive elimination (100 MP eliminations)",
+      "description": "Explosive elimination (50 MP eliminations)",
       "premium": false,
-      "requirements": [{ "metric": "mp_eliminations", "min": 100 }]
+      "requirements": [{ "metric": "mp_eliminations", "min": 50 }]
     },
     "freeze_shatter": {
       "name": "Freeze Shatter",
-      "description": "Freeze then shatter (25 MP wins)",
+      "description": "Freeze then shatter (15 MP wins)",
       "premium": false,
-      "requirements": [{ "metric": "mp_wins", "min": 25 }]
+      "requirements": [{ "metric": "mp_wins", "min": 15 }]
     },
     "glitch_out": {
       "name": "Glitch Out",
-      "description": "Digital corruption (50 MP wins)",
+      "description": "Digital corruption (35 MP wins)",
       "premium": false,
-      "requirements": [{ "metric": "mp_wins", "min": 50 }]
+      "requirements": [{ "metric": "mp_wins", "min": 35 }]
+    },
+    "vaporize": {
+      "name": "Vaporize",
+      "description": "Instant vaporization (100 MP eliminations)",
+      "premium": false,
+      "requirements": [{ "metric": "mp_eliminations", "min": 100 }]
     },
     "disintegrate": { "name": "Disintegrate", "description": "Dust to void (Supporter)", "premium": true },
     "void": { "name": "Void", "description": "Sucked into the void (Supporter)", "premium": true },
@@ -265,42 +341,48 @@
     "classic": { "name": "Classic", "description": "Simple submit", "premium": false },
     "pulse_wave": {
       "name": "Pulse Wave",
-      "description": "Ripple outward (25 MP games)",
+      "description": "Ripple outward (5 MP games)",
       "premium": false,
-      "requirements": [{ "metric": "mp_games_played", "min": 25 }]
+      "requirements": [{ "metric": "mp_games_played", "min": 5 }]
     },
     "spark_burst": {
       "name": "Spark Burst",
-      "description": "Quick spark burst (25 MP eliminations)",
+      "description": "Quick spark burst (10 MP eliminations)",
       "premium": false,
-      "requirements": [{ "metric": "mp_eliminations", "min": 25 }]
+      "requirements": [{ "metric": "mp_eliminations", "min": 10 }]
+    },
+    "energy_ring": {
+      "name": "Energy Ring",
+      "description": "Expanding energy (25 MP games)",
+      "premium": false,
+      "requirements": [{ "metric": "mp_games_played", "min": 25 }]
     }
   },
   "turn_indicators": {
     "classic": { "name": "Classic", "description": "Standard highlight", "premium": false },
     "spotlight": {
       "name": "Spotlight",
-      "description": "Bright spotlight (10 MP wins)",
+      "description": "Bright spotlight (3 MP wins)",
       "premium": false,
-      "requirements": [{ "metric": "mp_wins", "min": 10 }]
+      "requirements": [{ "metric": "mp_wins", "min": 3 }]
     },
     "pulse_glow": {
       "name": "Pulse Glow",
-      "description": "Breathing glow (50 MP games)",
+      "description": "Breathing glow (20 MP games)",
       "premium": false,
-      "requirements": [{ "metric": "mp_games_played", "min": 50 }]
+      "requirements": [{ "metric": "mp_games_played", "min": 20 }]
     },
     "danger_zone": {
       "name": "Danger Zone",
-      "description": "Red alert (100 MP eliminations)",
+      "description": "Red alert (50 MP eliminations)",
       "premium": false,
-      "requirements": [{ "metric": "mp_eliminations", "min": 100 }]
+      "requirements": [{ "metric": "mp_eliminations", "min": 50 }]
     },
     "electric_arc": {
       "name": "Electric Arc",
-      "description": "Electric arcs (250 MP eliminations)",
+      "description": "Electric arcs (150 MP eliminations)",
       "premium": false,
-      "requirements": [{ "metric": "mp_eliminations", "min": 250 }]
+      "requirements": [{ "metric": "mp_eliminations", "min": 150 }]
     },
     "fire_ring": { "name": "Fire Ring", "description": "Ring of fire (Supporter)", "premium": true },
     "holographic": { "name": "Holographic", "description": "Rainbow shimmer (Supporter)", "premium": true }
@@ -309,26 +391,39 @@
     "classic": { "name": "Classic", "description": "Default confetti", "premium": false },
     "fireworks": {
       "name": "Fireworks",
-      "description": "Fireworks burst (10 MP wins)",
+      "description": "Fireworks burst (5 MP wins)",
       "premium": false,
-      "requirements": [{ "metric": "mp_wins", "min": 10 }]
+      "requirements": [{ "metric": "mp_wins", "min": 5 }]
     },
     "gold_rain": {
       "name": "Gold Rain",
-      "description": "Golden downpour (50 MP wins)",
+      "description": "Golden downpour (25 MP wins)",
       "premium": false,
-      "requirements": [{ "metric": "mp_wins", "min": 50 }]
+      "requirements": [{ "metric": "mp_wins", "min": 25 }]
     },
     "supernova": {
       "name": "Supernova",
-      "description": "Blinding nova (100 MP wins)",
+      "description": "Blinding nova (75 MP wins)",
       "premium": false,
-      "requirements": [{ "metric": "mp_wins", "min": 100 }]
+      "requirements": [{ "metric": "mp_wins", "min": 75 }]
+    },
+    "champion_crown": {
+      "name": "Champion Crown",
+      "description": "Crown descent (150 MP wins)",
+      "premium": false,
+      "requirements": [{ "metric": "mp_wins", "min": 150 }]
     },
     "lightning_storm": { "name": "Lightning Storm", "description": "Lightning storm (Supporter)", "premium": true }
   },
   "matrix_colors": {
     "classic": { "name": "Classic", "description": "Default green", "premium": false, "colors": ["#00ff41"] },
+    "ocean": {
+      "name": "Ocean",
+      "description": "Deep blue (First game!)",
+      "premium": false,
+      "colors": ["#0077be", "#00a8e8"],
+      "requirements": [{ "metric": "mp_games_played", "min": 1 }]
+    },
     "sunset": {
       "name": "Sunset",
       "description": "Orange/pink gradient (Shop)",
@@ -338,24 +433,31 @@
     },
     "cyber_blue": {
       "name": "Cyber Blue",
-      "description": "Blue/cyan (25 MP games)",
+      "description": "Blue/cyan (10 MP games)",
       "premium": false,
       "colors": ["#00ccff", "#0066ff"],
-      "requirements": [{ "metric": "mp_games_played", "min": 25 }]
+      "requirements": [{ "metric": "mp_games_played", "min": 10 }]
     },
     "crimson": {
       "name": "Crimson",
-      "description": "Red/dark red (100 MP eliminations)",
+      "description": "Red/dark red (50 MP eliminations)",
       "premium": false,
       "colors": ["#ff3333", "#990000"],
-      "requirements": [{ "metric": "mp_eliminations", "min": 100 }]
+      "requirements": [{ "metric": "mp_eliminations", "min": 50 }]
     },
     "royal_purple": {
       "name": "Royal Purple",
-      "description": "Purple/violet (25 MP wins)",
+      "description": "Purple/violet (15 MP wins)",
       "premium": false,
       "colors": ["#9933ff", "#6600cc"],
-      "requirements": [{ "metric": "mp_wins", "min": 25 }]
+      "requirements": [{ "metric": "mp_wins", "min": 15 }]
+    },
+    "toxic": {
+      "name": "Toxic",
+      "description": "Neon green/yellow (100 MP games)",
+      "premium": false,
+      "colors": ["#39ff14", "#ccff00"],
+      "requirements": [{ "metric": "mp_games_played", "min": 100 }]
     },
     "gold_rush": { "name": "Gold Rush", "description": "Gold/amber (Supporter)", "premium": true, "colors": ["#ffd700", "#ff9900"] },
     "monochrome": { "name": "Monochrome", "description": "White/gray (Supporter)", "premium": true, "colors": ["#ffffff", "#888888"] },
@@ -365,21 +467,27 @@
     "none": { "name": "None", "description": "No particles", "premium": false },
     "scan_lines": {
       "name": "Scan Lines",
-      "description": "CRT scan lines (25 MP games)",
+      "description": "CRT scan lines (5 MP games)",
       "premium": false,
-      "requirements": [{ "metric": "mp_games_played", "min": 25 }]
+      "requirements": [{ "metric": "mp_games_played", "min": 5 }]
     },
     "circuit": {
       "name": "Circuit",
-      "description": "Circuit overlay (50 MP games)",
+      "description": "Circuit overlay (25 MP games)",
       "premium": false,
-      "requirements": [{ "metric": "mp_games_played", "min": 50 }]
+      "requirements": [{ "metric": "mp_games_played", "min": 25 }]
     },
     "sparks": {
       "name": "Sparks",
-      "description": "Ember sparks (50 MP eliminations)",
+      "description": "Ember sparks (25 MP eliminations)",
       "premium": false,
-      "requirements": [{ "metric": "mp_eliminations", "min": 50 }]
+      "requirements": [{ "metric": "mp_eliminations", "min": 25 }]
+    },
+    "rain": {
+      "name": "Rain",
+      "description": "Digital rain (75 MP games)",
+      "premium": false,
+      "requirements": [{ "metric": "mp_games_played", "min": 75 }]
     },
     "starfield": { "name": "Starfield", "description": "Twinkling stars (Supporter)", "premium": true },
     "glitch": { "name": "Glitch", "description": "Glitch overlay (Supporter)", "premium": true }
@@ -388,21 +496,27 @@
     "none": { "name": "None", "description": "No seasonal theme", "premium": false },
     "snowfall": {
       "name": "Snowfall",
-      "description": "Winter snow (25 MP games)",
+      "description": "Winter snow (10 MP games)",
       "premium": false,
-      "requirements": [{ "metric": "mp_games_played", "min": 25 }]
+      "requirements": [{ "metric": "mp_games_played", "min": 10 }]
     },
     "heartbeat": {
       "name": "Heartbeat",
-      "description": "Hearts (10 MP wins)",
+      "description": "Hearts (5 MP wins)",
       "premium": false,
-      "requirements": [{ "metric": "mp_wins", "min": 10 }]
+      "requirements": [{ "metric": "mp_wins", "min": 5 }]
     },
     "spooky": {
       "name": "Spooky",
-      "description": "Halloween (50 MP eliminations)",
+      "description": "Halloween (25 MP eliminations)",
       "premium": false,
-      "requirements": [{ "metric": "mp_eliminations", "min": 50 }]
+      "requirements": [{ "metric": "mp_eliminations", "min": 25 }]
+    },
+    "autumn": {
+      "name": "Autumn",
+      "description": "Falling leaves (50 MP games)",
+      "premium": false,
+      "requirements": [{ "metric": "mp_games_played", "min": 50 }]
     },
     "fireworks": { "name": "Fireworks", "description": "Celebration overlay (Supporter)", "premium": true },
     "cherry_blossom": { "name": "Cherry Blossom", "description": "Falling petals (Supporter)", "premium": true }
@@ -411,29 +525,34 @@
     "matrix": { "name": "Matrix Rain", "description": "Default matrix rain", "premium": false },
     "deep_space": {
       "name": "Deep Space",
-      "description": "Nebula background (50 MP games)",
+      "description": "Nebula background (15 MP games)",
       "premium": false,
-      "requirements": [{ "metric": "mp_games_played", "min": 50 }]
+      "requirements": [{ "metric": "mp_games_played", "min": 15 }]
     },
     "ocean_depths": {
       "name": "Ocean Depths",
-      "description": "Ocean gradient (100 MP games)",
+      "description": "Ocean gradient (50 MP games)",
       "premium": false,
-      "requirements": [{ "metric": "mp_games_played", "min": 100 }]
+      "requirements": [{ "metric": "mp_games_played", "min": 50 }]
     },
     "storm": {
       "name": "Storm",
-      "description": "Storm flashes (100 MP eliminations)",
+      "description": "Storm flashes (50 MP eliminations)",
       "premium": false,
-      "requirements": [{ "metric": "mp_eliminations", "min": 100 }]
+      "requirements": [{ "metric": "mp_eliminations", "min": 50 }]
     },
     "fireflies": {
       "name": "Fireflies",
-      "description": "Forest glow (25 MP wins)",
+      "description": "Forest glow (15 MP wins)",
       "premium": false,
-      "requirements": [{ "metric": "mp_wins", "min": 25 }]
+      "requirements": [{ "metric": "mp_wins", "min": 15 }]
+    },
+    "void": {
+      "name": "Void",
+      "description": "Dark void (100 MP games)",
+      "premium": false,
+      "requirements": [{ "metric": "mp_games_played", "min": 100 }]
     },
     "aurora": { "name": "Aurora", "description": "Aurora waves (Supporter)", "premium": true }
   }
 }
-

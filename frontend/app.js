@@ -151,6 +151,7 @@ const DEFAULT_OPTIONS = {
     musicEnabled: true,
     clickSfxEnabled: false,
     eliminationSfxEnabled: true,
+    nerdMode: false,  // Show embedding details for ML enthusiasts
 };
 
 let optionsState = { ...DEFAULT_OPTIONS };
@@ -183,11 +184,13 @@ function applyOptionsToUI() {
     const musicCb = document.getElementById('opt-music-enabled');
     const clickCb = document.getElementById('opt-click-sfx-enabled');
     const elimCb = document.getElementById('opt-elim-sfx-enabled');
+    const nerdCb = document.getElementById('opt-nerd-mode');
 
     if (chatCb) chatCb.checked = Boolean(optionsState.chatEnabled);
     if (musicCb) musicCb.checked = Boolean(optionsState.musicEnabled);
     if (clickCb) clickCb.checked = Boolean(optionsState.clickSfxEnabled);
     if (elimCb) elimCb.checked = Boolean(optionsState.eliminationSfxEnabled);
+    if (nerdCb) nerdCb.checked = Boolean(optionsState.nerdMode);
 
     // Show/hide chat button + close panel when disabled
     const chatBtn = document.getElementById('chat-btn');
@@ -205,6 +208,9 @@ function applyOptionsToUI() {
     if (typeof renderChat === 'function') {
         renderChat();
     }
+    
+    // Apply nerd mode to body class
+    document.body.classList.toggle('nerd-mode', Boolean(optionsState.nerdMode));
 }
 
 // ============ SOUND EFFECTS (PLACEHOLDER) ============
@@ -599,11 +605,127 @@ function getGameCodeFromURL() {
     return match ? match[1].toUpperCase() : null;
 }
 
+function getChallengeIdFromURL() {
+    const match = window.location.pathname.match(/^\/challenge\/([A-Z0-9]+)$/i);
+    return match ? match[1].toUpperCase() : null;
+}
+
+// Handle challenge links
+async function handleChallengeURL() {
+    const challengeId = getChallengeIdFromURL();
+    if (!challengeId) return false;
+    
+    try {
+        // First, get challenge details
+        const response = await fetch(`${API_BASE}/api/challenge/${challengeId}`);
+        if (!response.ok) {
+            showError('Challenge not found or expired');
+            window.history.replaceState({}, document.title, '/');
+            return false;
+        }
+        
+        const challenge = await response.json();
+        
+        // Show challenge acceptance modal
+        showChallengeModal(challenge);
+        return true;
+    } catch (e) {
+        console.error('Failed to load challenge:', e);
+        showError('Failed to load challenge');
+        window.history.replaceState({}, document.title, '/');
+        return false;
+    }
+}
+
+function showChallengeModal(challenge) {
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('challenge-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'challenge-modal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal challenge-modal">
+                <h2>⚔️ CHALLENGE RECEIVED</h2>
+                <div class="challenge-info">
+                    <p class="challenger-name"></p>
+                    <p class="challenge-theme"></p>
+                </div>
+                <div class="modal-buttons">
+                    <button id="accept-challenge-btn" class="btn btn-primary">&gt; ACCEPT CHALLENGE</button>
+                    <button id="decline-challenge-btn" class="btn btn-secondary">&gt; DECLINE</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        document.getElementById('decline-challenge-btn').addEventListener('click', () => {
+            modal.classList.remove('show');
+            window.history.replaceState({}, document.title, '/');
+            showScreen('home');
+        });
+    }
+    
+    // Update modal content
+    modal.querySelector('.challenger-name').textContent = `${challenge.challenger_name} has challenged you!`;
+    modal.querySelector('.challenge-theme').textContent = challenge.theme 
+        ? `Theme: ${challenge.theme}` 
+        : 'Theme: Voting enabled';
+    
+    // Store challenge for acceptance
+    gameState.pendingChallenge = challenge;
+    
+    // Update accept button handler
+    const acceptBtn = document.getElementById('accept-challenge-btn');
+    acceptBtn.onclick = async () => {
+        acceptBtn.disabled = true;
+        acceptBtn.textContent = 'ACCEPTING...';
+        
+        try {
+            const response = await fetch(`${API_BASE}/api/challenge/${challenge.id}/accept`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to accept challenge');
+            }
+            
+            const data = await response.json();
+            
+            // Close modal and join the game
+            modal.classList.remove('show');
+            window.history.replaceState({}, document.title, `/game/${data.code}`);
+            
+            // Store the code and join
+            gameState.code = data.code;
+            showScreen('lobby');
+            
+            // Auto-join if we have a name
+            const name = gameState.user?.name || localStorage.getItem('embeddle_name');
+            if (name) {
+                await joinLobby(data.code, name);
+            }
+        } catch (e) {
+            console.error('Failed to accept challenge:', e);
+            showError('Failed to accept challenge');
+            acceptBtn.disabled = false;
+            acceptBtn.textContent = '> ACCEPT CHALLENGE';
+        }
+    };
+    
+    modal.classList.add('show');
+}
+
 // Handle browser back/forward buttons
 window.addEventListener('popstate', async (event) => {
     const urlCode = getGameCodeFromURL();
+    const challengeId = getChallengeIdFromURL();
     
-    if (urlCode) {
+    if (challengeId) {
+        // Navigated to a challenge URL
+        handleChallengeURL();
+    } else if (urlCode) {
         // Navigated to a game URL
         const rejoined = await attemptRejoin();
         if (!rejoined) {
@@ -744,12 +866,46 @@ function setLoggedInWithAuth(user) {
         loadUserCosmetics();
     }
     
-    // Load daily quests/currency
+    // Load daily quests/currency and update streak widget
     if (typeof loadDaily === 'function') {
-        loadDaily();
+        loadDaily().then(() => {
+            updateHomeStreakWidget();
+        });
     }
 
     updateRankedUi();
+}
+
+function updateHomeStreakWidget() {
+    const widget = document.getElementById('home-streak-widget');
+    const countEl = document.getElementById('home-streak-count');
+    const bonusEl = document.getElementById('home-streak-bonus');
+    
+    if (!widget || !countEl) return;
+    
+    // Only show for authenticated users
+    if (!gameState.authToken) {
+        widget.classList.add('hidden');
+        return;
+    }
+    
+    // Get streak data from daily state
+    const streak = dailyState?.streak;
+    if (!streak || !streak.streak_count) {
+        widget.classList.add('hidden');
+        return;
+    }
+    
+    const count = streak.streak_count || 0;
+    countEl.textContent = count;
+    
+    // Show bonus info
+    const info = dailyState.streakInfo;
+    if (info && bonusEl) {
+        bonusEl.textContent = `+${info.current_daily_credits || 15}¢/day`;
+    }
+    
+    widget.classList.remove('hidden');
 }
 
 function setLoggedIn(name) {
@@ -955,6 +1111,22 @@ document.getElementById('opt-elim-sfx-enabled')?.addEventListener('change', (e) 
     saveOptions();
     applyOptionsToUI();
 });
+document.getElementById('opt-nerd-mode')?.addEventListener('change', (e) => {
+    optionsState.nerdMode = Boolean(e.target.checked);
+    saveOptions();
+    applyOptionsToUI();
+});
+
+// ML Info Modal
+document.getElementById('ml-info-btn')?.addEventListener('click', () => {
+    const modal = document.getElementById('ml-info-modal');
+    if (modal) modal.classList.add('show');
+});
+
+document.getElementById('close-ml-info-btn')?.addEventListener('click', () => {
+    const modal = document.getElementById('ml-info-modal');
+    if (modal) modal.classList.remove('show');
+});
 
 // Global button click SFX (placeholder)
 document.addEventListener('click', (e) => {
@@ -1093,8 +1265,54 @@ function showScreen(screenName) {
 
 setupResponsiveGamePanels();
 
+// ============ TOAST NOTIFICATION SYSTEM ============
+
+let toastQueue = [];
+let toastActive = false;
+
+function showToast(message, type = 'info', duration = 3000) {
+    toastQueue.push({ message, type, duration });
+    processToastQueue();
+}
+
+function processToastQueue() {
+    if (toastActive || toastQueue.length === 0) return;
+    
+    const { message, type, duration } = toastQueue.shift();
+    toastActive = true;
+    
+    // Create toast element if it doesn't exist
+    let toast = document.getElementById('toast-notification');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast-notification';
+        toast.className = 'toast-notification';
+        document.body.appendChild(toast);
+    }
+    
+    toast.textContent = message;
+    toast.className = `toast-notification toast-${type}`;
+    toast.classList.add('show');
+    
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+            toastActive = false;
+            processToastQueue();
+        }, 300);
+    }, duration);
+}
+
 function showError(message) {
-    alert(message);
+    showToast(message, 'error', 4000);
+}
+
+function showSuccess(message) {
+    showToast(message, 'success', 3000);
+}
+
+function showInfo(message) {
+    showToast(message, 'info', 3000);
 }
 
 async function apiCall(endpoint, method = 'GET', body = null) {
@@ -2758,10 +2976,14 @@ function updateHistory(game) {
             const sim = entry.similarities?.[player.id];
             if (sim !== undefined) {
                 const simClass = getSimilarityClass(sim);
+                // Show raw cosine similarity in nerd mode
+                const nerdInfo = optionsState.nerdMode 
+                    ? `<span class="nerd-sim" title="Raw cosine similarity">(${sim.toFixed(4)})</span>` 
+                    : '';
                 simsHtml += `
                     <div class="sim-badge">
                         <span>${escapeHtml(player.name)}</span>
-                        <span class="score ${simClass}">${escapeHtml((sim * 100).toFixed(0))}%</span>
+                        <span class="score ${simClass}">${escapeHtml((sim * 100).toFixed(0))}%${nerdInfo}</span>
                     </div>
                 `;
             }
@@ -3056,7 +3278,384 @@ function showGameOver(game) {
         `;
         revealedWords.appendChild(div);
     });
+    
+    // Generate and display share results
+    generateShareResults(game, isWinner);
 }
+
+// Generate Wordle-style share results
+function generateShareResults(game, isWinner) {
+    const sharePreview = document.getElementById('share-preview');
+    if (!sharePreview) return;
+    
+    const me = game.players.find(p => p.id === gameState.playerId);
+    const winner = game.players.find(p => p.id === game.winner);
+    const theme = game.theme || 'Unknown';
+    const turnCount = game.history ? game.history.filter(h => h.type !== 'word_change' && h.type !== 'forfeit').length : 0;
+    const elimCount = game.history ? game.history.reduce((acc, h) => acc + (h.eliminations?.length || 0), 0) : 0;
+    
+    // Generate game number (based on date + some uniqueness)
+    const gameNum = Math.floor(Date.now() / 86400000) % 10000;
+    
+    // Build player similarity grid
+    // For each player, show their "danger progression" through the game
+    const playerGrids = {};
+    game.players.forEach(p => {
+        playerGrids[p.id] = {
+            name: p.name,
+            isWinner: p.id === game.winner,
+            isMe: p.id === gameState.playerId,
+            eliminated: !p.is_alive,
+            maxSims: [] // Track max similarity per turn
+        };
+    });
+    
+    // Process history to build similarity progression
+    if (game.history) {
+        game.history.forEach(entry => {
+            if (entry.type === 'word_change' || entry.type === 'forfeit') return;
+            if (!entry.similarities) return;
+            
+            Object.keys(playerGrids).forEach(pid => {
+                const sim = entry.similarities[pid];
+                if (sim !== undefined) {
+                    // Track max similarity seen so far
+                    const currentMax = playerGrids[pid].maxSims.length > 0 
+                        ? Math.max(...playerGrids[pid].maxSims) 
+                        : 0;
+                    playerGrids[pid].maxSims.push(Math.max(sim, currentMax));
+                }
+            });
+        });
+    }
+    
+    // Generate emoji blocks for each player
+    function simToEmoji(sim) {
+        if (sim >= 0.95) return '🟥'; // Critical danger
+        if (sim >= 0.80) return '🟧'; // High danger
+        if (sim >= 0.60) return '🟨'; // Medium danger
+        if (sim >= 0.40) return '🟩'; // Low danger
+        return '⬛'; // Safe
+    }
+    
+    // Build share text
+    let shareText = `EMBEDDLE #${gameNum} - ${isWinner ? 'Victory!' : 'Defeated'}\n`;
+    shareText += `Theme: ${theme}\n`;
+    shareText += `Turns: ${turnCount} | Eliminations: ${elimCount}\n\n`;
+    
+    // Add player grids (max 5 blocks per player for readability)
+    Object.values(playerGrids).forEach(pg => {
+        const blocks = pg.maxSims.slice(-5).map(simToEmoji).join('');
+        const status = pg.isWinner ? ' 🏆' : (pg.eliminated ? ' ☠️' : '');
+        const youMarker = pg.isMe ? ' (YOU)' : '';
+        shareText += `${blocks.padEnd(5, '⬛')} ${pg.name}${youMarker}${status}\n`;
+    });
+    
+    shareText += `\nembeddle.vercel.app`;
+    
+    // Store for copy/share
+    gameState.shareText = shareText;
+    
+    // Display preview with HTML formatting
+    let previewHtml = `<div class="share-header">EMBEDDLE #${gameNum} - ${isWinner ? 'Victory!' : 'Defeated'}</div>`;
+    previewHtml += `<div class="share-stats">Theme: ${escapeHtml(theme)} | Turns: ${turnCount} | Elims: ${elimCount}</div>`;
+    previewHtml += `<div class="share-grid">`;
+    
+    Object.values(playerGrids).forEach(pg => {
+        const blocks = pg.maxSims.slice(-5).map(simToEmoji).join('');
+        const status = pg.isWinner ? ' 🏆' : (pg.eliminated ? ' ☠️' : '');
+        const youMarker = pg.isMe ? ' (YOU)' : '';
+        previewHtml += `<div class="share-grid-row">`;
+        previewHtml += `<span class="share-grid-blocks">${blocks.padEnd(5, '⬛')}</span>`;
+        previewHtml += `<span class="share-grid-player">${escapeHtml(pg.name)}${youMarker}${status}</span>`;
+        previewHtml += `</div>`;
+    });
+    
+    previewHtml += `</div>`;
+    previewHtml += `<div class="share-url">embeddle.vercel.app</div>`;
+    
+    sharePreview.innerHTML = previewHtml;
+}
+
+// Copy results to clipboard
+document.getElementById('copy-results-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('copy-results-btn');
+    if (!gameState.shareText) return;
+    
+    try {
+        await navigator.clipboard.writeText(gameState.shareText);
+        btn.textContent = '✓ COPIED';
+        btn.classList.add('copied');
+        setTimeout(() => {
+            btn.textContent = '📋 COPY';
+            btn.classList.remove('copied');
+        }, 2000);
+    } catch (e) {
+        console.error('Failed to copy:', e);
+        showError('Failed to copy to clipboard');
+    }
+});
+
+// Share to Twitter/X
+document.getElementById('share-twitter-btn')?.addEventListener('click', () => {
+    if (!gameState.shareText) return;
+    
+    const tweetText = encodeURIComponent(gameState.shareText);
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${tweetText}`;
+    window.open(twitterUrl, '_blank', 'width=550,height=420');
+});
+
+// Challenge friend button
+document.getElementById('challenge-friend-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('challenge-friend-btn');
+    if (!btn) return;
+    
+    btn.disabled = true;
+    btn.textContent = 'CREATING...';
+    
+    try {
+        const challengerName = gameState.user?.name || localStorage.getItem('embeddle_name') || 'Anonymous';
+        
+        const response = await fetch(`${API_BASE}/api/challenge/create`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                ...(gameState.authToken ? { 'Authorization': `Bearer ${gameState.authToken}` } : {})
+            },
+            body: JSON.stringify({ challenger_name: challengerName })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to create challenge');
+        }
+        
+        const data = await response.json();
+        const challengeUrl = `${window.location.origin}/challenge/${data.challenge_id}`;
+        
+        await navigator.clipboard.writeText(`⚔️ ${challengerName} challenges you to EMBEDDLE!\n\n${challengeUrl}`);
+        
+        btn.textContent = '✓ COPIED!';
+        showSuccess('Challenge link copied!');
+        
+        setTimeout(() => {
+            btn.textContent = '⚔️ CHALLENGE';
+            btn.disabled = false;
+        }, 2000);
+    } catch (e) {
+        console.error('Failed to create challenge:', e);
+        showError('Failed to create challenge link');
+        btn.textContent = '⚔️ CHALLENGE';
+        btn.disabled = false;
+    }
+});
+
+// ============ REPLAY VIEWER ============
+
+let replayState = {
+    data: null,
+    currentTurn: 0,
+    isPlaying: false,
+    playInterval: null,
+};
+
+document.getElementById('watch-replay-btn')?.addEventListener('click', async () => {
+    if (!gameState.code) return;
+    
+    const btn = document.getElementById('watch-replay-btn');
+    btn.disabled = true;
+    btn.textContent = 'LOADING...';
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/games/${gameState.code}/replay`);
+        if (!response.ok) {
+            throw new Error('Failed to load replay');
+        }
+        
+        const data = await response.json();
+        replayState.data = data;
+        replayState.currentTurn = 0;
+        replayState.isPlaying = false;
+        
+        showReplayModal();
+    } catch (e) {
+        console.error('Failed to load replay:', e);
+        showError('Failed to load replay');
+    } finally {
+        btn.textContent = '🎬 WATCH REPLAY';
+        btn.disabled = false;
+    }
+});
+
+function showReplayModal() {
+    const modal = document.getElementById('replay-modal');
+    if (!modal || !replayState.data) return;
+    
+    const data = replayState.data;
+    const history = data.history.filter(h => h.type !== 'word_change' && h.type !== 'forfeit');
+    
+    // Set theme
+    document.getElementById('replay-theme').textContent = `Theme: ${data.theme?.name || 'Unknown'}`;
+    
+    // Set slider max
+    const slider = document.getElementById('replay-slider');
+    slider.max = history.length;
+    slider.value = 0;
+    
+    // Initial render
+    renderReplayState(0);
+    
+    modal.classList.add('show');
+}
+
+function renderReplayState(turnIndex) {
+    const data = replayState.data;
+    if (!data) return;
+    
+    const history = data.history.filter(h => h.type !== 'word_change' && h.type !== 'forfeit');
+    const playersContainer = document.getElementById('replay-players');
+    const turnCounter = document.getElementById('replay-turn-counter');
+    const currentTurnEl = document.getElementById('replay-current-turn');
+    
+    // Update turn counter
+    turnCounter.textContent = `Turn ${turnIndex}/${history.length}`;
+    
+    // Calculate player states at this point
+    const playerStates = {};
+    data.players.forEach(p => {
+        playerStates[p.id] = {
+            ...p,
+            isAlive: true,
+            maxSimilarity: 0,
+            lastGuess: null,
+        };
+    });
+    
+    // Process history up to current turn
+    for (let i = 0; i < turnIndex && i < history.length; i++) {
+        const entry = history[i];
+        
+        // Update similarities
+        if (entry.similarities) {
+            Object.entries(entry.similarities).forEach(([pid, sim]) => {
+                if (playerStates[pid]) {
+                    playerStates[pid].maxSimilarity = Math.max(playerStates[pid].maxSimilarity, sim);
+                }
+            });
+        }
+        
+        // Mark eliminations
+        if (entry.eliminations) {
+            entry.eliminations.forEach(pid => {
+                if (playerStates[pid]) {
+                    playerStates[pid].isAlive = false;
+                }
+            });
+        }
+    }
+    
+    // Render player cards
+    let playersHtml = '';
+    Object.values(playerStates).forEach(p => {
+        const simClass = getSimilarityClass(p.maxSimilarity);
+        const isWinner = p.id === data.winner;
+        
+        playersHtml += `
+            <div class="replay-player ${p.isAlive ? '' : 'eliminated'} ${isWinner ? 'winner' : ''}">
+                <div class="replay-player-name">${escapeHtml(p.name)}${isWinner ? ' 🏆' : ''}${!p.isAlive ? ' ☠️' : ''}</div>
+                <div class="replay-player-word">${escapeHtml(p.secret_word || '???')}</div>
+                <div class="replay-player-danger ${simClass}">${Math.round(p.maxSimilarity * 100)}%</div>
+            </div>
+        `;
+    });
+    playersContainer.innerHTML = playersHtml;
+    
+    // Show current turn info
+    if (turnIndex > 0 && turnIndex <= history.length) {
+        const entry = history[turnIndex - 1];
+        let turnHtml = `
+            <div class="replay-turn-info">
+                <span class="replay-guesser">${escapeHtml(entry.guesser_name)}</span>
+                <span class="replay-word">"${escapeHtml(entry.word)}"</span>
+            </div>
+        `;
+        
+        if (entry.eliminations && entry.eliminations.length > 0) {
+            const elimNames = entry.eliminations.map(id => {
+                const p = data.players.find(pl => pl.id === id);
+                return p ? escapeHtml(p.name) : 'Unknown';
+            });
+            turnHtml += `<div class="replay-elimination">💥 Eliminated: ${elimNames.join(', ')}</div>`;
+        }
+        
+        currentTurnEl.innerHTML = turnHtml;
+    } else {
+        currentTurnEl.innerHTML = '<div class="replay-turn-info">Game start</div>';
+    }
+    
+    // Update slider
+    document.getElementById('replay-slider').value = turnIndex;
+}
+
+// Replay controls
+document.getElementById('replay-prev')?.addEventListener('click', () => {
+    if (replayState.currentTurn > 0) {
+        replayState.currentTurn--;
+        renderReplayState(replayState.currentTurn);
+    }
+});
+
+document.getElementById('replay-next')?.addEventListener('click', () => {
+    const history = replayState.data?.history.filter(h => h.type !== 'word_change' && h.type !== 'forfeit') || [];
+    if (replayState.currentTurn < history.length) {
+        replayState.currentTurn++;
+        renderReplayState(replayState.currentTurn);
+    }
+});
+
+document.getElementById('replay-play')?.addEventListener('click', () => {
+    const btn = document.getElementById('replay-play');
+    
+    if (replayState.isPlaying) {
+        // Stop
+        clearInterval(replayState.playInterval);
+        replayState.isPlaying = false;
+        btn.textContent = '▶ PLAY';
+    } else {
+        // Start
+        replayState.isPlaying = true;
+        btn.textContent = '⏸ PAUSE';
+        
+        replayState.playInterval = setInterval(() => {
+            const history = replayState.data?.history.filter(h => h.type !== 'word_change' && h.type !== 'forfeit') || [];
+            if (replayState.currentTurn < history.length) {
+                replayState.currentTurn++;
+                renderReplayState(replayState.currentTurn);
+            } else {
+                // End of replay
+                clearInterval(replayState.playInterval);
+                replayState.isPlaying = false;
+                btn.textContent = '▶ PLAY';
+            }
+        }, 1500);
+    }
+});
+
+document.getElementById('replay-slider')?.addEventListener('input', (e) => {
+    replayState.currentTurn = parseInt(e.target.value, 10);
+    renderReplayState(replayState.currentTurn);
+});
+
+document.getElementById('close-replay-btn')?.addEventListener('click', () => {
+    const modal = document.getElementById('replay-modal');
+    if (modal) modal.classList.remove('show');
+    
+    // Stop playback
+    if (replayState.playInterval) {
+        clearInterval(replayState.playInterval);
+    }
+    replayState.isPlaying = false;
+    document.getElementById('replay-play').textContent = '▶ PLAY';
+});
 
 function createConfetti(targetEl = null) {
     const container = targetEl || document.getElementById('confetti-container');
@@ -3454,9 +4053,20 @@ loadOptions();
 applyOptionsToUI();
 startBackgroundMusic();
 
-// Try to rejoin existing game, otherwise show home
-attemptRejoin().then(rejoined => {
-    if (!rejoined) {
-showScreen('home');
+// Check for challenge URL first, then try to rejoin existing game
+async function initializeApp() {
+    // Check for challenge URL
+    const challengeId = getChallengeIdFromURL();
+    if (challengeId) {
+        const handled = await handleChallengeURL();
+        if (handled) return;
     }
-});
+    
+    // Try to rejoin existing game
+    const rejoined = await attemptRejoin();
+    if (!rejoined) {
+        showScreen('home');
+    }
+}
+
+initializeApp();
