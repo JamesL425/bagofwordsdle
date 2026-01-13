@@ -2105,27 +2105,73 @@ function updateGame(game) {
             }
             
             if (wordPoolOptions) {
-                wordPoolOptions.innerHTML = '';
                 const newWordDisplay = document.getElementById('new-word-display');
-                newWordDisplay.textContent = 'Click a word above';
-                newWordDisplay.dataset.word = '';
-                
-                availableWords.sort().forEach(word => {
-                    const wordEl = document.createElement('span');
-                    wordEl.className = 'word-pool-option';
-                    wordEl.textContent = word;
-                    wordEl.addEventListener('click', () => {
-                        // Deselect others
-                        wordPoolOptions.querySelectorAll('.word-pool-option').forEach(w => w.classList.remove('selected'));
-                        wordEl.classList.add('selected');
-                        newWordDisplay.textContent = word.toUpperCase();
-                        newWordDisplay.dataset.word = word;
+
+                // Preserve any prior selection across polling updates
+                const prevSelectedLower = (newWordDisplay?.dataset?.word || '').toLowerCase();
+                const sortedAvailable = availableWords.slice().sort();
+                const availableLower = new Set(sortedAvailable.map(w => String(w).toLowerCase()));
+
+                // Only rebuild the DOM if the option set changed
+                const optionsKey = sortedAvailable.map(w => String(w).toLowerCase()).join('|');
+                const prevOptionsKey = wordPoolOptions.dataset.optionsKey || '';
+                const needsRebuild = prevOptionsKey !== optionsKey;
+
+                // Determine the currently selected word (if still valid)
+                let selectedLower = prevSelectedLower;
+                if (selectedLower && !availableLower.has(selectedLower)) {
+                    selectedLower = '';
+                }
+
+                // Ensure display matches selection (or default prompt)
+                if (newWordDisplay) {
+                    if (!selectedLower) {
+                        newWordDisplay.textContent = 'Click a word above';
+                        newWordDisplay.dataset.word = '';
+                    } else {
+                        const selectedOriginal = sortedAvailable.find(w => String(w).toLowerCase() === selectedLower) || selectedLower;
+                        newWordDisplay.textContent = String(selectedOriginal).toUpperCase();
+                        newWordDisplay.dataset.word = String(selectedOriginal);
+                    }
+                }
+
+                if (needsRebuild) {
+                    wordPoolOptions.dataset.optionsKey = optionsKey;
+                    wordPoolOptions.innerHTML = '';
+
+                    sortedAvailable.forEach(word => {
+                        const wordStr = String(word);
+                        const wordLower = wordStr.toLowerCase();
+                        const wordEl = document.createElement('span');
+                        wordEl.className = 'word-pool-option';
+                        if (selectedLower && wordLower === selectedLower) {
+                            wordEl.classList.add('selected');
+                        }
+                        wordEl.textContent = wordStr;
+                        wordEl.addEventListener('click', () => {
+                            // Deselect others
+                            wordPoolOptions.querySelectorAll('.word-pool-option').forEach(w => w.classList.remove('selected'));
+                            wordEl.classList.add('selected');
+                            if (newWordDisplay) {
+                                newWordDisplay.textContent = wordStr.toUpperCase();
+                                newWordDisplay.dataset.word = wordStr;
+                            }
+                        });
+                        wordPoolOptions.appendChild(wordEl);
                     });
-                    wordPoolOptions.appendChild(wordEl);
-                });
+                } else if (selectedLower) {
+                    // Ensure the selected class is still applied (in case the DOM persisted but classes got reset)
+                    wordPoolOptions.querySelectorAll('.word-pool-option').forEach(el => {
+                        el.classList.toggle('selected', String(el.textContent || '').toLowerCase() === selectedLower);
+                    });
+                }
             }
         } else {
             changeWordContainer.classList.add('hidden');
+            // Reset cached word-change options so next time we re-render
+            if (wordPoolOptions) {
+                wordPoolOptions.dataset.optionsKey = '';
+            }
         }
         
         // Store word pool for change word feature
