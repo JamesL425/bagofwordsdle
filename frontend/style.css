@@ -1288,6 +1288,24 @@ header h1 {
     letter-spacing: 0.05em;
 }
 
+/* Unread indicator dot */
+.unread-dot {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 8px;
+    height: 8px;
+    background: var(--accent-danger, #e53935);
+    border-radius: 50%;
+    pointer-events: none;
+}
+.unread-dot.hidden {
+    display: none;
+}
+#chat-btn {
+    position: relative;
+}
+
 #guess-form {
     display: flex;
     gap: 1rem;

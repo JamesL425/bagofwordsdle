@@ -269,15 +269,25 @@ let chatState = {
     code: null,
     lastId: 0,
     messages: [],
+    lastSeenId: 0, // Track what the user has seen (for unread indicator)
 };
 
 let chatPollInFlight = false;
 let chatSendInFlight = false;
 
+function updateChatUnreadDot() {
+    const dot = document.getElementById('chat-unread-dot');
+    if (!dot) return;
+    // Show dot if there are messages newer than what the user has seen and chat panel is closed
+    const hasUnread = chatState.lastId > chatState.lastSeenId && !chatPanelOpen;
+    dot.classList.toggle('hidden', !hasUnread);
+}
+
 function resetChatIfNeeded() {
     if (chatState.code !== gameState.code) {
-        chatState = { code: gameState.code, lastId: 0, messages: [] };
+        chatState = { code: gameState.code, lastId: 0, messages: [], lastSeenId: 0 };
         renderChat();
+        updateChatUnreadDot();
     }
 }
 
@@ -384,6 +394,7 @@ async function pollChatOnce() {
                 });
             }
             renderChat();
+            updateChatUnreadDot();
         }
     } catch (e) {
         // ignore chat polling failures
@@ -871,6 +882,9 @@ function toggleChatPanel() {
         panel.classList.toggle('open', chatPanelOpen);
     }
     if (chatPanelOpen) {
+        // Mark all current messages as seen
+        chatState.lastSeenId = chatState.lastId;
+        updateChatUnreadDot();
         renderChat();
         pollChatOnce();
     }
@@ -880,6 +894,9 @@ function closeChatPanel() {
     chatPanelOpen = false;
     const panel = document.getElementById('chat-panel');
     if (panel) panel.classList.remove('open');
+    // Mark messages as seen when closing too (user saw them while open)
+    chatState.lastSeenId = chatState.lastId;
+    updateChatUnreadDot();
 }
 
 document.getElementById('chat-btn')?.addEventListener('click', toggleChatPanel);

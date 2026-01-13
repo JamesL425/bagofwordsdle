@@ -1630,6 +1630,191 @@ def grant_owned_cosmetic(user: dict, category_key: str, cosmetic_id: str, persis
     return True
 
 
+def utc_today_str() -> str:
+    """Return today's date as YYYY-MM-DD in UTC."""
+    return time.strftime('%Y-%m-%d', time.gmtime())
+
+
+def _daily_rng(seed_text: str):
+    """Deterministic RNG for daily content across serverless invocations."""
+    import random
+    digest = hashlib.sha256(seed_text.encode('utf-8')).digest()
+    seed_int = int.from_bytes(digest[:8], 'big', signed=False)
+    return random.Random(seed_int)
+
+
+def _build_daily_quest(date_str: str, category: str, metric: str, target: int, reward_credits: int, title: str, description: str) -> dict:
+    try:
+        target_int = int(target or 0)
+    except Exception:
+        target_int = 0
+    try:
+        reward_int = int(reward_credits or 0)
+    except Exception:
+        reward_int = 0
+    if target_int < 0:
+        target_int = 0
+    if reward_int < 0:
+        reward_int = 0
+    quest_id = f"{date_str}:{metric}:{target_int}"
+    return {
+        "id": quest_id,
+        "category": str(category or ""),
+        "metric": str(metric or ""),
+        "title": str(title or ""),
+        "description": str(description or ""),
+        "target": int(target_int),
+        "progress": 0,
+        "reward_credits": int(reward_int),
+        "claimed": False,
+    }
+
+
+def generate_daily_quests_for_user(user: dict, date_str: str) -> list:
+    """
+    Generate a deterministic-but-random daily quest set for a user for a given UTC date.
+    """
+    uid = str((user or {}).get('id', '') or '')
+    rng = _daily_rng(f"{uid}:{date_str}:daily_quests:v1")
+
+    # Base categories always present
+    categories = ["engagement", "combat", "victory"]
+
+    # Optional ranked wildcard (only if user has played ranked before)
+    try:
+        ranked_games = int(get_user_stats(user).get('ranked_games', 0) or 0)
+    except Exception:
+        ranked_games = 0
+    ranked_eligible = ranked_games > 0
+
+    if ranked_eligible:
+        # 25% chance to include a ranked quest, replacing a base category deterministically
+        if rng.random() < 0.25:
+            replace_idx = int(rng.random() * len(categories))
+            categories[replace_idx] = "ranked"
+
+    defs = {
+        "engagement": [
+            ("mp_games", 2, 35, "RUN OPERATIONS", "Play 2 multiplayer games"),
+            ("mp_games", 3, 55, "FIELD WORK", "Play 3 multiplayer games"),
+            ("mp_games", 4, 75, "FULL SHIFT", "Play 4 multiplayer games"),
+        ],
+        "combat": [
+            ("mp_elims", 2, 45, "TARGET PRACTICE", "Get 2 eliminations in multiplayer"),
+            ("mp_elims", 4, 70, "HUNTER MODE", "Get 4 eliminations in multiplayer"),
+            ("mp_elims", 6, 95, "EXECUTION ORDER", "Get 6 eliminations in multiplayer"),
+        ],
+        "victory": [
+            ("mp_wins", 1, 85, "SECURE THE WIN", "Win 1 multiplayer game"),
+            ("mp_wins", 2, 140, "DOMINATE", "Win 2 multiplayer games"),
+        ],
+        "ranked": [
+            ("ranked_games", 1, 90, "RANKED DEPLOYMENT", "Play 1 ranked game"),
+            ("ranked_wins", 1, 160, "RANKED VICTORY", "Win 1 ranked game"),
+        ],
+    }
+
+    quests = []
+    for cat in categories:
+        options = defs.get(cat) or []
+        if not options:
+            continue
+        metric, target, reward, title, desc = rng.choice(options)
+        quests.append(_build_daily_quest(date_str, cat, metric, target, reward, title, desc))
+
+    # Guarantee stable ordering (and avoid duplicates if ranked replaced a base)
+    quests.sort(key=lambda q: (q.get('category', ''), q.get('metric', ''), int(q.get('target', 0) or 0)))
+    return quests
+
+
+def _is_valid_daily_quests_state(state: dict) -> bool:
+    if not isinstance(state, dict):
+        return False
+    if not isinstance(state.get('date', ''), str):
+        return False
+    quests = state.get('quests', [])
+    if not isinstance(quests, list) or not quests:
+        return False
+    for q in quests:
+        if not isinstance(q, dict):
+            return False
+        if not q.get('id') or not q.get('metric'):
+            return False
+        if 'target' not in q or 'progress' not in q or 'reward_credits' not in q:
+            return False
+        if 'claimed' not in q:
+            return False
+    return True
+
+
+def ensure_daily_quests_today(user: dict, persist: bool = True) -> dict:
+    """Ensure the user has a daily quest set for today (UTC), generating if needed."""
+    ensure_user_economy(user, persist=False)
+    today = utc_today_str()
+    state = _normalize_daily_quests_state((user or {}).get('daily_quests'))
+
+    if state.get('date') != today or not _is_valid_daily_quests_state(state):
+        state = {"date": today, "quests": generate_daily_quests_for_user(user, today)}
+        user['daily_quests'] = state
+        if persist:
+            save_user(user)
+
+    return state
+
+
+def apply_daily_quest_progress(user: dict, deltas: dict, persist: bool = True) -> dict:
+    """
+    Apply per-metric progress deltas to the user's daily quests (today only).
+    Deltas example: {\"mp_games\": 1, \"mp_elims\": 2}
+    """
+    if not isinstance(user, dict):
+        return new_daily_quests_state()
+    if not isinstance(deltas, dict) or not deltas:
+        return ensure_daily_quests_today(user, persist=persist)
+
+    state = ensure_daily_quests_today(user, persist=False)
+    quests = state.get('quests', [])
+    if not isinstance(quests, list):
+        quests = []
+
+    changed = False
+    for q in quests:
+        if not isinstance(q, dict):
+            continue
+        metric = q.get('metric')
+        if not metric or metric not in deltas:
+            continue
+        try:
+            inc = int(deltas.get(metric, 0) or 0)
+        except Exception:
+            inc = 0
+        if inc <= 0:
+            continue
+        try:
+            progress = int(q.get('progress', 0) or 0)
+        except Exception:
+            progress = 0
+        try:
+            target = int(q.get('target', 0) or 0)
+        except Exception:
+            target = 0
+        if target <= 0:
+            continue
+        new_progress = progress + inc
+        if new_progress > target:
+            new_progress = target
+        if new_progress != progress:
+            q['progress'] = int(new_progress)
+            changed = True
+
+    if changed:
+        user['daily_quests'] = state
+        if persist:
+            save_user(user)
+
+    return state
+
+
 def get_visible_cosmetics(user: dict) -> dict:
     """Get only the cosmetics that are visible to other players."""
     cosmetics = get_user_cosmetics(user)
