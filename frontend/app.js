@@ -2936,28 +2936,7 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
-document.getElementById('play-again-btn').addEventListener('click', () => {
-    stopPolling();
-    clearGameSession();
-    const savedName = gameState.playerName;
-    const savedAuthToken = gameState.authToken;
-    const savedAuthUser = gameState.authUser;
-    gameState = {
-        code: null,
-        playerId: null,
-        playerName: savedName,  // Preserve the name
-        isHost: false,
-        pollingInterval: null,
-        theme: null,
-        wordPool: null,
-        allThemeWords: null,
-        myVote: null,
-        authToken: savedAuthToken,
-        authUser: savedAuthUser,
-        isSingleplayer: false,
-    };
-    showScreen('home');
-});
+// NOTE: No "play again" button on game over (intentionally removed for a simpler flow).
 
 // Cleanup old polling functions
 function stopPolling() {
