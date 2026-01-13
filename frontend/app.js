@@ -1203,12 +1203,20 @@ let leaderboardState = {
 
 function getRankTier(mmr) {
     const v = Number(mmr || 0);
-    if (v >= 1700) return { name: 'DIAMOND', icon: '🔷' };
-    if (v >= 1550) return { name: 'PLATINUM', icon: '💠' };
-    if (v >= 1400) return { name: 'GOLD', icon: '🥇' };
-    if (v >= 1250) return { name: 'SILVER', icon: '🥈' };
-    if (v >= 1100) return { name: 'BRONZE', icon: '🥉' };
-    return { name: 'UNRANKED', icon: '—' };
+    // NOTE: Avoid emoji icons here (font support varies). We render CSS badges instead.
+    if (v >= 1700) return { key: 'diamond', name: 'DIAMOND' };
+    if (v >= 1550) return { key: 'platinum', name: 'PLATINUM' };
+    if (v >= 1400) return { key: 'gold', name: 'GOLD' };
+    if (v >= 1250) return { key: 'silver', name: 'SILVER' };
+    if (v >= 1100) return { key: 'bronze', name: 'BRONZE' };
+    return { key: 'unranked', name: 'UNRANKED' };
+}
+
+function renderRankBadge(tier) {
+    if (!tier) return '';
+    const key = String(tier.key || 'unranked').toLowerCase();
+    const name = String(tier.name || 'UNRANKED');
+    return `<span class="rank-badge rank-${escapeHtml(key)}">${escapeHtml(name)}</span>`;
 }
 
 function setLeaderboardMode(mode) {
@@ -1329,7 +1337,7 @@ async function loadRankedLeaderboard() {
                 <tr>
                     <td class="rank ${rankClass}">${escapeHtml(idx + 1)}</td>
                     <td class="player-name">${escapeHtml(p?.name || '')}</td>
-                    <td class="stat">${escapeHtml(tier.icon)} ${escapeHtml(tier.name)}</td>
+                    <td class="stat">${renderRankBadge(tier)}</td>
                     <td class="stat">${escapeHtml(mmr)}</td>
                     <td class="stat">${escapeHtml(peak)}</td>
                     <td class="stat">${escapeHtml(games)}</td>

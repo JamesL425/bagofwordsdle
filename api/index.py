@@ -2813,8 +2813,8 @@ class handler(BaseHTTPRequestHandler):
                 redis = get_redis()
                 key = f"chat:{code}"
 
-                messages = []
-                last_id = after_id
+                # Primary storage: sorted-set `chat:{code}` (atomic appends).
+                zset_messages = []
                 try:
                     raw = redis.zrange(key, 0, -1) or []
                 except Exception:
@@ -2832,6 +2832,51 @@ class handler(BaseHTTPRequestHandler):
                         msg = json.loads(item)
                     except Exception:
                         continue
+                    if isinstance(msg, dict):
+                        zset_messages.append(msg)
+
+                # Fallback storage: messages stored on the game object (when zadd fails in some envs).
+                game_messages = []
+                try:
+                    gm = game.get('chat_messages', [])
+                    if isinstance(gm, list):
+                        for m in gm:
+                            if isinstance(m, dict):
+                                game_messages.append(m)
+                except Exception:
+                    game_messages = []
+
+                # Merge + dedupe by id (and keep order by id/ts).
+                merged = []
+                seen_ids = set()
+                for msg in (zset_messages + game_messages):
+                    try:
+                        mid = int(msg.get('id', 0) or 0)
+                    except Exception:
+                        mid = 0
+                    # If id is missing, fall back to a tuple key; but normally all messages have ids.
+                    key_id = mid if mid else (msg.get('ts'), msg.get('sender_id'), msg.get('text'))
+                    if key_id in seen_ids:
+                        continue
+                    seen_ids.add(key_id)
+                    merged.append(msg)
+
+                def _sort_key(m):
+                    try:
+                        mid = int(m.get('id', 0) or 0)
+                    except Exception:
+                        mid = 0
+                    try:
+                        ts = int(m.get('ts', 0) or 0)
+                    except Exception:
+                        ts = 0
+                    return (mid, ts)
+
+                merged.sort(key=_sort_key)
+
+                messages = []
+                last_id = after_id
+                for msg in merged:
                     try:
                         mid = int(msg.get('id', 0) or 0)
                     except Exception:
@@ -2844,10 +2889,7 @@ class handler(BaseHTTPRequestHandler):
                     if len(messages) >= limit:
                         break
 
-                return self._send_json({
-                    "messages": messages,
-                    "last_id": last_id,
-                })
+                return self._send_json({"messages": messages, "last_id": last_id})
             except Exception as e:
                 print(f"Chat fetch error: {e}")
                 return self._send_error("Failed to load chat. Please try again.", 500)
@@ -3436,6 +3478,13 @@ class handler(BaseHTTPRequestHandler):
                     msg_id = int(redis.incr(f"chat:{code}:id"))
                 except Exception:
                     msg_id = int(time.time() * 1000)
+                # Ensure monotonic vs any fallback-stored messages on the game object
+                try:
+                    last_game_id = int(game.get('chat_last_id', 0) or 0)
+                except Exception:
+                    last_game_id = 0
+                if msg_id <= last_game_id:
+                    msg_id = last_game_id + 1
 
                 payload = {
                     "id": msg_id,
@@ -3459,7 +3508,25 @@ class handler(BaseHTTPRequestHandler):
                         pass
                 except Exception as e:
                     print(f"Chat write error: {e}")
-                    return self._send_error("Failed to send message. Please try again.", 500)
+                    # Fallback: store chat messages on the game object (uses setex, which is already used everywhere).
+                    try:
+                        msgs = game.get('chat_messages', [])
+                        if not isinstance(msgs, list):
+                            msgs = []
+                        msgs.append(payload)
+                        if len(msgs) > 200:
+                            msgs = msgs[-200:]
+                        game['chat_messages'] = msgs
+                        # Track last id for monotonicity on subsequent fallback writes
+                        try:
+                            prev = int(game.get('chat_last_id', 0) or 0)
+                        except Exception:
+                            prev = 0
+                        game['chat_last_id'] = max(prev, msg_id)
+                        save_game(code, game)
+                    except Exception as e2:
+                        print(f"Chat fallback write error: {e2}")
+                        return self._send_error("Failed to send message. Please try again.", 500)
 
                 return self._send_json({"message": payload})
             except Exception as e:
