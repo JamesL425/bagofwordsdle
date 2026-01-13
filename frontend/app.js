@@ -2376,7 +2376,8 @@ function updateSidebarMeta(game) {
 
     const history = Array.isArray(game?.history) ? game.history : [];
     const guessedWords = history
-        .filter(e => e && e.word)
+        // Only count actual guess turns here (forfeit reveals include a word but are not a "turn")
+        .filter(e => e && e.word && e.type !== 'forfeit')
         .map(e => String(e.word));
 
     const guessCount = guessedWords.length;
@@ -2469,7 +2470,8 @@ function updatePlayersGrid(game) {
     
     // Calculate top 3 guesses for each player (only after their last word change)
     game.history.forEach((entry, index) => {
-        if (entry.type === 'word_change') return;  // Skip word change entries
+        // Skip non-guess history entries (they don't have similarities)
+        if (entry.type === 'word_change' || entry.type === 'forfeit') return;
         
         game.players.forEach(player => {
             // Skip if this guess was before the player's word change
@@ -2478,7 +2480,7 @@ function updatePlayersGrid(game) {
                 return;  // This guess was before their word change, ignore it
             }
             
-            const sim = entry.similarities[player.id];
+            const sim = entry.similarities?.[player.id];
             if (sim !== undefined) {
                 topGuessesPerPlayer[player.id].push({
                     word: entry.word,
@@ -2643,10 +2645,11 @@ function updateHistory(game) {
         // Handle forfeit entries (server-side leave -> eliminated)
         if (entry.type === 'forfeit') {
             div.className = 'history-entry word-change-entry';
+            const revealedWord = entry.word ? String(entry.word) : '';
             div.innerHTML = `
                 <div class="word-change-notice">
                     <span class="change-icon">🏳️</span>
-                    <span><strong>${escapeHtml(entry.player_name || 'Operative')}</strong> forfeited.</span>
+                    <span><strong>${escapeHtml(entry.player_name || 'Operative')}</strong> forfeited${revealedWord ? ` — word was "${escapeHtml(revealedWord)}"` : ''}.</span>
                 </div>
             `;
             historyLog.appendChild(div);

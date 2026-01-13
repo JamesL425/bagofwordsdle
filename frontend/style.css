@@ -727,7 +727,10 @@ header h1 {
     margin: 0 auto;
     height: calc(100vh - 4rem);
     grid-template-areas: "sidebar main log";
-    grid-template-columns: 260px minmax(0, 1fr) 360px;
+    grid-template-columns:
+        clamp(220px, 22vw, 280px)
+        minmax(0, 1fr)
+        clamp(280px, 28vw, 360px);
 }
 
 /* Tablet: keep words on left, stack log below */
@@ -736,7 +739,7 @@ header h1 {
         grid-template-areas:
             "sidebar main"
             "log log";
-        grid-template-columns: 260px minmax(0, 1fr);
+        grid-template-columns: clamp(210px, 26vw, 260px) minmax(0, 1fr);
         /* Fixed log band to avoid pushing critical gameplay off-screen */
         grid-template-rows: minmax(0, 1fr) clamp(220px, 30vh, 360px);
         height: calc(100vh - 4rem);
@@ -995,6 +998,9 @@ header h1 {
     #mobile-words-panel #game-wordlist .word-item {
         font-size: 0.95rem;
         padding: 0.6rem 0.75rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     #mobile-words-panel #game-wordlist .word-item:not(.guessed):not(.eliminated):not(.your-word) {

@@ -3482,6 +3482,9 @@ class handler(BaseHTTPRequestHandler):
                     "type": "forfeit",
                     "player_id": player.get('id'),
                     "player_name": player.get('name'),
+                    # Reveal the forfeiter's word so other players can see it immediately.
+                    # (Normal eliminations already reveal via the guessed word in history.)
+                    "word": player.get('secret_word'),
                 })
 
                 # If it was their turn, advance to next alive player
