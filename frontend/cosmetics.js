@@ -336,6 +336,7 @@ function applyMatrixColor(colorId) {
         gold_rush: '#ffd700',
         monochrome: '#ffffff',
         neon_pink: '#ff00ff',
+        sunset: '#ff6b35',
     };
     document.documentElement.style.setProperty('--matrix-color', colors[colorId] || colors.classic);
 }

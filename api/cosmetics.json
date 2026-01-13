@@ -1,6 +1,12 @@
 {
   "card_borders": {
     "classic": { "name": "Classic", "description": "Default border", "premium": false },
+    "synthwave": {
+      "name": "Synthwave",
+      "description": "Retro neon border (Shop)",
+      "premium": false,
+      "price": 150
+    },
     "neon_glow": {
       "name": "Neon Glow",
       "description": "Animated neon pulse (25 MP games)",
@@ -44,6 +50,12 @@
   },
   "card_backgrounds": {
     "default": { "name": "Default", "description": "Standard background", "premium": false },
+    "midnight": {
+      "name": "Midnight",
+      "description": "Deep blue gradient (Shop)",
+      "premium": false,
+      "price": 120
+    },
     "circuit_board": {
       "name": "Circuit Board",
       "description": "Circuit overlay (50 MP games)",
@@ -78,6 +90,18 @@
   },
   "name_colors": {
     "default": { "name": "Default", "description": "Standard green", "premium": false },
+    "amber": {
+      "name": "Amber",
+      "description": "Warm orange glow (Shop)",
+      "premium": false,
+      "price": 100
+    },
+    "teal": {
+      "name": "Teal",
+      "description": "Cool teal glow (Shop)",
+      "premium": false,
+      "price": 100
+    },
     "ice": {
       "name": "Ice",
       "description": "Cyan glow (10 MP wins)",
@@ -113,6 +137,27 @@
   },
   "badges": {
     "none": { "name": "None", "description": "No badge", "premium": false, "icon": "" },
+    "skull": {
+      "name": "Skull",
+      "description": "Menacing skull (Shop)",
+      "premium": false,
+      "icon": "💀",
+      "price": 200
+    },
+    "ghost": {
+      "name": "Ghost",
+      "description": "Spooky ghost (Shop)",
+      "premium": false,
+      "icon": "👻",
+      "price": 180
+    },
+    "rocket": {
+      "name": "Rocket",
+      "description": "Blast off (Shop)",
+      "premium": false,
+      "icon": "🚀",
+      "price": 180
+    },
     "rookie": {
       "name": "Rookie",
       "description": "25 multiplayer games",
@@ -284,6 +329,13 @@
   },
   "matrix_colors": {
     "classic": { "name": "Classic", "description": "Default green", "premium": false, "colors": ["#00ff41"] },
+    "sunset": {
+      "name": "Sunset",
+      "description": "Orange/pink gradient (Shop)",
+      "premium": false,
+      "colors": ["#ff6b35", "#f7931e"],
+      "price": 140
+    },
     "cyber_blue": {
       "name": "Cyber Blue",
       "description": "Blue/cyan (25 MP games)",

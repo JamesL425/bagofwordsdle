@@ -743,6 +743,11 @@ function setLoggedInWithAuth(user) {
     if (typeof loadUserCosmetics === 'function') {
         loadUserCosmetics();
     }
+    
+    // Load daily quests/currency
+    if (typeof loadDaily === 'function') {
+        loadDaily();
+    }
 
     updateRankedUi();
 }
@@ -2972,6 +2977,11 @@ async function submitWordChange() {
 // Screen: Game Over
 function showGameOver(game) {
     showScreen('gameover');
+    
+    // Refresh daily quests (progress may have updated)
+    if (typeof loadDaily === 'function') {
+        loadDaily();
+    }
     
     const winner = game.players.find(p => p.id === game.winner);
     const isWinner = game.winner === gameState.playerId;

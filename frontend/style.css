@@ -2896,6 +2896,18 @@ header h1 {
 
 /* ============ CARD BORDER COSMETICS ============ */
 
+/* Shop: Synthwave border */
+.player-card.border-synthwave {
+    border: 2px solid #ff00ff;
+    box-shadow: 0 0 10px rgba(255, 0, 255, 0.5), 0 0 20px rgba(0, 255, 255, 0.3);
+    animation: synthwave-border 2s ease-in-out infinite;
+}
+
+@keyframes synthwave-border {
+    0%, 100% { border-color: #ff00ff; box-shadow: 0 0 10px rgba(255, 0, 255, 0.5), 0 0 20px rgba(0, 255, 255, 0.3); }
+    50% { border-color: #00ffff; box-shadow: 0 0 10px rgba(0, 255, 255, 0.5), 0 0 20px rgba(255, 0, 255, 0.3); }
+}
+
 .player-card.border-neon_glow {
     border: 2px solid var(--accent-primary);
     box-shadow: 0 0 8px var(--accent-glow);
@@ -2971,6 +2983,11 @@ header h1 {
 
 /* ============ CARD BACKGROUND COSMETICS ============ */
 
+/* Shop: Midnight background */
+.player-card.bg-midnight {
+    background: linear-gradient(135deg, rgba(10, 20, 50, 0.8), rgba(30, 50, 100, 0.6));
+}
+
 .player-card.bg-gradient_fire {
     background: linear-gradient(135deg, rgba(255, 50, 0, 0.3), rgba(255, 150, 0, 0.2));
 }
@@ -3017,6 +3034,10 @@ header h1 {
 }
 
 /* ============ NAME COLOR COSMETICS ============ */
+
+/* Shop: Amber and Teal name colors */
+.player-card .name.name-amber { color: #ff9500; text-shadow: 0 0 10px rgba(255, 149, 0, 0.6); }
+.player-card .name.name-teal { color: #00d4aa; text-shadow: 0 0 10px rgba(0, 212, 170, 0.6); }
 
 .player-card .name.name-gold { color: #ffd700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); }
 .player-card .name.name-rainbow { animation: rainbow-text 2s linear infinite; }
