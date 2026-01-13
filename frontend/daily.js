@@ -97,6 +97,11 @@ async function loadDaily() {
         
         renderDailyPanel();
         
+        // Update home stats bar
+        if (typeof updateHomeStatsBar === 'function') {
+            updateHomeStatsBar();
+        }
+        
         // Show streak notification if credits were earned
         if (dailyState.streakCreditsEarned > 0) {
             let msg = `🔥 Day ${dailyState.streak.streak_count} streak! +${dailyState.streakCreditsEarned} credits`;
@@ -199,6 +204,49 @@ async function purchaseCosmetic(category, cosmeticId) {
     } catch (e) {
         console.error('Failed to purchase cosmetic:', e);
         showError('Failed to purchase cosmetic');
+    }
+}
+
+async function purchaseBundle(bundleId) {
+    if (!gameState.authToken) {
+        showError('Please sign in with Google to purchase bundles');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/shop/purchase-bundle`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${gameState.authToken}`
+            },
+            body: JSON.stringify({ bundle_id: bundleId })
+        });
+        
+        if (!response.ok) {
+            const err = await response.json();
+            showError(err.detail || 'Failed to purchase bundle');
+            return;
+        }
+        
+        const data = await response.json();
+        dailyState.wallet = data.wallet || dailyState.wallet;
+        dailyState.ownedCosmetics = data.owned_cosmetics || dailyState.ownedCosmetics;
+        
+        renderDailyPanel();
+        
+        // Refresh cosmetics panel so newly-owned items become equippable
+        if (typeof loadUserCosmetics === 'function') {
+            loadUserCosmetics();
+        }
+        if (typeof updateCosmeticsPanel === 'function') {
+            updateCosmeticsPanel();
+        }
+        
+        showSuccess('Bundle purchased! All items added to your collection.');
+    } catch (e) {
+        console.error('Failed to purchase bundle:', e);
+        showError('Failed to purchase bundle');
     }
 }
 
@@ -463,6 +511,9 @@ function renderDailyShop() {
     };
     
     for (const [catalogKey, items] of Object.entries(cosmeticsState.catalog)) {
+        // Skip bundles - handled separately
+        if (catalogKey === 'bundles') continue;
+        
         const categoryKey = categoryMap[catalogKey];
         if (!categoryKey) continue;
         
@@ -480,11 +531,6 @@ function renderDailyShop() {
                 });
             }
         }
-    }
-    
-    if (shopItems.length === 0) {
-        container.innerHTML = '<div class="daily-empty">No items in shop.</div>';
-        return;
     }
     
     // Group by category for display
@@ -512,6 +558,47 @@ function renderDailyShop() {
     };
     
     let html = '';
+    
+    // Render bundles first (featured section)
+    const bundles = cosmeticsState.catalog.bundles || {};
+    if (Object.keys(bundles).length > 0) {
+        html += `<div class="shop-category shop-bundles"><div class="shop-category-label">🎁 BUNDLES (Save Credits!)</div>`;
+        for (const [bundleId, bundle] of Object.entries(bundles)) {
+            const price = parseInt(bundle.price || 0, 10);
+            const value = parseInt(bundle.value || 0, 10);
+            const canAfford = dailyState.wallet.credits >= price;
+            const savings = value - price;
+            
+            // Check if user owns all items in bundle
+            const contents = bundle.contents || {};
+            const ownsAll = Object.entries(contents).every(([cat, id]) => isOwnedCosmetic(cat, id));
+            
+            let btnHtml = '';
+            if (ownsAll) {
+                btnHtml = '<span class="shop-owned">✓ OWNED</span>';
+            } else if (canAfford) {
+                btnHtml = `<button class="btn btn-small btn-primary shop-bundle-btn" data-bundle-id="${bundleId}">${price} ¢</button>`;
+            } else {
+                btnHtml = `<span class="shop-price locked">${price} ¢</span>`;
+            }
+            
+            html += `
+                <div class="shop-item bundle-item ${ownsAll ? 'owned' : ''} ${!canAfford && !ownsAll ? 'locked' : ''}">
+                    <div class="shop-item-info">
+                        <span class="shop-item-name">${escapeHtml(bundle.name || bundleId)}</span>
+                        <span class="shop-item-desc">${escapeHtml(bundle.description || '')}</span>
+                        ${savings > 0 ? `<span class="bundle-savings">Save ${savings} ¢</span>` : ''}
+                    </div>
+                    <div class="shop-item-action">
+                        ${btnHtml}
+                    </div>
+                </div>
+            `;
+        }
+        html += '</div>';
+    }
+    
+    // Render regular items
     for (const [catKey, items] of Object.entries(byCategory)) {
         html += `<div class="shop-category"><div class="shop-category-label">${categoryLabels[catKey] || catKey}</div>`;
         for (const si of items) {
@@ -542,6 +629,11 @@ function renderDailyShop() {
         html += '</div>';
     }
     
+    if (html === '') {
+        container.innerHTML = '<div class="daily-empty">No items in shop.</div>';
+        return;
+    }
+    
     container.innerHTML = html;
     
     // Add click handlers for buy buttons
@@ -553,6 +645,16 @@ function renderDailyShop() {
             if (category && id) purchaseCosmetic(category, id);
         });
     });
+    
+    // Add click handlers for bundle buttons
+    container.querySelectorAll('.shop-bundle-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const bundleId = btn.dataset.bundleId;
+            if (bundleId) purchaseBundle(bundleId);
+        });
+    });
+}
 }
 
 function isOwnedCosmetic(categoryKey, cosmeticId) {

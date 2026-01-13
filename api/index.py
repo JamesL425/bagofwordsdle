@@ -5806,6 +5806,88 @@ class handler(BaseHTTPRequestHandler):
                 "owned_cosmetics": econ.get("owned_cosmetics") or {},
             })
 
+        # POST /api/shop/purchase-bundle - Purchase a cosmetic bundle
+        if path == '/api/shop/purchase-bundle':
+            auth_header = self.headers.get('Authorization', '')
+            if not auth_header.startswith('Bearer '):
+                return self._send_error("Not authenticated", 401)
+
+            token = auth_header[7:]
+            payload = verify_jwt_token(token)
+            if not payload:
+                return self._send_error("Invalid or expired token", 401)
+
+            bundle_id = body.get('bundle_id', '')
+            if not isinstance(bundle_id, str) or not bundle_id.strip():
+                return self._send_error("bundle_id required", 400)
+            bundle_id = bundle_id.strip()
+
+            # Get bundle from catalog
+            bundles = COSMETICS_CATALOG.get('bundles', {})
+            bundle = bundles.get(bundle_id)
+            if not bundle:
+                return self._send_error("Invalid bundle", 400)
+
+            try:
+                price = int(bundle.get('price', 0) or 0)
+            except Exception:
+                price = 0
+            if price <= 0:
+                return self._send_error("This bundle is not for sale", 400)
+
+            contents = bundle.get('contents', {})
+            if not contents:
+                return self._send_error("Bundle has no contents", 400)
+
+            # Admin user: store economy separately
+            if payload.get('sub') == 'admin_local':
+                redis = get_redis()
+                admin_user = load_admin_economy_user(redis)
+
+                credits = get_user_credits(admin_user)
+                if credits < price:
+                    return self._send_error("Not enough credits", 403)
+
+                # Grant all items in bundle
+                for cat_key, cosmetic_id in contents.items():
+                    if not user_owns_cosmetic(admin_user, cat_key, cosmetic_id):
+                        grant_owned_cosmetic(admin_user, cat_key, cosmetic_id, persist=False)
+
+                add_user_credits(admin_user, -price, persist=False)
+                save_admin_economy_user(redis, admin_user)
+                econ = ensure_user_economy(admin_user, persist=False)
+                return self._send_json({
+                    "status": "purchased",
+                    "bundle_id": bundle_id,
+                    "wallet": econ.get("wallet") or {"credits": 0},
+                    "owned_cosmetics": econ.get("owned_cosmetics") or {},
+                })
+
+            user = get_user_by_id(payload.get('sub', ''))
+            if not user:
+                return self._send_error("User not found", 404)
+
+            ensure_user_economy(user, persist=False)
+
+            credits = get_user_credits(user)
+            if credits < price:
+                return self._send_error("Not enough credits", 403)
+
+            # Grant all items in bundle
+            for cat_key, cosmetic_id in contents.items():
+                if not user_owns_cosmetic(user, cat_key, cosmetic_id):
+                    grant_owned_cosmetic(user, cat_key, cosmetic_id, persist=False)
+
+            add_user_credits(user, -price, persist=False)
+            save_user(user)
+            econ = ensure_user_economy(user, persist=False)
+            return self._send_json({
+                "status": "purchased",
+                "bundle_id": bundle_id,
+                "wallet": econ.get("wallet") or {"credits": 0},
+                "owned_cosmetics": econ.get("owned_cosmetics") or {},
+            })
+
         # POST /api/cosmetics/equip - Equip a cosmetic
         if path == '/api/cosmetics/equip':
             auth_header = self.headers.get('Authorization', '')

@@ -586,6 +586,12 @@ function getBadgeHtml(cosmetics) {
         skull: '💀',
         ghost: '👻',
         rocket: '🚀',
+        // Shop badges
+        hacker: '💻',
+        ghost_protocol: '🕵️',
+        overlord: '🦅',
+        dragon: '🐉',
+        alien: '👽',
         // Legacy v1 IDs (kept so old game states still render)
         heart: '❤️',
         crown: '👑',

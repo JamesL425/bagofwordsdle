@@ -1930,58 +1930,222 @@ body.nerd-mode .nerd-sim {
     background: rgba(0, 255, 200, 0.1);
 }
 
-/* ============ HOME STREAK WIDGET ============ */
+/* ============ HOME STATS BAR ============ */
 
-.home-streak-widget {
-    background: linear-gradient(135deg, rgba(255, 107, 0, 0.15), var(--bg-card));
-    border: 2px solid #ff6b00;
-    border-radius: var(--radius);
-    padding: 1rem 1.5rem;
-    margin-bottom: 1rem;
+.home-stats-bar {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
-    animation: streak-widget-glow 2s ease-in-out infinite;
+    gap: 1.5rem;
+    padding: 0.75rem 1rem;
+    margin: 0.75rem 0;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
 }
 
-@keyframes streak-widget-glow {
-    0%, 100% { box-shadow: 0 0 10px rgba(255, 107, 0, 0.2); }
-    50% { box-shadow: 0 0 20px rgba(255, 107, 0, 0.4); }
-}
-
-.home-streak-widget.hidden {
+.home-stats-bar.hidden {
     display: none;
 }
 
-.streak-widget-content {
+.stat-item {
     display: flex;
     align-items: center;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+}
+
+.stat-icon {
+    font-size: 1rem;
+}
+
+.stat-value {
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.stat-label {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+}
+
+.stat-streak .stat-value {
+    color: #ff6b00;
+}
+
+.stat-credits .stat-value {
+    color: #ffd700;
+}
+
+.stat-rank .stat-value {
+    color: var(--accent);
+}
+
+/* ============ HOME TWO-COLUMN LAYOUT ============ */
+
+.home-columns {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.home-column {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Two-column layout on wider screens */
+@media (min-width: 900px) {
+    .home-columns {
+        flex-direction: row;
+        gap: 1.5rem;
+    }
+    
+    .home-column-left {
+        flex: 1.2;
+    }
+    
+    .home-column-right {
+        flex: 0.8;
+    }
+}
+
+/* ============ MINI LEADERBOARD ============ */
+
+.mini-leaderboard-card {
+    background: var(--bg-card);
+}
+
+.mini-leaderboard {
+    display: flex;
+    flex-direction: column;
     gap: 0.5rem;
 }
 
-.streak-widget-icon {
-    font-size: 1.8rem;
-    animation: flame-flicker 0.5s ease-in-out infinite alternate;
+.mini-lb-entry {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
 }
 
-.streak-widget-count {
-    font-size: 2rem;
+.mini-lb-entry.top-3 {
+    border-color: var(--accent);
+}
+
+.mini-lb-entry.top-3:nth-child(1) {
+    border-color: #ffd700;
+    background: rgba(255, 215, 0, 0.05);
+}
+
+.mini-lb-entry.top-3:nth-child(2) {
+    border-color: #c0c0c0;
+    background: rgba(192, 192, 192, 0.05);
+}
+
+.mini-lb-entry.top-3:nth-child(3) {
+    border-color: #cd7f32;
+    background: rgba(205, 127, 50, 0.05);
+}
+
+.mini-lb-rank {
     font-weight: 700;
-    color: #ff6b00;
-    text-shadow: 0 0 10px rgba(255, 107, 0, 0.5);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    min-width: 1.5rem;
+    text-align: center;
 }
 
-.streak-widget-label {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
+.mini-lb-entry.top-3:nth-child(1) .mini-lb-rank { color: #ffd700; }
+.mini-lb-entry.top-3:nth-child(2) .mini-lb-rank { color: #c0c0c0; }
+.mini-lb-entry.top-3:nth-child(3) .mini-lb-rank { color: #cd7f32; }
+
+.mini-lb-name {
+    flex: 1;
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mini-lb-score {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+/* ============ YOUR STATS CARD ============ */
+
+.your-stats-card.hidden {
+    display: none;
+}
+
+.your-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+}
+
+.your-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.75rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+}
+
+.your-stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.your-stat-label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
 
-.streak-widget-bonus {
-    font-size: 0.85rem;
-    color: var(--warning);
-    font-weight: 600;
+/* ============ COLLAPSIBLE RULES ============ */
+
+.rules-collapsible {
+    margin-top: 1rem;
+}
+
+.rules-header {
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+    margin-bottom: 0;
+    padding: 0.75rem 0;
+}
+
+.rules-header:hover {
+    color: var(--accent);
+}
+
+.rules-toggle-icon {
+    font-size: 0.8rem;
+    transition: transform 0.2s ease;
+}
+
+.rules-content.collapsed {
+    display: none;
+}
+
+.rules-content.collapsed + .rules-header .rules-toggle-icon,
+.rules-header:has(+ .rules-content.collapsed) .rules-toggle-icon {
+    transform: rotate(-90deg);
 }
 
 /* ============ UNLOCK CELEBRATION ============ */
@@ -3444,6 +3608,64 @@ body.nerd-mode .nerd-sim {
 .shop-buy-btn {
     padding: 0.3rem 0.5rem;
     font-size: 0.7rem;
+}
+
+/* Bundle styles */
+.shop-bundles {
+    background: linear-gradient(135deg, rgba(0, 255, 65, 0.05), rgba(0, 200, 255, 0.05));
+    border: 1px solid rgba(0, 255, 65, 0.2);
+    border-radius: var(--radius);
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.shop-bundles .shop-category-label {
+    color: var(--accent);
+    font-size: 0.85rem;
+}
+
+.bundle-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--accent);
+}
+
+.bundle-item .shop-item-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+}
+
+.bundle-item .shop-item-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.shop-item-desc {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.bundle-savings {
+    font-size: 0.7rem;
+    color: var(--success);
+    font-weight: 600;
+    padding: 0.15rem 0.4rem;
+    background: rgba(0, 255, 65, 0.1);
+    border-radius: 4px;
+}
+
+.bundle-item .shop-item-action {
+    align-self: flex-end;
+}
+
+.shop-bundle-btn {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.75rem;
 }
 
 /* Success toast style */

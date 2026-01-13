@@ -64,6 +64,24 @@
       "premium": false,
       "requirements": [{ "metric": "mp_wins", "min": 200 }]
     },
+    "inferno": {
+      "name": "Inferno",
+      "description": "Blazing animated flames (Shop)",
+      "premium": false,
+      "price": 800
+    },
+    "void_pulse": {
+      "name": "Void Pulse",
+      "description": "Pulsing dark energy (Shop)",
+      "premium": false,
+      "price": 1000
+    },
+    "chromatic": {
+      "name": "Chromatic",
+      "description": "Shifting rainbow edge (Shop)",
+      "premium": false,
+      "price": 1500
+    },
     "holographic": { "name": "Holographic", "description": "Rainbow shimmer (Supporter)", "premium": true }
   },
   "card_backgrounds": {
@@ -115,6 +133,24 @@
       "description": "Cosmic swirl (200 MP games)",
       "premium": false,
       "requirements": [{ "metric": "mp_games_played", "min": 200 }]
+    },
+    "warp_drive": {
+      "name": "Warp Drive",
+      "description": "Hyperspace streaks (Shop)",
+      "premium": false,
+      "price": 750
+    },
+    "neural_network": {
+      "name": "Neural Network",
+      "description": "AI neural patterns (Shop)",
+      "premium": false,
+      "price": 1200
+    },
+    "quantum_field": {
+      "name": "Quantum Field",
+      "description": "Quantum particle effects (Shop)",
+      "premium": false,
+      "price": 2000
     },
     "holographic": { "name": "Holographic", "description": "Shifting rainbow (Supporter)", "premium": true }
   },
@@ -173,6 +209,18 @@
       "description": "Deep red (200 MP eliminations)",
       "premium": false,
       "requirements": [{ "metric": "mp_eliminations", "min": 200 }]
+    },
+    "plasma_glow": {
+      "name": "Plasma Glow",
+      "description": "Bright plasma effect (Shop)",
+      "premium": false,
+      "price": 500
+    },
+    "void_text": {
+      "name": "Void",
+      "description": "Dark matter text (Shop)",
+      "premium": false,
+      "price": 750
     },
     "rainbow": { "name": "Rainbow", "description": "Animated spectrum (Supporter)", "premium": true },
     "neon_pink": { "name": "Neon Pink", "description": "Neon magenta (Supporter)", "premium": true }
@@ -298,6 +346,41 @@
       "icon": "🔷",
       "requirements": [{ "metric": "peak_mmr", "min": 1700 }]
     },
+    "hacker": {
+      "name": "Hacker",
+      "description": "Elite hacker badge (Shop)",
+      "premium": false,
+      "icon": "💻",
+      "price": 500
+    },
+    "ghost_protocol": {
+      "name": "Ghost Protocol",
+      "description": "Invisible operative (Shop)",
+      "premium": false,
+      "icon": "🕵️",
+      "price": 800
+    },
+    "overlord": {
+      "name": "Overlord",
+      "description": "Supreme commander (Shop)",
+      "premium": false,
+      "icon": "🦅",
+      "price": 1500
+    },
+    "dragon": {
+      "name": "Dragon",
+      "description": "Mythical beast (Shop)",
+      "premium": false,
+      "icon": "🐉",
+      "price": 1200
+    },
+    "alien": {
+      "name": "Alien",
+      "description": "Extraterrestrial (Shop)",
+      "premium": false,
+      "icon": "👽",
+      "price": 600
+    },
     "coffee": { "name": "Supporter", "description": "Ko-fi supporter badge", "premium": true, "icon": "☕" },
     "diamond": { "name": "Diamond Supporter", "description": "Ko-fi supporter badge", "premium": true, "icon": "💎" }
   },
@@ -333,6 +416,18 @@
       "premium": false,
       "requirements": [{ "metric": "mp_eliminations", "min": 100 }]
     },
+    "black_hole": {
+      "name": "Black Hole",
+      "description": "Sucked into singularity (Shop)",
+      "premium": false,
+      "price": 1000
+    },
+    "pixelate": {
+      "name": "Pixelate",
+      "description": "Retro pixel death (Shop)",
+      "premium": false,
+      "price": 750
+    },
     "disintegrate": { "name": "Disintegrate", "description": "Dust to void (Supporter)", "premium": true },
     "void": { "name": "Void", "description": "Sucked into the void (Supporter)", "premium": true },
     "lightning_strike": { "name": "Lightning Strike", "description": "Struck by lightning (Supporter)", "premium": true }
@@ -356,6 +451,18 @@
       "description": "Expanding energy (25 MP games)",
       "premium": false,
       "requirements": [{ "metric": "mp_games_played", "min": 25 }]
+    },
+    "shockwave": {
+      "name": "Shockwave",
+      "description": "Powerful shockwave (Shop)",
+      "premium": false,
+      "price": 600
+    },
+    "hologram_burst": {
+      "name": "Hologram Burst",
+      "description": "Holographic fragments (Shop)",
+      "premium": false,
+      "price": 900
     }
   },
   "turn_indicators": {
@@ -383,6 +490,18 @@
       "description": "Electric arcs (150 MP eliminations)",
       "premium": false,
       "requirements": [{ "metric": "mp_eliminations", "min": 150 }]
+    },
+    "target_lock": {
+      "name": "Target Lock",
+      "description": "Targeting reticle (Shop)",
+      "premium": false,
+      "price": 500
+    },
+    "quantum_glow": {
+      "name": "Quantum Glow",
+      "description": "Quantum uncertainty (Shop)",
+      "premium": false,
+      "price": 850
     },
     "fire_ring": { "name": "Fire Ring", "description": "Ring of fire (Supporter)", "premium": true },
     "holographic": { "name": "Holographic", "description": "Rainbow shimmer (Supporter)", "premium": true }
@@ -412,6 +531,18 @@
       "description": "Crown descent (150 MP wins)",
       "premium": false,
       "requirements": [{ "metric": "mp_wins", "min": 150 }]
+    },
+    "nuclear": {
+      "name": "Nuclear",
+      "description": "Mushroom cloud explosion (Shop)",
+      "premium": false,
+      "price": 1200
+    },
+    "matrix_cascade": {
+      "name": "Matrix Cascade",
+      "description": "Green code rain victory (Shop)",
+      "premium": false,
+      "price": 1800
     },
     "lightning_storm": { "name": "Lightning Storm", "description": "Lightning storm (Supporter)", "premium": true }
   },
@@ -459,6 +590,20 @@
       "colors": ["#39ff14", "#ccff00"],
       "requirements": [{ "metric": "mp_games_played", "min": 100 }]
     },
+    "blood_red": {
+      "name": "Blood Red",
+      "description": "Deep crimson matrix (Shop)",
+      "premium": false,
+      "colors": ["#8b0000", "#dc143c"],
+      "price": 600
+    },
+    "arctic": {
+      "name": "Arctic",
+      "description": "Frozen blue matrix (Shop)",
+      "premium": false,
+      "colors": ["#00ffff", "#e0ffff"],
+      "price": 800
+    },
     "gold_rush": { "name": "Gold Rush", "description": "Gold/amber (Supporter)", "premium": true, "colors": ["#ffd700", "#ff9900"] },
     "monochrome": { "name": "Monochrome", "description": "White/gray (Supporter)", "premium": true, "colors": ["#ffffff", "#888888"] },
     "neon_pink": { "name": "Neon Pink", "description": "Hot pink (Supporter)", "premium": true, "colors": ["#ff00ff", "#ff66b3"] }
@@ -489,6 +634,24 @@
       "premium": false,
       "requirements": [{ "metric": "mp_games_played", "min": 75 }]
     },
+    "fireflies_overlay": {
+      "name": "Fireflies",
+      "description": "Floating light particles (Shop)",
+      "premium": false,
+      "price": 600
+    },
+    "data_stream": {
+      "name": "Data Stream",
+      "description": "Binary data flow (Shop)",
+      "premium": false,
+      "price": 900
+    },
+    "hologram_overlay": {
+      "name": "Hologram",
+      "description": "Holographic interference (Shop)",
+      "premium": false,
+      "price": 1500
+    },
     "starfield": { "name": "Starfield", "description": "Twinkling stars (Supporter)", "premium": true },
     "glitch": { "name": "Glitch", "description": "Glitch overlay (Supporter)", "premium": true }
   },
@@ -517,6 +680,18 @@
       "description": "Falling leaves (50 MP games)",
       "premium": false,
       "requirements": [{ "metric": "mp_games_played", "min": 50 }]
+    },
+    "sakura": {
+      "name": "Sakura",
+      "description": "Cherry blossom petals (Shop)",
+      "premium": false,
+      "price": 700
+    },
+    "northern_lights": {
+      "name": "Northern Lights",
+      "description": "Aurora borealis (Shop)",
+      "premium": false,
+      "price": 1100
     },
     "fireworks": { "name": "Fireworks", "description": "Celebration overlay (Supporter)", "premium": true },
     "cherry_blossom": { "name": "Cherry Blossom", "description": "Falling petals (Supporter)", "premium": true }
@@ -553,6 +728,80 @@
       "premium": false,
       "requirements": [{ "metric": "mp_games_played", "min": 100 }]
     },
+    "cyberpunk_city": {
+      "name": "Cyberpunk City",
+      "description": "Neon cityscape (Shop)",
+      "premium": false,
+      "price": 1000
+    },
+    "binary_rain": {
+      "name": "Binary Rain",
+      "description": "Falling binary code (Shop)",
+      "premium": false,
+      "price": 800
+    },
     "aurora": { "name": "Aurora", "description": "Aurora waves (Supporter)", "premium": true }
+  },
+  "bundles": {
+    "cyber_pack": {
+      "name": "Cyber Pack",
+      "description": "Void Pulse border + Neural Network bg + Hacker badge",
+      "premium": false,
+      "price": 2000,
+      "contents": {
+        "card_border": "void_pulse",
+        "card_background": "neural_network",
+        "badge": "hacker"
+      },
+      "value": 2700
+    },
+    "elite_pack": {
+      "name": "Elite Pack",
+      "description": "Chromatic border + Quantum Field bg + Overlord badge",
+      "premium": false,
+      "price": 4000,
+      "contents": {
+        "card_border": "chromatic",
+        "card_background": "quantum_field",
+        "badge": "overlord"
+      },
+      "value": 5500
+    },
+    "destruction_pack": {
+      "name": "Destruction Pack",
+      "description": "Black Hole elim + Nuclear victory + Inferno border",
+      "premium": false,
+      "price": 2500,
+      "contents": {
+        "elimination_effect": "black_hole",
+        "victory_effect": "nuclear",
+        "card_border": "inferno"
+      },
+      "value": 3000
+    },
+    "matrix_pack": {
+      "name": "Matrix Pack",
+      "description": "Matrix Cascade victory + Binary Rain bg + Data Stream particles",
+      "premium": false,
+      "price": 3000,
+      "contents": {
+        "victory_effect": "matrix_cascade",
+        "alt_background": "binary_rain",
+        "particle_overlay": "data_stream"
+      },
+      "value": 3500
+    },
+    "starter_pack": {
+      "name": "Starter Pack",
+      "description": "Synthwave border + Midnight bg + Amber name",
+      "premium": false,
+      "price": 300,
+      "contents": {
+        "card_border": "synthwave",
+        "card_background": "midnight",
+        "name_color": "amber"
+      },
+      "value": 370
+    }
   }
 }

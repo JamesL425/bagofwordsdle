@@ -209,21 +209,30 @@
 
         <!-- Home Screen -->
         <div id="home-screen" class="screen active home-screen">
-            <!-- Streak Widget (shown when logged in) -->
-            <div id="home-streak-widget" class="home-streak-widget hidden">
-                <div class="streak-widget-content">
-                    <span class="streak-widget-icon">🔥</span>
-                    <span id="home-streak-count" class="streak-widget-count">0</span>
-                    <span class="streak-widget-label">day streak</span>
-                </div>
-                <div id="home-streak-bonus" class="streak-widget-bonus"></div>
-            </div>
-
             <div class="card hero-card">
                 <div class="hero-content">
                     <h2>INITIALISE BREACH</h2>
                     <p class="hero-description">Encrypt your codeword. Probe enemy systems. Decode their secrets. Eliminate targets. Last operative standing wins.</p>
                 </div>
+                
+                <!-- Compact Stats Bar (shown when logged in) -->
+                <div id="home-stats-bar" class="home-stats-bar hidden">
+                    <div class="stat-item stat-streak" title="Daily login streak">
+                        <span class="stat-icon">🔥</span>
+                        <span id="stats-streak-count" class="stat-value">0</span>
+                        <span class="stat-label">days</span>
+                    </div>
+                    <div class="stat-item stat-credits" title="Credits">
+                        <span class="stat-icon">💰</span>
+                        <span id="stats-credits" class="stat-value">0</span>
+                        <span class="stat-label">credits</span>
+                    </div>
+                    <div class="stat-item stat-rank" title="Your rank">
+                        <span class="stat-icon">🏆</span>
+                        <span id="stats-rank" class="stat-value">—</span>
+                    </div>
+                </div>
+                
                 <div class="home-actions">
                     <div class="home-actions-primary">
                         <button id="quickplay-btn" class="btn btn-primary btn-large btn-block home-action">&gt; QUICK_PLAY</button>
@@ -245,61 +254,108 @@
                 </div>
             </div>
 
-            <!-- Recent / Active Games -->
-            <div class="card lobbies-card">
-                <h3>// YOUR_SESSIONS</h3>
-                <div id="recent-games" class="open-lobbies">
-                    <p class="loading-lobbies">No recent games.</p>
+            <!-- Two-column layout for wider screens -->
+            <div class="home-columns">
+                <!-- Left Column: Sessions and Lobbies -->
+                <div class="home-column home-column-left">
+                    <!-- Recent / Active Games -->
+                    <div class="card lobbies-card">
+                        <h3>// YOUR_SESSIONS</h3>
+                        <div id="recent-games" class="open-lobbies">
+                            <p class="loading-lobbies">No recent games.</p>
+                        </div>
+                    </div>
+
+                    <!-- Open Lobbies Section -->
+                    <div class="card lobbies-card">
+                        <h3>// ACTIVE_SERVERS</h3>
+                        <div id="open-lobbies" class="open-lobbies">
+                            <p class="loading-lobbies">Scanning network...</p>
+                        </div>
+                        <button id="refresh-lobbies-btn" class="btn btn-ghost btn-small">↻ RESCAN</button>
+                    </div>
+
+                    <!-- Spectate Section -->
+                    <div class="card lobbies-card">
+                        <h3>// LIVE_MATCHES</h3>
+                        <div id="spectate-games" class="open-lobbies">
+                            <p class="loading-lobbies">Scanning network...</p>
+                        </div>
+                        <button id="refresh-spectate-btn" class="btn btn-ghost btn-small">↻ RESCAN</button>
+                    </div>
+                </div>
+
+                <!-- Right Column: Mini Leaderboard and Stats -->
+                <div class="home-column home-column-right">
+                    <!-- Mini Leaderboard -->
+                    <div class="card lobbies-card mini-leaderboard-card">
+                        <h3>// TOP_OPERATIVES</h3>
+                        <div id="mini-leaderboard" class="mini-leaderboard">
+                            <p class="loading-lobbies">Loading...</p>
+                        </div>
+                        <button id="view-full-leaderboard-btn" class="btn btn-ghost btn-small">VIEW_ALL →</button>
+                    </div>
+
+                    <!-- Your Stats Preview -->
+                    <div id="home-your-stats" class="card lobbies-card your-stats-card hidden">
+                        <h3>// YOUR_STATS</h3>
+                        <div class="your-stats-grid">
+                            <div class="your-stat">
+                                <span class="your-stat-value" id="home-stat-games">0</span>
+                                <span class="your-stat-label">Games</span>
+                            </div>
+                            <div class="your-stat">
+                                <span class="your-stat-value" id="home-stat-wins">0</span>
+                                <span class="your-stat-label">Wins</span>
+                            </div>
+                            <div class="your-stat">
+                                <span class="your-stat-value" id="home-stat-elims">0</span>
+                                <span class="your-stat-label">Elims</span>
+                            </div>
+                            <div class="your-stat">
+                                <span class="your-stat-value" id="home-stat-mmr">—</span>
+                                <span class="your-stat-label">MMR</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Open Lobbies Section -->
-            <div class="card lobbies-card">
-                <h3>// ACTIVE_SERVERS</h3>
-                <div id="open-lobbies" class="open-lobbies">
-                    <p class="loading-lobbies">Scanning network...</p>
-                </div>
-                <button id="refresh-lobbies-btn" class="btn btn-ghost btn-small">↻ RESCAN</button>
-            </div>
-
-            <!-- Spectate Section -->
-            <div class="card lobbies-card">
-                <h3>// LIVE_MATCHES</h3>
-                <div id="spectate-games" class="open-lobbies">
-                    <p class="loading-lobbies">Scanning network...</p>
-                </div>
-                <button id="refresh-spectate-btn" class="btn btn-ghost btn-small">↻ RESCAN</button>
-            </div>
-
-            <div class="card rules">
-                <h3>// PROTOCOL</h3>
-                <div class="rules-grid">
-                    <div class="rule-item">
-                        <span class="rule-number">01</span>
-                        <div>
-                            <strong>ENCRYPT</strong>
-                            <p>Each operative picks a secret word from a shared theme</p>
+            <!-- Protocol Section (collapsible) -->
+            <div class="card rules rules-collapsible">
+                <h3 class="rules-header" id="rules-toggle">
+                    // PROTOCOL
+                    <span class="rules-toggle-icon">▼</span>
+                </h3>
+                <div id="rules-content" class="rules-content collapsed">
+                    <div class="rules-grid">
+                        <div class="rule-item">
+                            <span class="rule-number">01</span>
+                            <div>
+                                <strong>ENCRYPT</strong>
+                                <p>Each operative picks a secret word from a shared theme</p>
+                            </div>
                         </div>
-                    </div>
-                    <div class="rule-item">
-                        <span class="rule-number">02</span>
-                        <div>
-                            <strong>PROBE</strong>
-                            <p>On your turn, guess a word. Everyone sees how similar it is to each player's secret word</p>
+                        <div class="rule-item">
+                            <span class="rule-number">02</span>
+                            <div>
+                                <strong>PROBE</strong>
+                                <p>On your turn, guess a word. Everyone sees how similar it is to each player's secret word</p>
+                            </div>
                         </div>
-                    </div>
-                    <div class="rule-item">
-                        <span class="rule-number">03</span>
-                        <div>
-                            <strong>ANALYSE</strong>
-                            <p>Use similarity scores to deduce enemy words while hiding your own</p>
+                        <div class="rule-item">
+                            <span class="rule-number">03</span>
+                            <div>
+                                <strong>ANALYSE</strong>
+                                <p>Use similarity scores to deduce enemy words while hiding your own</p>
+                            </div>
                         </div>
-                    </div>
-                    <div class="rule-item">
-                        <span class="rule-number">04</span>
-                        <div>
-                            <strong>ELIMINATE</strong>
-                            <p>Guess someone's exact word to eliminate them. Last one standing wins</p>
+                        <div class="rule-item">
+                            <span class="rule-number">04</span>
+                            <div>
+                                <strong>ELIMINATE</strong>
+                                <p>Guess someone's exact word to eliminate them. Last one standing wins</p>
+                            </div>
                         </div>
                     </div>
                 </div>

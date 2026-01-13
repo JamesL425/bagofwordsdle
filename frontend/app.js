@@ -876,36 +876,64 @@ function setLoggedInWithAuth(user) {
     updateRankedUi();
 }
 
-function updateHomeStreakWidget() {
-    const widget = document.getElementById('home-streak-widget');
-    const countEl = document.getElementById('home-streak-count');
-    const bonusEl = document.getElementById('home-streak-bonus');
-    
-    if (!widget || !countEl) return;
+function updateHomeStatsBar() {
+    const statsBar = document.getElementById('home-stats-bar');
+    const streakEl = document.getElementById('stats-streak-count');
+    const creditsEl = document.getElementById('stats-credits');
+    const rankEl = document.getElementById('stats-rank');
+    const yourStatsCard = document.getElementById('home-your-stats');
     
     // Only show for authenticated users
     if (!gameState.authToken) {
-        widget.classList.add('hidden');
+        if (statsBar) statsBar.classList.add('hidden');
+        if (yourStatsCard) yourStatsCard.classList.add('hidden');
         return;
     }
     
-    // Get streak data from daily state
+    // Update streak
     const streak = dailyState?.streak;
-    if (!streak || !streak.streak_count) {
-        widget.classList.add('hidden');
-        return;
+    if (streakEl) {
+        streakEl.textContent = streak?.streak_count || 0;
     }
     
-    const count = streak.streak_count || 0;
-    countEl.textContent = count;
-    
-    // Show bonus info
-    const info = dailyState.streakInfo;
-    if (info && bonusEl) {
-        bonusEl.textContent = `+${info.current_daily_credits || 15}¢/day`;
+    // Update credits
+    const credits = dailyState?.wallet?.credits || 0;
+    if (creditsEl) {
+        creditsEl.textContent = credits.toLocaleString();
     }
     
-    widget.classList.remove('hidden');
+    // Update rank (from leaderboard position or MMR)
+    if (rankEl) {
+        const mmr = gameState.userData?.stats?.mmr;
+        if (mmr && mmr > 1000) {
+            rankEl.textContent = mmr;
+        } else {
+            rankEl.textContent = '—';
+        }
+    }
+    
+    if (statsBar) statsBar.classList.remove('hidden');
+    
+    // Update your stats card
+    if (yourStatsCard && gameState.userData?.stats) {
+        const stats = gameState.userData.stats;
+        const gamesEl = document.getElementById('home-stat-games');
+        const winsEl = document.getElementById('home-stat-wins');
+        const elimsEl = document.getElementById('home-stat-elims');
+        const mmrEl = document.getElementById('home-stat-mmr');
+        
+        if (gamesEl) gamesEl.textContent = (stats.mp_games_played || 0).toLocaleString();
+        if (winsEl) winsEl.textContent = (stats.mp_wins || 0).toLocaleString();
+        if (elimsEl) elimsEl.textContent = (stats.mp_eliminations || 0).toLocaleString();
+        if (mmrEl) mmrEl.textContent = stats.mmr || '—';
+        
+        yourStatsCard.classList.remove('hidden');
+    }
+}
+
+// Legacy function name for compatibility
+function updateHomeStreakWidget() {
+    updateHomeStatsBar();
 }
 
 function setLoggedIn(name) {
@@ -1468,6 +1496,7 @@ async function loadSpectateGames() {
 function startLobbyRefresh() {
     stopLobbyRefresh();
     loadLobbies();
+    loadMiniLeaderboard(); // Load mini-leaderboard on home screen
     lobbyRefreshInterval = setInterval(loadLobbies, 3000);  // Refresh every 3 seconds
 }
 
@@ -1604,6 +1633,18 @@ joinCodeInput?.addEventListener('keydown', (e) => {
 
 document.getElementById('refresh-lobbies-btn')?.addEventListener('click', loadLobbies);
 document.getElementById('refresh-spectate-btn')?.addEventListener('click', loadSpectateGames);
+
+// Collapsible rules toggle
+document.getElementById('rules-toggle')?.addEventListener('click', () => {
+    const content = document.getElementById('rules-content');
+    const icon = document.querySelector('.rules-toggle-icon');
+    if (content) {
+        content.classList.toggle('collapsed');
+        if (icon) {
+            icon.textContent = content.classList.contains('collapsed') ? '▶' : '▼';
+        }
+    }
+});
 
 // ============ LEADERBOARDS ============
 
@@ -1770,6 +1811,11 @@ document.getElementById('open-leaderboard-btn')?.addEventListener('click', () =>
     setLeaderboardMode(leaderboardState.mode || 'casual');
     setCasualLeaderboardType(leaderboardState.casualType || 'alltime');
 });
+document.getElementById('view-full-leaderboard-btn')?.addEventListener('click', () => {
+    showScreen('leaderboard');
+    setLeaderboardMode(leaderboardState.mode || 'casual');
+    setCasualLeaderboardType(leaderboardState.casualType || 'alltime');
+});
 document.getElementById('lb-back-btn')?.addEventListener('click', () => {
     showScreen('home');
 });
@@ -1777,6 +1823,40 @@ document.getElementById('lb-tab-casual')?.addEventListener('click', () => setLea
 document.getElementById('lb-tab-ranked')?.addEventListener('click', () => setLeaderboardMode('ranked'));
 document.getElementById('lb-casual-alltime')?.addEventListener('click', () => setCasualLeaderboardType('alltime'));
 document.getElementById('lb-casual-weekly')?.addEventListener('click', () => setCasualLeaderboardType('weekly'));
+
+// Mini-leaderboard on home screen
+async function loadMiniLeaderboard() {
+    const container = document.getElementById('mini-leaderboard');
+    if (!container) return;
+    
+    try {
+        const data = await apiCall('/api/leaderboard?type=alltime');
+        const players = Array.isArray(data?.players) ? data.players.slice(0, 5) : [];
+        
+        if (players.length === 0) {
+            container.innerHTML = '<p class="loading-lobbies">No data yet.</p>';
+            return;
+        }
+        
+        let html = '';
+        players.forEach((p, idx) => {
+            const wins = Number(p?.wins || 0);
+            const isTop3 = idx < 3;
+            html += `
+                <div class="mini-lb-entry ${isTop3 ? 'top-3' : ''}">
+                    <span class="mini-lb-rank">#${idx + 1}</span>
+                    <span class="mini-lb-name">${escapeHtml(p?.name || 'Unknown')}</span>
+                    <span class="mini-lb-score">${wins} wins</span>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    } catch (e) {
+        console.error('Failed to load mini-leaderboard:', e);
+        container.innerHTML = '<p class="loading-lobbies">Failed to load.</p>';
+    }
+}
 
 // ============ SINGLEPLAYER MODE ============
 
