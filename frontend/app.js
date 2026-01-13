@@ -902,12 +902,30 @@ function closeChatPanel() {
 document.getElementById('chat-btn')?.addEventListener('click', toggleChatPanel);
 document.getElementById('close-chat-btn')?.addEventListener('click', closeChatPanel);
 
+// Track last send time for debounce
+let lastChatSendTime = 0;
+const CHAT_SEND_DEBOUNCE_MS = 500;
+
 document.getElementById('chat-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    
+    // Debounce: ignore rapid submits
+    const now = Date.now();
+    if (now - lastChatSendTime < CHAT_SEND_DEBOUNCE_MS) return;
+    
+    // Check in-flight before touching input
+    if (chatSendInFlight) return;
+    
     const input = document.getElementById('chat-input');
     if (!input) return;
-    const text = input.value;
+    
+    const text = input.value.trim();
+    if (!text) return;
+    
+    // Clear input and mark send time BEFORE async call
     input.value = '';
+    lastChatSendTime = now;
+    
     await sendChatMessage(text);
 });
 
