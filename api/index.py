@@ -157,6 +157,24 @@ def load_themes():
 PREGENERATED_THEMES = load_themes()
 THEME_CATEGORIES = list(PREGENERATED_THEMES.keys()) if PREGENERATED_THEMES else CONFIG.get("theme_categories", [])
 
+# Backwards-compatible theme aliases:
+# Old lobbies can have theme names persisted in Redis that no longer exist in api/themes.json.
+# Map them to the closest current theme so /start doesn't fail with an empty word list.
+THEME_ALIASES = {
+    "science & space": "Space Adventure",
+    "music & instruments": "Music & Concerts",
+    "movies & tv shows": "Superheroes & Comics",
+    "movies & entertainment": "Superheroes & Comics",
+    "superheroes": "Superheroes & Comics",
+    "food & cooking": "Kitchen Chaos",
+    "sports & games": "Video Games",
+    "technology & gadgets": "Internet & Memes",
+    "ocean & marine life": "Pirates & Treasure",
+    "beach & summer": "Pirates & Treasure",
+    "history & ancient civilizations": "Mythology & Legends",
+    "history & ancient": "Mythology & Legends",
+}
+
 # Load cosmetics catalog
 def load_cosmetics_catalog():
     cosmetics_path = Path(__file__).parent / "cosmetics.json"
@@ -1119,8 +1137,18 @@ def get_theme_words(category: str) -> dict:
             cleaned.append(token)
         return cleaned
 
-    words = _sanitize_theme_words(PREGENERATED_THEMES.get(category, []))
-    return {"name": category, "words": words}
+    requested = str(category or "").strip()
+    key = requested
+    if key not in PREGENERATED_THEMES:
+        alias = THEME_ALIASES.get(requested.lower())
+        if alias and alias in PREGENERATED_THEMES:
+            key = alias
+        elif PREGENERATED_THEMES:
+            # Deterministic fallback for unknown themes (should be rare; mainly old lobbies).
+            key = next(iter(PREGENERATED_THEMES.keys()))
+
+    words = _sanitize_theme_words(PREGENERATED_THEMES.get(key, []))
+    return {"name": key or requested, "words": words}
 
 
 # ============== AUTHENTICATION (Google OAuth) ==============

@@ -35,6 +35,16 @@ function clamp01(n) {
     return Math.max(0, Math.min(1, n));
 }
 
+function hasUserActivation() {
+    // Some browsers expose user activation state; if absent, assume "no"
+    try {
+        const ua = navigator.userActivation;
+        return Boolean(ua && (ua.isActive || ua.hasBeenActive));
+    } catch (e) {
+        return false;
+    }
+}
+
 async function loadClientConfig() {
     try {
         const cfg = await apiCall('/api/client-config');
@@ -75,9 +85,6 @@ async function startBackgroundMusic() {
             }
         };
 
-        // Attempt immediately
-        await tryPlay();
-
         // And also on first interaction (covers autoplay restrictions)
         const resume = () => {
             tryPlay();
@@ -85,6 +92,12 @@ async function startBackgroundMusic() {
         window.addEventListener('pointerdown', resume, { once: true, capture: true });
         window.addEventListener('keydown', resume, { once: true, capture: true });
         window.addEventListener('touchstart', resume, { once: true, capture: true });
+
+        // If the browser already considers us "activated" (e.g. after a soft navigation),
+        // start immediately without triggering autoplay warnings.
+        if (hasUserActivation()) {
+            await tryPlay();
+        }
     } catch (e) {
         console.warn('Background music init failed:', e);
     }
@@ -97,10 +110,13 @@ async function applyMusicPreference() {
     }
     if (!bgmAudio) return;
     if (bgmConfig.enabled && optionsState.musicEnabled) {
-        try {
-            await bgmAudio.play();
-        } catch (e) {
-            // Autoplay may still be blocked; user interaction handler will retry
+        // Avoid spamming autoplay warnings on load; resume handler will start it on first interaction.
+        if (hasUserActivation()) {
+            try {
+                await bgmAudio.play();
+            } catch (e) {
+                // Autoplay may still be blocked; user interaction handler will retry
+            }
         }
     } else {
         try {
