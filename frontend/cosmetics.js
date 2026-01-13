@@ -444,16 +444,31 @@ function createFireworksEffect(container) {
 
 function createGoldRainEffect(container) {
     container.innerHTML = '';
-    const chars = '💰🪙⭐✨💎';
-    for (let i = 0; i < 60; i++) {
+    const height = container.clientHeight || window.innerHeight || 800;
+    const fallDistance = (height + 40) + 'px';
+
+    for (let i = 0; i < 70; i++) {
         const coin = document.createElement('div');
         coin.className = 'gold-particle';
-        coin.textContent = chars[Math.floor(Math.random() * chars.length)];
+
+        const size = Math.floor(10 + Math.random() * 14); // 10px - 24px
+        const opacity = (0.55 + Math.random() * 0.45).toFixed(2);
+        const duration = (1.8 + Math.random() * 2.6).toFixed(2); // 1.8s - 4.4s
+        const delay = (Math.random() * 0.8).toFixed(2); // 0s - 0.8s
+
         coin.style.left = Math.random() * 100 + '%';
-        coin.style.animationDelay = Math.random() * 2 + 's';
+        coin.style.setProperty('--size', `${size}px`);
+        coin.style.setProperty('--opacity', opacity);
+        coin.style.setProperty('--dur', `${duration}s`);
+        coin.style.setProperty('--fall-distance', fallDistance);
+        coin.style.animationDelay = `${delay}s`;
+
         container.appendChild(coin);
     }
-    setTimeout(() => container.innerHTML = '', 4000);
+
+    setTimeout(() => {
+        container.innerHTML = '';
+    }, 5500);
 }
 
 function createLightningEffect(container) {
