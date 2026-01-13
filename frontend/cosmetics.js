@@ -197,6 +197,7 @@ function formatRequirement(req, stats) {
         mp_wins: 'MP wins',
         mp_eliminations: 'MP elims',
         mp_times_eliminated: 'MP deaths',
+        peak_mmr: 'Peak MMR',
     };
     const metricLabel = labels[metric] || metric || 'progress';
     return { metric, min, have, metricLabel };

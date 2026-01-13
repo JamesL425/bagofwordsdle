@@ -96,12 +96,49 @@ def env_bool(name: str, default: bool = False) -> bool:
         return default
     return value in ('1', 'true', 'yes', 'y', 'on')
 
+
+def parse_bool(value, default: bool = False) -> bool:
+    """Parse a loose boolean value from request bodies/config."""
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        try:
+            return float(value) != 0.0
+        except Exception:
+            return default
+    if isinstance(value, str):
+        v = value.strip().lower()
+        if v in ('1', 'true', 'yes', 'y', 'on'):
+            return True
+        if v in ('0', 'false', 'no', 'n', 'off', ''):
+            return False
+    return default
+
+
+def sanitize_visibility(value: str, default: str = "private") -> str:
+    """Sanitize lobby visibility. Returns 'public' or 'private'."""
+    v = str(value or "").strip().lower()
+    if v == "public":
+        return "public"
+    if v == "private":
+        return "private"
+    return default if default in ("public", "private") else "private"
+
 # Game settings
 MIN_PLAYERS = CONFIG.get("game", {}).get("min_players", 3)
 MAX_PLAYERS = CONFIG.get("game", {}).get("max_players", 4)
 GAME_EXPIRY_SECONDS = CONFIG.get("game", {}).get("game_expiry_seconds", 7200)
 LOBBY_EXPIRY_SECONDS = CONFIG.get("game", {}).get("lobby_expiry_seconds", 600)
 WORD_CHANGE_SAMPLE_SIZE = CONFIG.get("game", {}).get("word_change_sample_size", 6)
+
+# Presence settings (spectator counts, etc.)
+PRESENCE_TTL_SECONDS = int((CONFIG.get("presence", {}) or {}).get("ttl_seconds", 15) or 15)
+
+# Ranked settings (ELO/MMR)
+RANKED_INITIAL_MMR = int((CONFIG.get("ranked", {}) or {}).get("initial_mmr", 1000) or 1000)
+RANKED_K_FACTOR = float((CONFIG.get("ranked", {}) or {}).get("k_factor", 32) or 32)
 
 # Embedding settings
 EMBEDDING_MODEL = CONFIG.get("embedding", {}).get("model", "text-embedding-3-small")
@@ -127,6 +164,37 @@ def load_cosmetics_catalog():
     return {}
 
 COSMETICS_CATALOG = load_cosmetics_catalog()
+
+# Load profanity word list (server-side chat filtering)
+def load_profanity_words():
+    profanity_path = Path(__file__).parent / "profanity.json"
+    if profanity_path.exists():
+        try:
+            with open(profanity_path) as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                data = data.get("words", [])
+            if isinstance(data, list):
+                return [str(w).strip().lower() for w in data if str(w).strip()]
+        except Exception:
+            return []
+    return []
+
+
+PROFANITY_WORDS = set(load_profanity_words())
+
+
+def filter_profanity(text: str) -> str:
+    """Mask profane words in a message (best-effort)."""
+    if not text or not PROFANITY_WORDS:
+        return text
+    # Replace alphabetic tokens that match a banned word exactly (case-insensitive)
+    def _repl(match):
+        token = match.group(0)
+        if token.lower() in PROFANITY_WORDS:
+            return '*' * len(token)
+        return token
+    return re.sub(r"[A-Za-z]{2,}", _repl, text)
 
 # Cosmetics monetization (feature-flagged)
 # For now the paywall is disabled; flip this later via env var or config.
@@ -214,6 +282,12 @@ DEFAULT_USER_STATS = {
     "mp_wins": 0,
     "mp_eliminations": 0,
     "mp_times_eliminated": 0,
+    # Ranked (ELO/MMR)
+    "mmr": int((CONFIG.get("ranked", {}) or {}).get("initial_mmr", 1000) or 1000),
+    "peak_mmr": int((CONFIG.get("ranked", {}) or {}).get("initial_mmr", 1000) or 1000),
+    "ranked_games": 0,
+    "ranked_wins": 0,
+    "ranked_losses": 0,
 }
 
 # ============== AI PLAYER CONFIGURATION ==============
@@ -604,6 +678,7 @@ _ratelimit_general = None
 _ratelimit_game_create = None
 _ratelimit_join = None
 _ratelimit_guess = None
+_ratelimit_chat = None
 
 
 def get_ratelimit_general():
@@ -652,6 +727,18 @@ def get_ratelimit_guess():
             prefix="ratelimit:guess",
         )
     return _ratelimit_guess
+
+
+def get_ratelimit_chat():
+    """Chat rate limiter: 20 messages/minute per player."""
+    global _ratelimit_chat
+    if _ratelimit_chat is None:
+        _ratelimit_chat = Ratelimit(
+            redis=get_redis(),
+            limiter=FixedWindow(max_requests=20, window=60),
+            prefix="ratelimit:chat",
+        )
+    return _ratelimit_chat
 
 
 def check_rate_limit(limiter, identifier: str) -> bool:
@@ -991,6 +1078,7 @@ COSMETIC_REQUIREMENT_LABELS = {
     "mp_wins": "multiplayer wins",
     "mp_eliminations": "multiplayer eliminations",
     "mp_times_eliminated": "multiplayer times eliminated",
+    "peak_mmr": "peak MMR",
 }
 
 
@@ -1146,6 +1234,47 @@ def delete_game(code: str):
     redis.delete(f"game:{code}")
 
 
+# ============== PRESENCE (SPECTATORS) ==============
+
+def _presence_key(code: str, kind: str) -> str:
+    return f"presence:{code}:{kind}"
+
+
+def touch_presence(code: str, kind: str, member: str):
+    """Record a presence heartbeat for a member (player_id or spectator_id)."""
+    try:
+        if not code or not member:
+            return
+        now = float(time.time())
+        cutoff = now - float(PRESENCE_TTL_SECONDS)
+        redis = get_redis()
+        key = _presence_key(code, kind)
+        redis.zadd(key, {member: now})
+        # Best-effort prune of old entries
+        redis.zremrangebyscore(key, 0, cutoff)
+    except Exception:
+        # Presence is best-effort; never fail the request
+        return
+
+
+def get_spectator_count(code: str) -> int:
+    """Return the number of active spectators for a game (best-effort)."""
+    try:
+        now = float(time.time())
+        cutoff = now - float(PRESENCE_TTL_SECONDS)
+        redis = get_redis()
+        # Prune both sets so they don't grow unbounded
+        redis.zremrangebyscore(_presence_key(code, "players"), 0, cutoff)
+        redis.zremrangebyscore(_presence_key(code, "spectators"), 0, cutoff)
+        val = redis.zcard(_presence_key(code, "spectators"))
+        try:
+            return int(val or 0)
+        except Exception:
+            return 0
+    except Exception:
+        return 0
+
+
 # ============== PLAYER STATS ==============
 
 def get_player_stats(name: str) -> dict:
@@ -1197,10 +1326,202 @@ def get_weekly_leaderboard_key() -> str:
     return monday.strftime('%Y-%m-%d')
 
 
+def _ranked_elimination_index(game: dict) -> dict:
+    """
+    Build a mapping of player_id -> history index where they were eliminated/forfeited.
+    Players not present in the map are considered to have survived to the end.
+    """
+    elim_at = {}
+    history = game.get('history', []) or []
+    for idx, entry in enumerate(history):
+        etype = entry.get('type')
+        if etype == 'word_change':
+            continue
+        if etype == 'forfeit':
+            pid = entry.get('player_id')
+            if pid and pid not in elim_at:
+                elim_at[pid] = idx
+            continue
+        eliminations = entry.get('eliminations') or []
+        if isinstance(eliminations, list) and eliminations:
+            for pid in eliminations:
+                if pid and pid not in elim_at:
+                    elim_at[pid] = idx
+    return elim_at
+
+
+def apply_ranked_mmr_updates(game: dict):
+    """
+    Apply multi-player Elo/MMR updates for ranked games (Google-auth only).
+
+    Uses pairwise outcomes derived from elimination order in game.history.
+    Idempotent best-effort: guarded by game['ranked_processed'] and a Redis setnx key.
+    """
+    if not isinstance(game, dict):
+        return
+    if not bool(game.get('is_ranked', False)):
+        return
+    if game.get('ranked_processed'):
+        return
+
+    code = game.get('code') or ''
+    redis = get_redis()
+
+    # Best-effort Redis guard to avoid double-processing across concurrent finish events
+    try:
+        guard_key = f"ranked:{code}:mmr_processed"
+        if hasattr(redis, 'setnx'):
+            ok = redis.setnx(guard_key, "1")
+            if not ok:
+                game['ranked_processed'] = True
+                return
+            try:
+                redis.expire(guard_key, GAME_EXPIRY_SECONDS)
+            except Exception:
+                pass
+    except Exception:
+        # If guard fails, fall back to in-game flag only
+        pass
+
+    players = game.get('players', []) or []
+    winner_pid = game.get('winner')
+
+    # Ranked participants: authenticated humans only (skip admin_local and AIs)
+    participants = []
+    for p in players:
+        if not isinstance(p, dict):
+            continue
+        if p.get('is_ai'):
+            continue
+        uid = p.get('auth_user_id')
+        if not uid or uid == 'admin_local':
+            continue
+        participants.append(p)
+
+    if len(participants) < 2:
+        game['ranked_processed'] = True
+        return
+
+    elim_at = _ranked_elimination_index(game)
+    history_len = len(game.get('history', []) or [])
+
+    # Ranking value: later elimination is better; winner gets a large value
+    rank_value = {}
+    for p in participants:
+        pid = p.get('id')
+        if pid == winner_pid:
+            rank_value[pid] = history_len + 10_000
+        else:
+            rank_value[pid] = elim_at.get(pid, history_len + 9_000)
+
+    # Load users and current ratings
+    user_map = {}
+    rating = {}
+    for p in participants:
+        uid = p.get('auth_user_id')
+        user = get_user_by_id(uid)
+        if not user:
+            continue
+        stats = get_user_stats(user)
+        try:
+            mmr = int(stats.get('mmr', RANKED_INITIAL_MMR) or RANKED_INITIAL_MMR)
+        except Exception:
+            mmr = RANKED_INITIAL_MMR
+        user_map[uid] = user
+        rating[uid] = float(mmr)
+
+    # If we couldn't load at least 2 users, skip
+    if len(rating) < 2:
+        game['ranked_processed'] = True
+        return
+
+    # Map uid -> pid for rank comparisons
+    uid_to_pid = {p.get('auth_user_id'): p.get('id') for p in participants if p.get('auth_user_id') in rating}
+    uids = list(uid_to_pid.keys())
+    n = len(uids)
+    if n < 2:
+        game['ranked_processed'] = True
+        return
+
+    deltas = {uid: 0.0 for uid in uids}
+
+    def expected(ra: float, rb: float) -> float:
+        return 1.0 / (1.0 + (10.0 ** ((rb - ra) / 400.0)))
+
+    # Pairwise accumulation
+    for i in range(n):
+        for j in range(i + 1, n):
+            ui = uids[i]
+            uj = uids[j]
+            pi = uid_to_pid[ui]
+            pj = uid_to_pid[uj]
+            ri = rating[ui]
+            rj = rating[uj]
+
+            ei = expected(ri, rj)
+            ej = 1.0 - ei
+
+            vi = rank_value.get(pi, 0)
+            vj = rank_value.get(pj, 0)
+            if vi > vj:
+                si, sj = 1.0, 0.0
+            elif vi < vj:
+                si, sj = 0.0, 1.0
+            else:
+                si, sj = 0.5, 0.5
+
+            deltas[ui] += (si - ei)
+            deltas[uj] += (sj - ej)
+
+    scale = float(RANKED_K_FACTOR) / float(max(1, n - 1))
+
+    # Apply updates + persist
+    for uid in uids:
+        user = user_map.get(uid)
+        if not user:
+            continue
+        old = rating[uid]
+        new = old + (scale * deltas.get(uid, 0.0))
+        try:
+            new_int = int(round(new))
+        except Exception:
+            new_int = int(old)
+        if new_int < 0:
+            new_int = 0
+
+        u_stats = get_user_stats(user)
+        u_stats['mmr'] = new_int
+        try:
+            prev_peak = int(u_stats.get('peak_mmr', new_int) or new_int)
+        except Exception:
+            prev_peak = new_int
+        u_stats['peak_mmr'] = max(prev_peak, new_int)
+
+        u_stats['ranked_games'] = int(u_stats.get('ranked_games', 0) or 0) + 1
+
+        pid = uid_to_pid.get(uid)
+        if pid and pid == winner_pid:
+            u_stats['ranked_wins'] = int(u_stats.get('ranked_wins', 0) or 0) + 1
+        else:
+            u_stats['ranked_losses'] = int(u_stats.get('ranked_losses', 0) or 0) + 1
+
+        user['stats'] = u_stats
+        save_user(user)
+
+        # Update ranked leaderboard zset
+        try:
+            redis.zadd("leaderboard:mmr", {uid: new_int})
+        except Exception:
+            pass
+
+    game['ranked_processed'] = True
+
+
 def update_game_stats(game: dict):
     """Update stats for all players after a game ends."""
     winner_id = game.get('winner')
     is_multiplayer = not bool(game.get('is_singleplayer'))
+    is_ranked = bool(game.get('is_ranked', False)) and is_multiplayer
     
     # Count eliminations per player
     eliminations_by_player = {}
@@ -1208,6 +1529,11 @@ def update_game_stats(game: dict):
     
     for entry in game.get('history', []):
         if entry.get('type') == 'word_change':
+            continue
+        if entry.get('type') == 'forfeit':
+            pid = entry.get('player_id')
+            if pid:
+                eliminated_players.add(pid)
             continue
         guesser_id = entry.get('guesser_id')
         if guesser_id and entry.get('eliminations'):
@@ -1268,6 +1594,13 @@ def update_game_stats(game: dict):
                         u_stats['mp_times_eliminated'] = u_stats.get('mp_times_eliminated', 0) + 1
                     auth_user['stats'] = u_stats
                     save_user(auth_user)
+
+    # Ranked: update MMR once per finished game (best-effort + idempotent flag)
+    if is_ranked:
+        try:
+            apply_ranked_mmr_updates(game)
+        except Exception as e:
+            print(f"Ranked MMR update error: {e}")
 
 
 def get_leaderboard(leaderboard_type: str = 'alltime') -> list:
@@ -1339,6 +1672,21 @@ DEV_MODE = os.getenv('VERCEL_ENV', 'development') == 'development'
 
 
 class handler(BaseHTTPRequestHandler):
+    def _get_auth_payload(self) -> Optional[dict]:
+        """Return decoded JWT payload for the request, or None if not authenticated."""
+        auth_header = self.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer '):
+            return None
+        token = auth_header[7:]
+        return verify_jwt_token(token)
+
+    def _get_auth_user_id(self) -> Optional[str]:
+        """Convenience wrapper to get the authenticated user id (JWT sub)."""
+        payload = self._get_auth_payload()
+        if payload and isinstance(payload, dict):
+            return payload.get('sub')
+        return None
+
     def _get_cors_origin(self):
         """Get the appropriate CORS origin header value."""
         origin = self.headers.get('Origin', '')
@@ -1404,6 +1752,7 @@ class handler(BaseHTTPRequestHandler):
         # GET /api/client-config - Lightweight config the frontend can use (audio, etc.)
         if path == '/api/client-config':
             bgm_cfg = (CONFIG.get('audio', {}) or {}).get('background_music', {}) or {}
+            sfx_cfg = (CONFIG.get('audio', {}) or {}).get('sfx', {}) or {}
             enabled = bool(bgm_cfg.get('enabled', True))
             track = str(bgm_cfg.get('track', '/manwithaplan.mp3') or '/manwithaplan.mp3')
             volume_raw = bgm_cfg.get('volume', 0.12)
@@ -1418,7 +1767,9 @@ class handler(BaseHTTPRequestHandler):
                         "enabled": enabled,
                         "track": track,
                         "volume": volume,
-                    }
+                    },
+                    # Placeholder for future asset-based SFX (frontend currently uses WebAudio tones).
+                    "sfx": sfx_cfg,
                 }
             })
 
@@ -1665,11 +2016,34 @@ class handler(BaseHTTPRequestHandler):
                 keys = redis.keys("game:*")
                 lobbies = []
                 current_time = time.time()
+
+                # Optional filter: ?mode=ranked|unranked
+                mode = (query.get('mode', '') or '').strip().lower()
+                want_ranked = None
+                if mode == 'ranked':
+                    want_ranked = True
+                elif mode == 'unranked':
+                    want_ranked = False
                 
                 for key in keys:
                     game_data = redis.get(key)
                     if game_data:
                         game = json.loads(game_data)
+                        # Never list singleplayer lobbies
+                        if game.get('is_singleplayer'):
+                            continue
+
+                        visibility = game.get('visibility', 'public')
+                        is_ranked = bool(game.get('is_ranked', False))
+
+                        # Public listing only
+                        if visibility != 'public':
+                            continue
+
+                        # Optional ranked/unranked filter
+                        if want_ranked is not None and is_ranked != want_ranked:
+                            continue
+
                         # Only show waiting lobbies that aren't full and not expired
                         if game.get('status') == 'waiting' and len(game.get('players', [])) < MAX_PLAYERS:
                             # Check if lobby has expired
@@ -1688,6 +2062,8 @@ class handler(BaseHTTPRequestHandler):
                                 "max_players": MAX_PLAYERS,
                                 "theme_options": game.get('theme_options', []),
                                 "winning_theme": winning_theme,
+                                "visibility": visibility,
+                                "is_ranked": is_ranked,
                             })
                 return self._send_json({"lobbies": lobbies})
             except Exception as e:
@@ -1710,6 +2086,56 @@ class handler(BaseHTTPRequestHandler):
                 "players": players,
                 "type": leaderboard_type,
                 "week": get_weekly_leaderboard_key() if leaderboard_type == 'weekly' else None,
+            })
+
+        # GET /api/leaderboard/ranked - Ranked MMR leaderboard (Google users)
+        if path == '/api/leaderboard/ranked':
+            # Rate limit: 30/min for leaderboard
+            if not check_rate_limit(get_ratelimit_general(), f"leaderboard_ranked:{client_ip}"):
+                return self._send_error("Too many requests. Please wait.", 429)
+
+            redis = get_redis()
+            try:
+                data = redis.zrevrange("leaderboard:mmr", 0, 99, withscores=True) or []
+            except Exception:
+                data = []
+
+            players = []
+            rank = 1
+            for uid, score in data:
+                if isinstance(uid, bytes):
+                    try:
+                        uid = uid.decode()
+                    except Exception:
+                        continue
+                try:
+                    mmr = int(score)
+                except Exception:
+                    try:
+                        mmr = int(float(score))
+                    except Exception:
+                        mmr = 0
+
+                user = get_user_by_id(uid)
+                if not user:
+                    continue
+                stats = get_user_stats(user)
+                players.append({
+                    "rank": rank,
+                    "id": user.get('id'),
+                    "name": user.get('name'),
+                    "avatar": user.get('avatar', ''),
+                    "mmr": int(stats.get('mmr', mmr) or mmr),
+                    "peak_mmr": int(stats.get('peak_mmr', mmr) or mmr),
+                    "ranked_games": int(stats.get('ranked_games', 0) or 0),
+                    "ranked_wins": int(stats.get('ranked_wins', 0) or 0),
+                    "ranked_losses": int(stats.get('ranked_losses', 0) or 0),
+                })
+                rank += 1
+
+            return self._send_json({
+                "players": players,
+                "type": "ranked",
             })
 
         # GET /api/games/{code}/theme - Get theme for a game (before joining)
@@ -1757,6 +2183,12 @@ class handler(BaseHTTPRequestHandler):
             game = load_game(code)
             if not game:
                 return self._send_error("Game not found", 404)
+
+            # Spectator presence heartbeat (best-effort)
+            spectator_id = sanitize_player_id(query.get('spectator_id', ''))
+            if spectator_id:
+                touch_presence(code, "spectators", spectator_id)
+            spectator_count = get_spectator_count(code)
             
             try:
                 game_finished = game['status'] == 'finished'
@@ -1788,6 +2220,9 @@ class handler(BaseHTTPRequestHandler):
                     "status": game.get('status', ''),
                     "winner": game.get('winner'),
                     "history": game.get('history', []),
+                    "visibility": game.get('visibility', 'public'),
+                    "is_ranked": bool(game.get('is_ranked', False)),
+                    "spectator_count": spectator_count,
                     "theme": {
                         "name": theme_data.get('name', ''),
                         "words": theme_data.get('words', []),
@@ -1819,6 +2254,75 @@ class handler(BaseHTTPRequestHandler):
                 print(f"Error building spectate response: {e}")
                 return self._send_error("Failed to load game. Please try again.", 500)
 
+        # GET /api/games/{code}/chat - Fetch chat messages after a message id
+        if path.endswith('/chat') and path.startswith('/api/games/'):
+            # Rate limit: 60/min (general)
+            if not check_rate_limit(get_ratelimit_general(), f"chat_get:{client_ip}"):
+                return self._send_error("Too many requests. Please wait.", 429)
+
+            code = sanitize_game_code(path.split('/')[3])
+            if not code:
+                return self._send_error("Invalid game code format", 400)
+
+            # Game must exist (chat is scoped to the game)
+            game = load_game(code)
+            if not game:
+                return self._send_error("Game not found", 404)
+
+            after_raw = query.get('after', '0')
+            try:
+                after_id = int(after_raw)
+            except Exception:
+                after_id = 0
+            if after_id < 0:
+                after_id = 0
+
+            limit_raw = query.get('limit', '50')
+            try:
+                limit = int(limit_raw)
+            except Exception:
+                limit = 50
+            limit = max(1, min(200, limit))
+
+            redis = get_redis()
+            key = f"chat:{code}"
+
+            messages = []
+            last_id = after_id
+            try:
+                raw = redis.zrange(key, 0, -1) or []
+            except Exception:
+                raw = []
+
+            for item in raw:
+                if not item:
+                    continue
+                if isinstance(item, bytes):
+                    try:
+                        item = item.decode()
+                    except Exception:
+                        continue
+                try:
+                    msg = json.loads(item)
+                except Exception:
+                    continue
+                try:
+                    mid = int(msg.get('id', 0) or 0)
+                except Exception:
+                    mid = 0
+                if mid <= after_id:
+                    continue
+                messages.append(msg)
+                if mid > last_id:
+                    last_id = mid
+                if len(messages) >= limit:
+                    break
+
+            return self._send_json({
+                "messages": messages,
+                "last_id": last_id,
+            })
+
         # GET /api/games/{code}
         if path.startswith('/api/games/') and path.count('/') == 3:
             code = sanitize_game_code(path.split('/')[3])
@@ -1842,6 +2346,10 @@ class handler(BaseHTTPRequestHandler):
             
             if not player:
                 return self._send_error("You are not in this game", 403)
+
+            # Player presence heartbeat (best-effort)
+            touch_presence(code, "players", player_id)
+            spectator_count = get_spectator_count(code)
             
             try:
                 # Reveal all words if game is finished
@@ -1882,6 +2390,9 @@ class handler(BaseHTTPRequestHandler):
                     "status": game['status'],
                     "winner": game.get('winner'),
                     "history": game.get('history', []),
+                    "visibility": game.get('visibility', 'public'),
+                    "is_ranked": bool(game.get('is_ranked', False)),
+                    "spectator_count": spectator_count,
                     "theme": {
                         "name": theme_data.get('name', ''),
                         "words": theme_data.get('words', []),
@@ -1978,6 +2489,17 @@ class handler(BaseHTTPRequestHandler):
             
             import random
             import time
+
+            # Lobby metadata (defaults tuned for friend-code flow)
+            requested_visibility = sanitize_visibility(body.get('visibility', 'private'), default='private')
+            requested_ranked = parse_bool(body.get('is_ranked', False), default=False)
+
+            # Ranked requires Google auth; also force public visibility
+            auth_user_id = self._get_auth_user_id()
+            if requested_ranked:
+                if not auth_user_id:
+                    return self._send_error("Ranked games require Google sign-in", 401)
+                requested_visibility = 'public'
             
             code = generate_game_code()
             
@@ -2001,11 +2523,16 @@ class handler(BaseHTTPRequestHandler):
                 "theme_options": theme_options,
                 "theme_votes": {opt: [] for opt in theme_options},  # Track votes per theme
                 "created_at": time.time(),  # For lobby expiry
+                "visibility": requested_visibility,
+                "is_ranked": bool(requested_ranked),
+                "created_by_user_id": auth_user_id if requested_ranked else (auth_user_id or None),
             }
             save_game(code, game)
             return self._send_json({
                 "code": code,
                 "theme_options": theme_options,
+                "visibility": requested_visibility,
+                "is_ranked": bool(requested_ranked),
             })
 
         # POST /api/singleplayer - Create singleplayer lobby
@@ -2040,12 +2567,16 @@ class handler(BaseHTTPRequestHandler):
                 "theme_votes": {opt: [] for opt in theme_options},
                 "created_at": time.time(),
                 "is_singleplayer": True,  # Mark as singleplayer game
+                "visibility": "private",
+                "is_ranked": False,
             }
             save_game(code, game)
             return self._send_json({
                 "code": code,
                 "theme_options": theme_options,
                 "is_singleplayer": True,
+                "visibility": "private",
+                "is_ranked": False,
             })
 
         # POST /api/games/{code}/add-ai - Add AI player to singleplayer lobby
@@ -2211,6 +2742,187 @@ class handler(BaseHTTPRequestHandler):
                 "theme": game['theme'],
             })
 
+        # POST /api/games/{code}/leave - Leave lobby / forfeit in-game
+        if '/leave' in path and path.startswith('/api/games/'):
+            code = sanitize_game_code(path.split('/')[3])
+            if not code:
+                return self._send_error("Invalid game code format", 400)
+
+            game = load_game(code)
+            if not game:
+                return self._send_error("Game not found", 404)
+
+            player_id = sanitize_player_id(body.get('player_id', ''))
+            if not player_id:
+                return self._send_error("Invalid player ID format", 400)
+
+            player = next((p for p in game.get('players', []) if p.get('id') == player_id), None)
+            if not player:
+                return self._send_error("You are not in this game", 403)
+
+            is_ranked = bool(game.get('is_ranked', False))
+            if is_ranked:
+                token_user_id = self._get_auth_user_id()
+                if not token_user_id:
+                    return self._send_error("Ranked games require Google sign-in", 401)
+                if (player.get('auth_user_id') or '') != token_user_id:
+                    return self._send_error("Not authorized for this player", 403)
+
+            status = game.get('status')
+
+            # Lobby / word selection: remove the player from the game
+            if status in ('waiting', 'word_selection'):
+                game['players'] = [p for p in game.get('players', []) if p.get('id') != player_id]
+
+                # Clear any pause flags just in case
+                if game.get('waiting_for_word_change') == player_id:
+                    game['waiting_for_word_change'] = None
+
+                # Reassign host if needed
+                if game.get('host_id') == player_id:
+                    game['host_id'] = game['players'][0]['id'] if game.get('players') else ''
+
+                if not game.get('players'):
+                    # Delete empty game
+                    try:
+                        delete_game(code)
+                    except Exception:
+                        pass
+                    return self._send_json({"status": "left", "deleted": True})
+
+                save_game(code, game)
+                return self._send_json({"status": "left", "deleted": False, "host_id": game.get('host_id')})
+
+            # In-game: forfeit => mark eliminated, advance turn if needed
+            if status == 'playing':
+                if not player.get('is_alive', True):
+                    return self._send_json({"status": "left", "forfeit": True, "already_eliminated": True})
+
+                player['is_alive'] = False
+
+                # If they were the blocker for word change, unblock the game.
+                if game.get('waiting_for_word_change') == player_id:
+                    game['waiting_for_word_change'] = None
+                    # They can no longer change word (they left)
+                    player['can_change_word'] = False
+                    player.pop('word_change_options', None)
+
+                # Record forfeit in history (used for ranked placement ordering)
+                game.setdefault('history', []).append({
+                    "type": "forfeit",
+                    "player_id": player.get('id'),
+                    "player_name": player.get('name'),
+                })
+
+                # If it was their turn, advance to next alive player
+                try:
+                    current = game.get('players', [])[game.get('current_turn', 0)]
+                except Exception:
+                    current = None
+
+                alive_players = [p for p in game.get('players', []) if p.get('is_alive')]
+                if len(alive_players) <= 1:
+                    game['status'] = 'finished'
+                    game['waiting_for_word_change'] = None
+                    game['winner'] = alive_players[0]['id'] if alive_players else None
+                    update_game_stats(game)
+                    save_game(code, game)
+                    return self._send_json({
+                        "status": "left",
+                        "forfeit": True,
+                        "game_over": True,
+                        "winner": game.get('winner'),
+                    })
+
+                if current and current.get('id') == player_id:
+                    num_players = len(game.get('players', []))
+                    next_turn = (int(game.get('current_turn', 0)) + 1) % max(1, num_players)
+                    # Skip eliminated players
+                    while num_players > 0 and not game['players'][next_turn].get('is_alive'):
+                        next_turn = (next_turn + 1) % num_players
+                    game['current_turn'] = next_turn
+
+                save_game(code, game)
+                return self._send_json({
+                    "status": "left",
+                    "forfeit": True,
+                    "game_over": False,
+                })
+
+            # Finished/unknown status: just acknowledge
+            return self._send_json({"status": "left", "forfeit": False, "game_status": status})
+
+        # POST /api/games/{code}/chat - Send a chat message (lobby or in-game)
+        if '/chat' in path and path.startswith('/api/games/'):
+            code = sanitize_game_code(path.split('/')[3])
+            if not code:
+                return self._send_error("Invalid game code format", 400)
+
+            # Rate limit: 20 messages/min per player (best-effort)
+            player_id = sanitize_player_id(body.get('player_id', ''))
+            if not player_id:
+                return self._send_error("Invalid player ID format", 400)
+            if not check_rate_limit(get_ratelimit_chat(), f"{code}:{player_id}"):
+                return self._send_error("Too many messages. Please wait.", 429)
+
+            game = load_game(code)
+            if not game:
+                return self._send_error("Game not found", 404)
+
+            # Must be a participant (no spectator chat for now)
+            player = next((p for p in game.get('players', []) if p.get('id') == player_id), None)
+            if not player:
+                return self._send_error("You are not in this game", 403)
+
+            message = body.get('message', body.get('text', ''))
+            if not isinstance(message, str):
+                return self._send_error("Invalid message", 400)
+            # Normalize and bound
+            message = message.strip()
+            if not message:
+                return self._send_error("Message cannot be empty", 400)
+            message = message[:200]
+            # Drop control chars
+            message = re.sub(r"[\x00-\x1F\x7F]", "", message)
+            # Profanity filter (mask)
+            message = filter_profanity(message)
+
+            redis = get_redis()
+            chat_key = f"chat:{code}"
+
+            # Monotonic message id (fallback to timestamp if INCR unavailable)
+            msg_id = None
+            try:
+                msg_id = int(redis.incr(f"chat:{code}:id"))
+            except Exception:
+                msg_id = int(time.time() * 1000)
+
+            payload = {
+                "id": msg_id,
+                "ts": int(time.time() * 1000),
+                "sender_id": player_id,
+                "sender_name": player.get('name', ''),
+                "text": message,
+            }
+
+            try:
+                redis.zadd(chat_key, {json.dumps(payload): msg_id})
+                # Best-effort trim to last 200 messages
+                try:
+                    redis.zremrangebyrank(chat_key, 0, -201)
+                except Exception:
+                    pass
+                # Best-effort keep chat aligned with game expiry
+                try:
+                    redis.expire(chat_key, GAME_EXPIRY_SECONDS)
+                except Exception:
+                    pass
+            except Exception as e:
+                print(f"Chat write error: {e}")
+                return self._send_error("Failed to send message. Please try again.", 500)
+
+            return self._send_json({"message": payload})
+
         # POST /api/games/{code}/join - Join lobby (just name, no word yet)
         if '/join' in path and '/set-word' not in path:
             # Rate limit: 10 joins/min per IP
@@ -2225,9 +2937,20 @@ class handler(BaseHTTPRequestHandler):
             
             if not game:
                 return self._send_error("Game not found", 404)
+
+            is_ranked = bool(game.get('is_ranked', False))
+
+            # Determine authenticated user (prefer JWT; keep body field for backwards compatibility)
+            token_user_id = self._get_auth_user_id()
+            auth_user_id = token_user_id or (body.get('auth_user_id', '') if isinstance(body.get('auth_user_id', ''), str) else '')
+
+            # Ranked games require JWT-authenticated identity
+            if is_ranked and not token_user_id:
+                return self._send_error("Ranked games require Google sign-in", 401)
+            if is_ranked:
+                auth_user_id = token_user_id  # Never trust body for ranked
             
             # Check if user is admin (allow "admin" name for actual admin)
-            auth_user_id = body.get('auth_user_id', '')
             is_admin_user = auth_user_id == 'admin_local'
             
             name = sanitize_player_name(body.get('name', ''), allow_admin=is_admin_user)
@@ -2249,12 +2972,20 @@ class handler(BaseHTTPRequestHandler):
                         user_cosmetics = get_visible_cosmetics(auth_user)
             
             # Check if player is trying to rejoin
-            existing_player = next((p for p in game['players'] if p['name'].lower() == name.lower()), None)
+            existing_player = None
+            if is_ranked and auth_user_id:
+                existing_player = next((p for p in game.get('players', []) if p.get('auth_user_id') == auth_user_id), None)
+            else:
+                existing_player = next((p for p in game.get('players', []) if p.get('name', '').lower() == name.lower()), None)
             if existing_player:
                 # Update cosmetics if provided
                 if user_cosmetics:
                     existing_player['cosmetics'] = user_cosmetics
-                    save_game(code, game)
+                # Allow renaming on rejoin when authenticated
+                if auth_user_id:
+                    existing_player['auth_user_id'] = auth_user_id
+                existing_player['name'] = name
+                save_game(code, game)
                 # Allow rejoin - return their player_id
                 return self._send_json({
                     "player_id": existing_player['id'],
@@ -2263,12 +2994,32 @@ class handler(BaseHTTPRequestHandler):
                     "rejoined": True,
                     "theme_options": game.get('theme_options', []),
                     "theme_votes": game.get('theme_votes', {}),
+                    "visibility": game.get('visibility', 'public'),
+                    "is_ranked": bool(game.get('is_ranked', False)),
                 })
             
             if game['status'] != 'waiting':
                 return self._send_error("Game has already started", 400)
             if len(game['players']) >= MAX_PLAYERS:
                 return self._send_error("Game is full", 400)
+
+            # For ranked: keep display names unique (auth identity is what matters, but UI clarity helps)
+            if is_ranked:
+                existing_names = {str(p.get('name', '')).lower() for p in game.get('players', [])}
+                if name.lower() in existing_names:
+                    base = name
+                    # Try _2.._99 suffixes while staying within 20 chars
+                    found = None
+                    for n in range(2, 100):
+                        suffix = f"_{n}"
+                        keep = max(1, 20 - len(suffix))
+                        candidate = (base[:keep] + suffix)
+                        if candidate.lower() not in existing_names and PLAYER_NAME_PATTERN.match(candidate):
+                            found = html.escape(candidate)
+                            break
+                    if not found:
+                        return self._send_error("Name already taken in this ranked lobby", 409)
+                    name = found
             
             player_id = generate_player_id()
             player = {
@@ -2281,7 +3032,7 @@ class handler(BaseHTTPRequestHandler):
                 "word_pool": [],  # Will be assigned when game starts
                 "is_ready": False,  # Ready status for lobby
                 "cosmetics": user_cosmetics or {},  # Player's visible cosmetics
-                "auth_user_id": auth_user_id or None,  # For admin detection
+                "auth_user_id": auth_user_id or None,  # Ranked identity / cosmetics linkage
             }
             game['players'].append(player)
             
@@ -2295,6 +3046,8 @@ class handler(BaseHTTPRequestHandler):
                 "is_host": player_id == game['host_id'],
                 "theme_options": game.get('theme_options', []),
                 "theme_votes": game.get('theme_votes', {}),
+                "visibility": game.get('visibility', 'public'),
+                "is_ranked": bool(game.get('is_ranked', False)),
             })
 
         # POST /api/games/{code}/ready - Toggle ready status
@@ -2505,6 +3258,13 @@ class handler(BaseHTTPRequestHandler):
             if not_ready:
                 return self._send_error(f"Waiting for: {', '.join(not_ready)}", 400)
             
+            # Randomize turn order for multiplayer so the host doesn't always go first.
+            # (Singleplayer stays deterministic: the human host starts.)
+            if not game.get('is_singleplayer'):
+                import random
+                random.shuffle(game['players'])
+                game['current_turn'] = 0
+
             game['status'] = 'playing'
             save_game(code, game)
             return self._send_json({"status": "playing"})

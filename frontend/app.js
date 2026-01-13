@@ -67,6 +67,7 @@ async function startBackgroundMusic() {
         bgmAudio.preload = 'auto';
 
         const tryPlay = async () => {
+            if (!optionsState?.musicEnabled) return;
             try {
                 await bgmAudio.play();
             } catch (err) {
@@ -89,6 +90,27 @@ async function startBackgroundMusic() {
     }
 }
 
+async function applyMusicPreference() {
+    // Ensure we attempted init at least once (loads config, creates Audio)
+    if (!bgmInitStarted) {
+        await startBackgroundMusic();
+    }
+    if (!bgmAudio) return;
+    if (bgmConfig.enabled && optionsState.musicEnabled) {
+        try {
+            await bgmAudio.play();
+        } catch (e) {
+            // Autoplay may still be blocked; user interaction handler will retry
+        }
+    } else {
+        try {
+            bgmAudio.pause();
+        } catch (e) {
+            // ignore
+        }
+    }
+}
+
 // Game state
 let gameState = {
     code: null,
@@ -103,7 +125,246 @@ let gameState = {
     authToken: null,  // JWT token for authenticated users
     authUser: null,   // Authenticated user data
     isSpectator: false,
+    spectatorId: null,
 };
+
+// ============ OPTIONS ============
+
+const DEFAULT_OPTIONS = {
+    chatEnabled: true,
+    musicEnabled: true,
+    clickSfxEnabled: false,
+    eliminationSfxEnabled: true,
+};
+
+let optionsState = { ...DEFAULT_OPTIONS };
+
+function loadOptions() {
+    try {
+        const raw = localStorage.getItem('embeddle_options');
+        const parsed = raw ? JSON.parse(raw) : null;
+        if (parsed && typeof parsed === 'object') {
+            optionsState = { ...DEFAULT_OPTIONS, ...parsed };
+        } else {
+            optionsState = { ...DEFAULT_OPTIONS };
+        }
+    } catch (e) {
+        optionsState = { ...DEFAULT_OPTIONS };
+    }
+}
+
+function saveOptions() {
+    try {
+        localStorage.setItem('embeddle_options', JSON.stringify(optionsState));
+    } catch (e) {
+        // ignore
+    }
+}
+
+function applyOptionsToUI() {
+    // Sync checkboxes (if present)
+    const chatCb = document.getElementById('opt-chat-enabled');
+    const musicCb = document.getElementById('opt-music-enabled');
+    const clickCb = document.getElementById('opt-click-sfx-enabled');
+    const elimCb = document.getElementById('opt-elim-sfx-enabled');
+
+    if (chatCb) chatCb.checked = Boolean(optionsState.chatEnabled);
+    if (musicCb) musicCb.checked = Boolean(optionsState.musicEnabled);
+    if (clickCb) clickCb.checked = Boolean(optionsState.clickSfxEnabled);
+    if (elimCb) elimCb.checked = Boolean(optionsState.eliminationSfxEnabled);
+
+    // Show/hide chat panes
+    document.getElementById('lobby-chat-section')?.classList.toggle('hidden', !optionsState.chatEnabled);
+    document.getElementById('game-chat-section')?.classList.toggle('hidden', !optionsState.chatEnabled);
+
+    // Apply music state (best-effort)
+    if (typeof applyMusicPreference === 'function') {
+        applyMusicPreference();
+    }
+
+    // Chat panes might have just been shown/hidden
+    if (typeof renderChat === 'function') {
+        renderChat();
+    }
+}
+
+// ============ SOUND EFFECTS (PLACEHOLDER) ============
+
+let sfxAudioCtx = null;
+
+function getSfxContext() {
+    if (sfxAudioCtx) return sfxAudioCtx;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    sfxAudioCtx = new Ctx();
+    return sfxAudioCtx;
+}
+
+async function resumeSfxContext() {
+    const ctx = getSfxContext();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') {
+        try { await ctx.resume(); } catch (e) {}
+    }
+}
+
+function playTone({ freq = 800, durationMs = 40, type = 'square', volume = 0.04 } = {}) {
+    const ctx = getSfxContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, now);
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume), now + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + (durationMs / 1000));
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + (durationMs / 1000) + 0.02);
+}
+
+function playClickSfx() {
+    if (!optionsState.clickSfxEnabled) return;
+    resumeSfxContext();
+    playTone({ freq: 880, durationMs: 28, type: 'square', volume: 0.03 });
+}
+
+function playEliminationSfx() {
+    if (!optionsState.eliminationSfxEnabled) return;
+    resumeSfxContext();
+    // Two quick tones for a "hit" feel
+    playTone({ freq: 140, durationMs: 90, type: 'sawtooth', volume: 0.05 });
+    setTimeout(() => playTone({ freq: 90, durationMs: 110, type: 'sawtooth', volume: 0.04 }), 60);
+}
+
+// ============ TEXT CHAT ============
+
+let chatState = {
+    code: null,
+    lastId: 0,
+    messages: [],
+};
+
+let chatPollInFlight = false;
+let chatSendInFlight = false;
+
+function resetChatIfNeeded() {
+    if (chatState.code !== gameState.code) {
+        chatState = { code: gameState.code, lastId: 0, messages: [] };
+        renderChat();
+    }
+}
+
+function renderChat() {
+    const lobbyLog = document.getElementById('lobby-chat-log');
+    const gameLog = document.getElementById('game-chat-log');
+    const lobbyInput = document.getElementById('lobby-chat-input');
+    const gameInput = document.getElementById('game-chat-input');
+
+    const enabled = Boolean(optionsState.chatEnabled);
+    const canSend = enabled && !gameState.isSpectator && Boolean(gameState.code && gameState.playerId);
+
+    if (lobbyInput) lobbyInput.disabled = !canSend;
+    if (gameInput) gameInput.disabled = !canSend;
+
+    if (!enabled) return;
+
+    const msgs = Array.isArray(chatState.messages) ? chatState.messages.slice(-150) : [];
+    const html = msgs.length
+        ? msgs.map(m => `
+            <div class="chat-message">
+                <span class="chat-sender">${escapeHtml(m.sender_name || '???')}</span>
+                <span class="chat-text">: ${escapeHtml(m.text || '')}</span>
+            </div>
+        `).join('')
+        : `<div class="chat-message"><span class="chat-text">No messages yet.</span></div>`;
+
+    [lobbyLog, gameLog].forEach(log => {
+        if (!log) return;
+        const atBottom = Math.abs((log.scrollHeight - log.scrollTop) - log.clientHeight) < 5;
+        log.innerHTML = html;
+        if (atBottom) {
+            log.scrollTop = log.scrollHeight;
+        }
+    });
+}
+
+async function pollChatOnce() {
+    if (!optionsState.chatEnabled) return;
+    if (!gameState.code) return;
+    if (chatPollInFlight) return;
+    chatPollInFlight = true;
+
+    try {
+        resetChatIfNeeded();
+        const res = await apiCall(`/api/games/${gameState.code}/chat?after=${chatState.lastId}&limit=50`);
+        const msgs = Array.isArray(res?.messages) ? res.messages : [];
+        if (msgs.length) {
+            chatState.messages = chatState.messages.concat(msgs);
+            // Trim memory
+            if (chatState.messages.length > 300) {
+                chatState.messages = chatState.messages.slice(-300);
+            }
+            const nextLast = Number(res?.last_id ?? chatState.lastId);
+            if (Number.isFinite(nextLast) && nextLast > chatState.lastId) {
+                chatState.lastId = nextLast;
+            } else {
+                // Fallback: compute from payloads
+                msgs.forEach(m => {
+                    const mid = Number(m?.id ?? 0);
+                    if (Number.isFinite(mid) && mid > chatState.lastId) chatState.lastId = mid;
+                });
+            }
+            renderChat();
+        }
+    } catch (e) {
+        // ignore chat polling failures
+    } finally {
+        chatPollInFlight = false;
+    }
+}
+
+async function sendChatMessage(text) {
+    if (!optionsState.chatEnabled) return;
+    if (chatSendInFlight) return;
+    if (gameState.isSpectator) {
+        showError('Spectators cannot send chat messages');
+        return;
+    }
+    if (!gameState.code || !gameState.playerId) return;
+
+    const message = String(text || '').trim().slice(0, 200);
+    if (!message) return;
+
+    chatSendInFlight = true;
+    try {
+        resetChatIfNeeded();
+        const res = await apiCall(`/api/games/${gameState.code}/chat`, 'POST', {
+            player_id: gameState.playerId,
+            message,
+        });
+        if (res?.message) {
+            chatState.messages.push(res.message);
+            const mid = Number(res.message?.id ?? 0);
+            if (Number.isFinite(mid) && mid > chatState.lastId) chatState.lastId = mid;
+            renderChat();
+        } else {
+            // Fallback: re-poll to pick up server write
+            pollChatOnce();
+        }
+    } catch (e) {
+        showError(e.message || 'Failed to send message');
+    } finally {
+        chatSendInFlight = false;
+    }
+}
 
 // ============ SESSION PERSISTENCE ============
 
@@ -173,6 +434,31 @@ function upsertRecentGame(session) {
         list.unshift(entry);
     }
     localStorage.setItem('embeddle_recent_games', JSON.stringify(list.slice(0, 10)));
+}
+
+function generateHexId16() {
+    const bytes = new Uint8Array(8);
+    if (window.crypto && window.crypto.getRandomValues) {
+        window.crypto.getRandomValues(bytes);
+    } else {
+        for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+    }
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function getOrCreateSpectatorId() {
+    try {
+        const key = 'embeddle_spectator_id';
+        const existing = localStorage.getItem(key);
+        if (existing && /^[a-f0-9]{16}$/i.test(existing)) {
+            return existing.toLowerCase();
+        }
+        const id = generateHexId16();
+        localStorage.setItem(key, id);
+        return id;
+    } catch (e) {
+        return generateHexId16();
+    }
 }
 
 async function renderRecentGames() {
@@ -452,9 +738,63 @@ document.getElementById('logout-btn').addEventListener('click', logout);
 document.getElementById('cosmetics-btn')?.addEventListener('click', toggleCosmeticsPanel);
 document.getElementById('close-cosmetics-btn')?.addEventListener('click', closeCosmeticsPanel);
 
+// Options panel
+let optionsPanelOpen = false;
+
+function toggleOptionsPanel() {
+    optionsPanelOpen = !optionsPanelOpen;
+    const panel = document.getElementById('options-panel');
+    if (panel) {
+        panel.classList.toggle('open', optionsPanelOpen);
+    }
+    if (optionsPanelOpen) {
+        applyOptionsToUI();
+    }
+}
+
+function closeOptionsPanel() {
+    optionsPanelOpen = false;
+    const panel = document.getElementById('options-panel');
+    if (panel) panel.classList.remove('open');
+}
+
+document.getElementById('options-btn')?.addEventListener('click', toggleOptionsPanel);
+document.getElementById('close-options-btn')?.addEventListener('click', closeOptionsPanel);
+
+// Option toggle handlers
+document.getElementById('opt-chat-enabled')?.addEventListener('change', (e) => {
+    optionsState.chatEnabled = Boolean(e.target.checked);
+    saveOptions();
+    applyOptionsToUI();
+});
+document.getElementById('opt-music-enabled')?.addEventListener('change', (e) => {
+    optionsState.musicEnabled = Boolean(e.target.checked);
+    saveOptions();
+    applyOptionsToUI();
+});
+document.getElementById('opt-click-sfx-enabled')?.addEventListener('change', (e) => {
+    optionsState.clickSfxEnabled = Boolean(e.target.checked);
+    saveOptions();
+    applyOptionsToUI();
+});
+document.getElementById('opt-elim-sfx-enabled')?.addEventListener('change', (e) => {
+    optionsState.eliminationSfxEnabled = Boolean(e.target.checked);
+    saveOptions();
+    applyOptionsToUI();
+});
+
+// Global button click SFX (placeholder)
+document.addEventListener('click', (e) => {
+    const btn = e.target?.closest?.('button.btn');
+    if (!btn) return;
+    if (btn.disabled) return;
+    playClickSfx();
+}, { capture: true });
+
 // DOM Elements
 const screens = {
     home: document.getElementById('home-screen'),
+    leaderboard: document.getElementById('leaderboard-screen'),
     join: document.getElementById('join-screen'),
     lobby: document.getElementById('lobby-screen'),
     singleplayerLobby: document.getElementById('singleplayer-lobby-screen'),
@@ -484,9 +824,14 @@ function showError(message) {
 }
 
 async function apiCall(endpoint, method = 'GET', body = null) {
+    const headers = { 'Content-Type': 'application/json' };
+    // Send auth token when available (required for ranked endpoints)
+    if (gameState.authToken) {
+        headers['Authorization'] = `Bearer ${gameState.authToken}`;
+    }
     const options = {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers,
     };
     
     if (body) {
@@ -526,7 +871,10 @@ async function loadLobbies() {
                 <div class="lobby-item" data-code="${escapeHtml(lobby.code)}">
                     <div class="lobby-info-row">
                         <span class="lobby-code">${escapeHtml(lobby.code)}</span>
-                        <span class="lobby-players">${escapeHtml(lobby.player_count)}/${escapeHtml(lobby.max_players)} operatives</span>
+                        <span class="lobby-players">
+                            ${escapeHtml(lobby.player_count)}/${escapeHtml(lobby.max_players)} operatives
+                            ${lobby.is_ranked ? '• RANKED' : '• CASUAL'}
+                        </span>
                     </div>
                     <button class="btn btn-small btn-secondary join-lobby-btn" data-code="${escapeHtml(lobby.code)}">JOIN</button>
                 </div>
@@ -564,25 +912,274 @@ function joinLobbyPrompt(code) {
     joinLobby(code, gameState.playerName);
 }
 
-document.getElementById('create-game-btn').addEventListener('click', async () => {
+function normalizeGameCodeInput(raw) {
+    return String(raw || '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '')
+        .slice(0, 6);
+}
+
+async function createLobby({ visibility = 'private', isRanked = false } = {}) {
     if (!gameState.playerName) {
         showError('Enter your callsign first (top right)');
         document.getElementById('login-name').focus();
         return;
     }
-    
+    if (isRanked && !gameState.authToken) {
+        showError('Ranked requires Google sign-in');
+        return;
+    }
     try {
-        const data = await apiCall('/api/games', 'POST');
+        const data = await apiCall('/api/games', 'POST', {
+            visibility,
+            is_ranked: Boolean(isRanked),
+        });
         gameState.code = data.code;
-        
-        // Join the lobby we just created
         await joinLobby(data.code, gameState.playerName);
     } catch (error) {
         showError(error.message);
     }
+}
+
+async function quickPlay({ ranked = false } = {}) {
+    if (!gameState.playerName) {
+        showError('Enter your callsign first (top right)');
+        document.getElementById('login-name').focus();
+        return;
+    }
+    if (ranked && !gameState.authToken) {
+        showError('Ranked requires Google sign-in');
+        return;
+    }
+
+    try {
+        const mode = ranked ? 'ranked' : 'unranked';
+        const data = await apiCall(`/api/lobbies?mode=${mode}`);
+        const lobbies = Array.isArray(data?.lobbies) ? data.lobbies : [];
+        // Prefer the most-filled lobby so matches start faster
+        const best = lobbies
+            .slice()
+            .sort((a, b) => (b.player_count || 0) - (a.player_count || 0))[0];
+
+        if (best?.code) {
+            await joinLobby(best.code, gameState.playerName);
+            return;
+        }
+
+        // No suitable lobby: create a fresh public one
+        await createLobby({ visibility: 'public', isRanked: ranked });
+    } catch (error) {
+        showError(error.message);
+    }
+}
+
+document.getElementById('quickplay-btn')?.addEventListener('click', async () => {
+    await quickPlay({ ranked: false });
+});
+
+document.getElementById('create-public-btn')?.addEventListener('click', async () => {
+    await createLobby({ visibility: 'public', isRanked: false });
+});
+
+document.getElementById('create-private-btn')?.addEventListener('click', async () => {
+    await createLobby({ visibility: 'private', isRanked: false });
+});
+
+document.getElementById('ranked-btn')?.addEventListener('click', async () => {
+    await quickPlay({ ranked: true });
+});
+
+// Join by code (home screen)
+const joinCodeInput = document.getElementById('join-code-input');
+joinCodeInput?.addEventListener('input', (e) => {
+    e.target.value = normalizeGameCodeInput(e.target.value);
+});
+
+async function joinByCodeFromHome() {
+    const raw = joinCodeInput?.value || '';
+    const code = normalizeGameCodeInput(raw);
+    if (code.length !== 6) {
+        showError('Enter a 6-character SERVER_ID');
+        joinCodeInput?.focus();
+        return;
+    }
+    joinLobbyPrompt(code);
+}
+
+document.getElementById('join-code-btn')?.addEventListener('click', joinByCodeFromHome);
+joinCodeInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        joinByCodeFromHome();
+    }
 });
 
 document.getElementById('refresh-lobbies-btn')?.addEventListener('click', loadLobbies);
+
+// ============ LEADERBOARDS ============
+
+let leaderboardState = {
+    mode: 'casual',      // 'casual' | 'ranked'
+    casualType: 'alltime' // 'alltime' | 'weekly'
+};
+
+function getRankTier(mmr) {
+    const v = Number(mmr || 0);
+    if (v >= 1700) return { name: 'DIAMOND', icon: '🔷' };
+    if (v >= 1550) return { name: 'PLATINUM', icon: '💠' };
+    if (v >= 1400) return { name: 'GOLD', icon: '🥇' };
+    if (v >= 1250) return { name: 'SILVER', icon: '🥈' };
+    if (v >= 1100) return { name: 'BRONZE', icon: '🥉' };
+    return { name: 'UNRANKED', icon: '—' };
+}
+
+function setLeaderboardMode(mode) {
+    leaderboardState.mode = mode;
+    document.getElementById('lb-casual-panel')?.classList.toggle('hidden', mode !== 'casual');
+    document.getElementById('lb-ranked-panel')?.classList.toggle('hidden', mode !== 'ranked');
+
+    // Button styling
+    const casualBtn = document.getElementById('lb-tab-casual');
+    const rankedBtn = document.getElementById('lb-tab-ranked');
+    if (casualBtn) casualBtn.classList.toggle('btn-primary', mode === 'casual');
+    if (rankedBtn) rankedBtn.classList.toggle('btn-primary', mode === 'ranked');
+    if (casualBtn) casualBtn.classList.toggle('btn-secondary', mode !== 'casual');
+    if (rankedBtn) rankedBtn.classList.toggle('btn-secondary', mode !== 'ranked');
+
+    if (mode === 'casual') {
+        loadCasualLeaderboard(leaderboardState.casualType);
+    } else {
+        loadRankedLeaderboard();
+    }
+}
+
+function setCasualLeaderboardType(type) {
+    leaderboardState.casualType = type;
+    const allBtn = document.getElementById('lb-casual-alltime');
+    const wkBtn = document.getElementById('lb-casual-weekly');
+    if (allBtn) allBtn.classList.toggle('btn-primary', type === 'alltime');
+    if (wkBtn) wkBtn.classList.toggle('btn-primary', type === 'weekly');
+    if (allBtn) allBtn.classList.toggle('btn-ghost', type !== 'alltime');
+    if (wkBtn) wkBtn.classList.toggle('btn-ghost', type !== 'weekly');
+    loadCasualLeaderboard(type);
+}
+
+function renderLeaderboardTable(containerId, headers, rowsHtml) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    if (!rowsHtml) {
+        container.innerHTML = '<div class="leaderboard-empty">No data yet.</div>';
+        return;
+    }
+    container.innerHTML = `
+        <table class="leaderboard-table">
+            <thead>
+                <tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr>
+            </thead>
+            <tbody>
+                ${rowsHtml}
+            </tbody>
+        </table>
+    `;
+}
+
+async function loadCasualLeaderboard(type = 'alltime') {
+    const container = document.getElementById('casual-leaderboard-table');
+    if (container) container.innerHTML = '<div class="leaderboard-empty">Loading...</div>';
+    try {
+        const data = await apiCall(`/api/leaderboard?type=${encodeURIComponent(type)}`);
+        const players = Array.isArray(data?.players) ? data.players : [];
+        const headers = type === 'weekly'
+            ? ['Rank', 'Player', 'Weekly wins', 'All-time wins', 'Games', 'Win%']
+            : ['Rank', 'Player', 'Wins', 'Games', 'Win%'];
+
+        const rows = players.map((p, idx) => {
+            const wins = Number(p?.wins || 0);
+            const games = Number(p?.games_played || 0);
+            const winRate = games > 0 ? Math.round((wins / games) * 100) : 0;
+            const weeklyWins = Number(p?.weekly_wins || 0);
+            const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
+
+            if (type === 'weekly') {
+                return `
+                    <tr>
+                        <td class="rank ${rankClass}">${escapeHtml(idx + 1)}</td>
+                        <td class="player-name">${escapeHtml(p?.name || '')}</td>
+                        <td class="stat">${escapeHtml(weeklyWins)}</td>
+                        <td class="stat">${escapeHtml(wins)}</td>
+                        <td class="stat">${escapeHtml(games)}</td>
+                        <td class="win-rate">${escapeHtml(winRate)}%</td>
+                    </tr>
+                `;
+            }
+
+            return `
+                <tr>
+                    <td class="rank ${rankClass}">${escapeHtml(idx + 1)}</td>
+                    <td class="player-name">${escapeHtml(p?.name || '')}</td>
+                    <td class="stat">${escapeHtml(wins)}</td>
+                    <td class="stat">${escapeHtml(games)}</td>
+                    <td class="win-rate">${escapeHtml(winRate)}%</td>
+                </tr>
+            `;
+        }).join('');
+
+        renderLeaderboardTable('casual-leaderboard-table', headers, rows);
+    } catch (e) {
+        renderLeaderboardTable('casual-leaderboard-table', ['Rank', 'Player', 'Wins'], '');
+    }
+}
+
+async function loadRankedLeaderboard() {
+    const container = document.getElementById('ranked-leaderboard-table');
+    if (container) container.innerHTML = '<div class="leaderboard-empty">Loading...</div>';
+    try {
+        const data = await apiCall('/api/leaderboard/ranked');
+        const players = Array.isArray(data?.players) ? data.players : [];
+
+        const headers = ['Rank', 'Player', 'Tier', 'MMR', 'Peak', 'Games', 'W-L'];
+
+        const rows = players.map((p, idx) => {
+            const mmr = Number(p?.mmr || 0);
+            const peak = Number(p?.peak_mmr || 0);
+            const games = Number(p?.ranked_games || 0);
+            const wins = Number(p?.ranked_wins || 0);
+            const losses = Number(p?.ranked_losses || 0);
+            const tier = getRankTier(mmr);
+            const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
+            return `
+                <tr>
+                    <td class="rank ${rankClass}">${escapeHtml(idx + 1)}</td>
+                    <td class="player-name">${escapeHtml(p?.name || '')}</td>
+                    <td class="stat">${escapeHtml(tier.icon)} ${escapeHtml(tier.name)}</td>
+                    <td class="stat">${escapeHtml(mmr)}</td>
+                    <td class="stat">${escapeHtml(peak)}</td>
+                    <td class="stat">${escapeHtml(games)}</td>
+                    <td class="stat">${escapeHtml(wins)}-${escapeHtml(losses)}</td>
+                </tr>
+            `;
+        }).join('');
+
+        renderLeaderboardTable('ranked-leaderboard-table', headers, rows);
+    } catch (e) {
+        renderLeaderboardTable('ranked-leaderboard-table', ['Rank', 'Player', 'MMR'], '');
+    }
+}
+
+// Leaderboard navigation
+document.getElementById('open-leaderboard-btn')?.addEventListener('click', () => {
+    showScreen('leaderboard');
+    // Default to casual view
+    setLeaderboardMode(leaderboardState.mode || 'casual');
+    setCasualLeaderboardType(leaderboardState.casualType || 'alltime');
+});
+document.getElementById('lb-back-btn')?.addEventListener('click', () => {
+    showScreen('home');
+});
+document.getElementById('lb-tab-casual')?.addEventListener('click', () => setLeaderboardMode('casual'));
+document.getElementById('lb-tab-ranked')?.addEventListener('click', () => setLeaderboardMode('ranked'));
+document.getElementById('lb-casual-alltime')?.addEventListener('click', () => setCasualLeaderboardType('alltime'));
+document.getElementById('lb-casual-weekly')?.addEventListener('click', () => setCasualLeaderboardType('weekly'));
 
 // ============ SINGLEPLAYER MODE ============
 
@@ -827,7 +1424,14 @@ document.getElementById('sp-start-game-btn')?.addEventListener('click', async ()
 });
 
 // Leave singleplayer lobby
-document.getElementById('sp-leave-lobby-btn')?.addEventListener('click', () => {
+document.getElementById('sp-leave-lobby-btn')?.addEventListener('click', async () => {
+    try {
+        if (gameState.code && gameState.playerId) {
+            await apiCall(`/api/games/${gameState.code}/leave`, 'POST', { player_id: gameState.playerId });
+        }
+    } catch (e) {
+        // best-effort
+    }
     if (gameState.pollingInterval) {
         clearInterval(gameState.pollingInterval);
     }
@@ -908,6 +1512,9 @@ async function updateLobby() {
         } else {
             hostControls.classList.add('hidden');
         }
+
+        // Chat (best-effort)
+        pollChatOnce();
         
         // Check if game moved to word selection
         if (data.status === 'word_selection') {
@@ -1195,7 +1802,14 @@ document.getElementById('start-game-btn').addEventListener('click', async () => 
     }
 });
 
-document.getElementById('leave-lobby-btn')?.addEventListener('click', () => {
+document.getElementById('leave-lobby-btn')?.addEventListener('click', async () => {
+    try {
+        if (gameState.code && gameState.playerId) {
+            await apiCall(`/api/games/${gameState.code}/leave`, 'POST', { player_id: gameState.playerId });
+        }
+    } catch (e) {
+        // best-effort
+    }
     if (gameState.pollingInterval) {
         clearInterval(gameState.pollingInterval);
     }
@@ -1204,6 +1818,16 @@ document.getElementById('leave-lobby-btn')?.addEventListener('click', () => {
     clearGameSession();
     showScreen('home');
     loadLobbies();
+});
+
+// Lobby chat
+document.getElementById('lobby-chat-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const input = document.getElementById('lobby-chat-input');
+    if (!input) return;
+    const text = input.value;
+    input.value = '';
+    await sendChatMessage(text);
 });
 
 // Screen: Game
@@ -1234,6 +1858,7 @@ async function pollGame() {
         }
         
         updateGame(game);
+        pollChatOnce();
         maybeRunSingleplayerAiTurns(game);
     } catch (error) {
         console.error('Game poll error:', error);
@@ -1248,6 +1873,9 @@ function showGame(game) {
 function updateGame(game) {
     const isSpectator = Boolean(gameState.isSpectator);
     const myPlayer = game.players.find(p => p.id === gameState.playerId);
+
+    // Always update sidebar meta (turn/spectators/words played), even while waiting for word selection.
+    updateSidebarMeta(game);
     
     // Check if waiting for other players to pick words
     if (!game.all_words_set) {
@@ -1377,6 +2005,40 @@ function updateGame(game) {
     }
     
     updateHistory(game);
+}
+
+function updateSidebarMeta(game) {
+    const turnEl = document.getElementById('turn-number');
+    const specEl = document.getElementById('spectator-count');
+    const playedEl = document.getElementById('words-played');
+    if (!turnEl || !specEl || !playedEl) return;
+
+    const history = Array.isArray(game?.history) ? game.history : [];
+    const guessedWords = history
+        .filter(e => e && e.word)
+        .map(e => String(e.word));
+
+    const guessCount = guessedWords.length;
+    const turnNumber = game?.status === 'finished' ? guessCount : (guessCount + 1);
+    turnEl.textContent = String(turnNumber);
+
+    const spectatorCount = Number(game?.spectator_count ?? 0);
+    specEl.textContent = String(Number.isFinite(spectatorCount) ? spectatorCount : 0);
+
+    // Render last N words, most recent first
+    const maxItems = 25;
+    playedEl.innerHTML = '';
+    const startIdx = Math.max(0, guessCount - maxItems);
+    for (let i = guessCount - 1; i >= startIdx; i--) {
+        const word = guessedWords[i];
+        const row = document.createElement('div');
+        row.className = 'played-word';
+        row.innerHTML = `
+            <span class="turn-num">#${escapeHtml(i + 1)}</span>
+            <span class="word-text">${escapeHtml(word)}</span>
+        `;
+        playedEl.appendChild(row);
+    }
 }
 
 function updateSidebarWordList(game) {
@@ -1630,9 +2292,32 @@ function updateHistory(game) {
             historyLog.appendChild(div);
             return;
         }
+
+        // Handle forfeit entries (server-side leave -> eliminated)
+        if (entry.type === 'forfeit') {
+            div.className = 'history-entry word-change-entry';
+            div.innerHTML = `
+                <div class="word-change-notice">
+                    <span class="change-icon">🏳️</span>
+                    <span><strong>${escapeHtml(entry.player_name || 'Operative')}</strong> forfeited.</span>
+                </div>
+            `;
+            historyLog.appendChild(div);
+
+            // Play elimination feedback for new forfeits
+            if (originalIdx >= prevHistoryLength) {
+                playEliminationSfx();
+                const pid = entry.player_id;
+                if (pid && typeof playEliminationEffect === 'function') {
+                    setTimeout(() => playEliminationEffect(pid, 'classic'), 100);
+                }
+            }
+            return;
+        }
         
         // Play elimination effect for new eliminations
         if (originalIdx >= prevHistoryLength && entry.eliminations && entry.eliminations.length > 0) {
+            playEliminationSfx();
             const guesser = game.players.find(p => p.id === entry.guesser_id);
             const elimEffect = guesser?.cosmetics?.elimination_effect || 'classic';
             entry.eliminations.forEach(eliminatedId => {
@@ -1644,7 +2329,7 @@ function updateHistory(game) {
         
         let simsHtml = '';
         game.players.forEach(player => {
-            const sim = entry.similarities[player.id];
+            const sim = entry.similarities?.[player.id];
             if (sim !== undefined) {
                 const simClass = getSimilarityClass(sim);
                 simsHtml += `
@@ -1683,6 +2368,16 @@ function updateHistory(game) {
     // Store history length for next update
     gameState.prevHistoryLength = currentHistoryLength;
 }
+
+// Game chat
+document.getElementById('game-chat-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const input = document.getElementById('game-chat-input');
+    if (!input) return;
+    const text = input.value;
+    input.value = '';
+    await sendChatMessage(text);
+});
 
 // Guess form - handles both button click and Enter key
 document.getElementById('guess-form').addEventListener('submit', async (e) => {
@@ -1950,6 +2645,82 @@ document.getElementById('back-to-lobby-btn')?.addEventListener('click', () => {
     loadLobbies();
 });
 
+// Leave game (in-match) with confirmation
+function openLeaveGameModal() {
+    const modal = document.getElementById('leave-game-modal');
+    if (!modal) return;
+
+    const textEl = modal.querySelector('.modal-text');
+    const confirmBtn = document.getElementById('leave-game-confirm');
+
+    if (gameState.isSpectator) {
+        if (textEl) textEl.textContent = 'Stop spectating and return to base?';
+        if (confirmBtn) confirmBtn.textContent = '> LEAVE';
+    } else {
+        if (textEl) textEl.textContent = 'Are you sure? Leaving will forfeit your current match.';
+        if (confirmBtn) confirmBtn.textContent = '> FORFEIT';
+    }
+
+    modal.classList.remove('hidden');
+}
+
+function closeLeaveGameModal() {
+    const modal = document.getElementById('leave-game-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+}
+
+async function confirmLeaveGame() {
+    closeLeaveGameModal();
+
+    // Spectators just return home (no server-side action)
+    if (gameState.isSpectator) {
+        stopPolling();
+        clearGameSession();
+        gameState.code = null;
+        gameState.playerId = null;
+        gameState.isSpectator = false;
+        showScreen('home');
+        loadLobbies();
+        return;
+    }
+
+    const code = gameState.code;
+    const playerId = gameState.playerId;
+
+    try {
+        if (code && playerId) {
+            await apiCall(`/api/games/${code}/leave`, 'POST', { player_id: playerId });
+        }
+    } catch (e) {
+        // Best-effort: still leave locally
+        console.warn('Leave game request failed:', e);
+    } finally {
+        stopPolling();
+        clearGameSession();
+        gameState.code = null;
+        gameState.playerId = null;
+        gameState.isSingleplayer = false;
+        gameState.isSpectator = false;
+        showScreen('home');
+        loadLobbies();
+    }
+}
+
+document.getElementById('leave-game-btn')?.addEventListener('click', openLeaveGameModal);
+document.getElementById('leave-game-cancel')?.addEventListener('click', closeLeaveGameModal);
+document.getElementById('leave-game-confirm')?.addEventListener('click', confirmLeaveGame);
+
+document.getElementById('leave-game-modal')?.addEventListener('click', (e) => {
+    if (e.target?.dataset?.close) closeLeaveGameModal();
+});
+
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeLeaveGameModal();
+    }
+});
+
 document.getElementById('play-again-btn').addEventListener('click', () => {
     stopPolling();
     clearGameSession();
@@ -1987,6 +2758,7 @@ function startSpectatePolling(code) {
     stopPolling();
     gameState.code = code;
     gameState.isSpectator = true;
+    gameState.spectatorId = getOrCreateSpectatorId();
     pollSpectate();
     gameState.pollingInterval = setInterval(pollSpectate, 2000);
 }
@@ -2036,9 +2808,12 @@ function showSpectateLobby(game) {
 async function pollSpectate() {
     if (!gameState.code) return;
     try {
-        const game = await apiCall(`/api/games/${gameState.code}/spectate`);
+        const sid = gameState.spectatorId || getOrCreateSpectatorId();
+        gameState.spectatorId = sid;
+        const game = await apiCall(`/api/games/${gameState.code}/spectate?spectator_id=${encodeURIComponent(sid)}`);
         if (game.status === 'waiting') {
             showSpectateLobby(game);
+            pollChatOnce();
             return;
         }
         // Finished games should still render; showGameOver will reveal if provided
@@ -2050,6 +2825,7 @@ async function pollSpectate() {
         // word_selection / playing -> game screen
         showScreen('game');
         updateGame(game);
+        pollChatOnce();
     } catch (e) {
         console.error('Spectate poll error:', e);
     }
@@ -2221,6 +2997,8 @@ async function attemptRejoin() {
 // Initialise
 initLogin();
 initMatrixRain();
+loadOptions();
+applyOptionsToUI();
 startBackgroundMusic();
 
 // Try to rejoin existing game, otherwise show home

@@ -148,6 +148,41 @@
       "icon": "👑",
       "requirements": [{ "metric": "mp_wins", "min": 250 }]
     },
+    "rank_bronze": {
+      "name": "Bronze Rank",
+      "description": "Peak MMR 1100+",
+      "premium": false,
+      "icon": "🥉",
+      "requirements": [{ "metric": "peak_mmr", "min": 1100 }]
+    },
+    "rank_silver": {
+      "name": "Silver Rank",
+      "description": "Peak MMR 1250+",
+      "premium": false,
+      "icon": "🥈",
+      "requirements": [{ "metric": "peak_mmr", "min": 1250 }]
+    },
+    "rank_gold": {
+      "name": "Gold Rank",
+      "description": "Peak MMR 1400+",
+      "premium": false,
+      "icon": "🥇",
+      "requirements": [{ "metric": "peak_mmr", "min": 1400 }]
+    },
+    "rank_platinum": {
+      "name": "Platinum Rank",
+      "description": "Peak MMR 1550+",
+      "premium": false,
+      "icon": "💠",
+      "requirements": [{ "metric": "peak_mmr", "min": 1550 }]
+    },
+    "rank_diamond": {
+      "name": "Diamond Rank",
+      "description": "Peak MMR 1700+",
+      "premium": false,
+      "icon": "🔷",
+      "requirements": [{ "metric": "peak_mmr", "min": 1700 }]
+    },
     "coffee": { "name": "Supporter", "description": "Ko-fi supporter badge", "premium": true, "icon": "☕" },
     "diamond": { "name": "Diamond Supporter", "description": "Ko-fi supporter badge", "premium": true, "icon": "💎" }
   },

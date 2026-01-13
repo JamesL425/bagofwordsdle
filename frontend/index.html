@@ -45,6 +45,7 @@
         <img id="user-avatar" class="user-avatar hidden" src="" alt="">
         <span id="logged-in-name">OPERATIVE</span>
         <button id="cosmetics-btn" class="btn btn-ghost btn-tiny" title="Cosmetics">🎨</button>
+        <button id="options-btn" class="btn btn-ghost btn-tiny" title="Options">⚙️</button>
         <button id="logout-btn" class="btn btn-ghost btn-tiny">×</button>
     </div>
 
@@ -77,6 +78,32 @@
         </div>
     </div>
 
+    <!-- Options Panel -->
+    <div id="options-panel" class="options-panel">
+        <div class="options-header">
+            <h2>⚙️ OPTIONS</h2>
+            <button id="close-options-btn" class="btn btn-ghost btn-tiny">×</button>
+        </div>
+        <div class="options-content">
+            <label class="option-row">
+                <input type="checkbox" id="opt-chat-enabled">
+                <span>Text chat</span>
+            </label>
+            <label class="option-row">
+                <input type="checkbox" id="opt-music-enabled">
+                <span>Music</span>
+            </label>
+            <label class="option-row">
+                <input type="checkbox" id="opt-click-sfx-enabled">
+                <span>Button click SFX (placeholder)</span>
+            </label>
+            <label class="option-row">
+                <input type="checkbox" id="opt-elim-sfx-enabled">
+                <span>Elimination SFX</span>
+            </label>
+        </div>
+    </div>
+
     <div class="matrix-bg" id="matrix-bg"></div>
     <div class="container">
         <header>
@@ -91,10 +118,19 @@
                     <h2>INITIALISE BREACH</h2>
                     <p class="hero-description">Encrypt your codeword. Probe enemy systems. Decode their secrets. Eliminate targets. Last operative standing wins.</p>
                 </div>
-                <div class="button-group">
-                    <button id="create-game-btn" class="btn btn-primary btn-large">&gt; CREATE_SERVER</button>
-                    <button id="singleplayer-btn" class="btn btn-secondary btn-large">&gt; SOLO_MISSION</button>
+                <div class="home-action-grid">
+                    <button id="quickplay-btn" class="btn btn-primary btn-large">&gt; QUICK_PLAY</button>
+                    <button id="create-public-btn" class="btn btn-secondary btn-large">&gt; CREATE_PUBLIC</button>
+                    <button id="create-private-btn" class="btn btn-secondary btn-large">&gt; CREATE_PRIVATE</button>
+                    <button id="ranked-btn" class="btn btn-accent btn-large">&gt; RANKED</button>
+                    <button id="singleplayer-btn" class="btn btn-ghost btn-large">&gt; SOLO_MISSION</button>
                 </div>
+                <div class="join-by-code">
+                    <input type="text" id="join-code-input" maxlength="6" placeholder="SERVER_ID">
+                    <button id="join-code-btn" class="btn btn-small btn-secondary">JOIN</button>
+                </div>
+                <p class="home-note">Ranked requires Google sign-in.</p>
+                <button id="open-leaderboard-btn" class="btn btn-ghost btn-small">VIEW_LEADERBOARD</button>
             </div>
 
             <!-- Recent / Active Games -->
@@ -145,6 +181,37 @@
                             <p>Guess someone's exact word to eliminate them. Last one standing wins</p>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Leaderboard Screen -->
+        <div id="leaderboard-screen" class="screen">
+            <div class="card">
+                <h2>// LEADERBOARDS</h2>
+                <div class="button-group">
+                    <button id="lb-tab-casual" class="btn btn-secondary btn-small">CASUAL</button>
+                    <button id="lb-tab-ranked" class="btn btn-secondary btn-small">RANKED</button>
+                </div>
+
+                <div id="lb-casual-panel" class="leaderboard-panel">
+                    <div class="button-group">
+                        <button id="lb-casual-alltime" class="btn btn-ghost btn-small">ALL_TIME</button>
+                        <button id="lb-casual-weekly" class="btn btn-ghost btn-small">WEEKLY</button>
+                    </div>
+                    <div id="casual-leaderboard-table" class="leaderboard-table-container">
+                        <div class="leaderboard-empty">Loading...</div>
+                    </div>
+                </div>
+
+                <div id="lb-ranked-panel" class="leaderboard-panel hidden">
+                    <div id="ranked-leaderboard-table" class="leaderboard-table-container">
+                        <div class="leaderboard-empty">Loading...</div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button id="lb-back-btn" class="btn btn-ghost">&lt; BACK</button>
                 </div>
             </div>
         </div>
@@ -214,6 +281,14 @@
                 </div>
                 <div id="host-controls" class="host-controls hidden">
                     <button id="start-game-btn" class="btn btn-primary" disabled>&gt; SELECT_WORDS</button>
+                </div>
+                <div id="lobby-chat-section" class="chat-section">
+                    <h3>// CHAT</h3>
+                    <div id="lobby-chat-log" class="chat-log" aria-label="Chat log"></div>
+                    <form id="lobby-chat-form" class="chat-form" autocomplete="off">
+                        <input type="text" id="lobby-chat-input" maxlength="200" placeholder="Type message..." autocomplete="off">
+                        <button type="submit" class="btn btn-small btn-secondary">SEND</button>
+                    </form>
                 </div>
                 <button id="leave-lobby-btn" class="btn btn-ghost">&lt; DISCONNECT</button>
             </div>
@@ -320,6 +395,14 @@
                         <span class="legend-item"><span class="dot guessed"></span> Scanned</span>
                         <span class="legend-item"><span class="dot eliminated"></span> Breached</span>
                     </div>
+                    <div class="sidebar-meta">
+                        <div class="meta-row"><span>TURN</span><span id="turn-number">-</span></div>
+                        <div class="meta-row"><span>SPECTATORS</span><span id="spectator-count">0</span></div>
+                    </div>
+                    <div class="sidebar-played">
+                        <h4>// WORDS_PLAYED</h4>
+                        <div id="words-played" class="words-played"></div>
+                    </div>
                     <div id="game-wordlist" class="game-wordlist-sidebar">
                         <!-- All theme words for reference -->
                     </div>
@@ -332,6 +415,7 @@
                             <span>YOUR CODEWORD:</span>
                             <span id="your-secret-word" class="secret">???</span>
                         </div>
+                        <button id="leave-game-btn" class="btn btn-ghost btn-small leave-game-btn">LEAVE GAME</button>
                     </div>
                     
                     <div id="change-word-container" class="change-word-container hidden">
@@ -362,6 +446,15 @@
                         <form id="guess-form">
                             <input type="text" id="guess-input" placeholder="Enter probe query..." maxlength="30">
                             <button type="submit" class="btn btn-primary">&gt; TRANSMIT</button>
+                        </form>
+                    </div>
+
+                    <div id="game-chat-section" class="chat-section">
+                        <h3>// CHAT</h3>
+                        <div id="game-chat-log" class="chat-log" aria-label="Chat log"></div>
+                        <form id="game-chat-form" class="chat-form" autocomplete="off">
+                            <input type="text" id="game-chat-input" maxlength="200" placeholder="Type message..." autocomplete="off">
+                            <button type="submit" class="btn btn-small btn-secondary">SEND</button>
                         </form>
                     </div>
 
@@ -405,6 +498,19 @@
                 </div>
             </div>
         </footer>
+    </div>
+
+    <!-- Leave Game Modal -->
+    <div id="leave-game-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="leave-game-title">
+        <div class="modal-backdrop" data-close="true"></div>
+        <div class="modal-card">
+            <h2 id="leave-game-title">// LEAVE_GAME</h2>
+            <p class="modal-text">Are you sure? Leaving will forfeit your current match.</p>
+            <div class="button-group">
+                <button id="leave-game-confirm" class="btn btn-danger">&gt; FORFEIT</button>
+                <button id="leave-game-cancel" class="btn btn-secondary">CANCEL</button>
+            </div>
+        </div>
     </div>
 
     <script src="/cosmetics.js"></script>

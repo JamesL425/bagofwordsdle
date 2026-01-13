@@ -20,6 +20,32 @@
       "enabled": true,
       "track": "/manwithaplan.mp3",
       "volume": 0.12
+    },
+    "sfx": {
+      "button_click": {
+        "enabled": true,
+        "track": "",
+        "volume": 0.4
+      },
+      "elimination": {
+        "enabled": true,
+        "track": "",
+        "volume": 0.6
+      }
+    }
+  },
+  "presence": {
+    "ttl_seconds": 15
+  },
+  "ranked": {
+    "initial_mmr": 1000,
+    "k_factor": 32,
+    "tier_thresholds": {
+      "bronze": 1100,
+      "silver": 1250,
+      "gold": 1400,
+      "platinum": 1550,
+      "diamond": 1700
     }
   },
   "theme_categories": [
