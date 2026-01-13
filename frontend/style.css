@@ -58,6 +58,11 @@ body {
     z-index: 1;
 }
 
+/* When actively in a match, allow the game UI to use more horizontal space */
+body.in-game .container {
+    max-width: 1400px;
+}
+
 /* Header */
 header {
     text-align: center;

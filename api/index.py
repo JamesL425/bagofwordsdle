@@ -2120,6 +2120,27 @@ class handler(BaseHTTPRequestHandler):
             return payload.get('sub')
         return None
 
+    def _is_admin_request(self) -> bool:
+        """Best-effort check if the request is from an admin user."""
+        try:
+            payload = self._get_auth_payload()
+            if not payload or not isinstance(payload, dict):
+                return False
+            sub = str(payload.get('sub') or '')
+            if sub == 'admin_local':
+                return True
+            email = str(payload.get('email') or '').strip().lower()
+            if not email:
+                return False
+            admin_emails = [str(e).strip().lower() for e in (ADMIN_EMAILS or [])]
+            return email in admin_emails
+        except Exception:
+            return False
+
+    def _debug_allowed(self) -> bool:
+        """Return True if we can safely return debug details to this client."""
+        return bool(DEBUG_ERRORS or self._is_admin_request())
+
     def _get_cors_origin(self):
         """Get the appropriate CORS origin header value."""
         origin = self.headers.get('Origin', '')
@@ -2237,6 +2258,35 @@ class handler(BaseHTTPRequestHandler):
                     # Placeholder for future asset-based SFX (frontend currently uses WebAudio tones).
                     "sfx": sfx_cfg,
                 }
+            })
+
+        # ============== DEBUG (ADMIN ONLY) ==============
+        # GET /api/debug/chat-error?id=cd8a9e33
+        if path == '/api/debug/chat-error':
+            if not self._debug_allowed():
+                return self._send_error("Not authorized", 403)
+            error_id = str(query.get('id', '') or query.get('error_id', '') or '').strip().lower()
+            if not re.match(r'^[a-f0-9]{8}$', error_id):
+                return self._send_error("Invalid error id", 400)
+            try:
+                redis = get_redis()
+                raw = redis.get(f"debug:chat_error:{error_id}")
+            except Exception:
+                raw = None
+            if not raw:
+                return self._send_error("Not found", 404)
+            if isinstance(raw, bytes):
+                try:
+                    raw = raw.decode()
+                except Exception:
+                    raw = str(raw)
+            try:
+                data = json.loads(raw)
+            except Exception:
+                data = {"raw": str(raw)}
+            return self._send_json({
+                "error_id": error_id,
+                "debug": data,
             })
 
         # ============== AUTH ENDPOINTS ==============
@@ -3575,22 +3625,23 @@ class handler(BaseHTTPRequestHandler):
                             "error_id": err2_id,
                             "error_code": "CHAT_FALLBACK_WRITE_ERROR",
                         }
-                        if DEBUG_ERRORS:
-                            resp["debug"] = {
-                                "where": "chat_fallback_write",
-                                "type": type(e2).__name__,
-                                "error": str(e2)[:500],
-                            }
-                            # Best-effort store debug for later inspection
-                            try:
-                                redis.setex(f"debug:chat_error:{err2_id}", DEBUG_ERROR_TTL_SECONDS, json.dumps(resp["debug"]))
-                            except Exception:
-                                pass
-                            try:
-                                game["chat_last_error"] = resp["debug"]
-                                save_game(code, game)
-                            except Exception:
-                                pass
+                        debug_payload = {
+                            "where": "chat_fallback_write",
+                            "type": type(e2).__name__,
+                            "error": str(e2)[:500],
+                        }
+                        # Always store server-side so we can retrieve by error_id later (admin/debug endpoint).
+                        try:
+                            redis.setex(
+                                f"debug:chat_error:{err2_id}",
+                                DEBUG_ERROR_TTL_SECONDS,
+                                json.dumps(debug_payload),
+                            )
+                        except Exception:
+                            pass
+                        # Optionally attach debug to response for admin/debug clients
+                        if self._debug_allowed():
+                            resp["debug"] = debug_payload
                         return self._send_json(resp, 500)
 
                 return self._send_json({"message": payload})
@@ -3602,28 +3653,26 @@ class handler(BaseHTTPRequestHandler):
                     "error_id": err_id,
                     "error_code": "CHAT_HANDLER_ERROR",
                 }
-                if DEBUG_ERRORS:
-                    import traceback
-                    resp["debug"] = {
-                        "where": "chat_handler",
-                        "type": type(e).__name__,
-                        "error": str(e)[:500],
-                        "trace": traceback.format_exc(limit=8),
-                    }
-                    # Best-effort store debug for later inspection
-                    try:
-                        redis = get_redis()
-                        redis.setex(f"debug:chat_error:{err_id}", DEBUG_ERROR_TTL_SECONDS, json.dumps(resp["debug"]))
-                    except Exception:
-                        pass
-                    try:
-                        # Try to stash on the game too if we managed to load it
-                        if 'game' in locals() and isinstance(locals().get('game'), dict) and locals().get('code'):
-                            g = locals().get('game')
-                            g["chat_last_error"] = resp["debug"]
-                            save_game(locals().get('code'), g)
-                    except Exception:
-                        pass
+                import traceback
+                debug_payload = {
+                    "where": "chat_handler",
+                    "type": type(e).__name__,
+                    "error": str(e)[:500],
+                    "trace": traceback.format_exc(limit=8),
+                }
+                # Always store server-side so we can retrieve by error_id later (admin/debug endpoint).
+                try:
+                    redis = get_redis()
+                    redis.setex(
+                        f"debug:chat_error:{err_id}",
+                        DEBUG_ERROR_TTL_SECONDS,
+                        json.dumps(debug_payload),
+                    )
+                except Exception:
+                    pass
+                # Optionally attach debug to response for admin/debug clients
+                if self._debug_allowed():
+                    resp["debug"] = debug_payload
                 return self._send_json(resp, 500)
 
         # POST /api/games/{code}/join - Join lobby (just name, no word yet)

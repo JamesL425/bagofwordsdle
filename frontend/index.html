@@ -447,6 +447,30 @@
                         </div>
                         <button id="leave-game-btn" class="btn btn-ghost btn-small leave-game-btn">LEAVE GAME</button>
                     </div>
+
+                    <!-- Mobile-only docked tabs (WORDS / LOG) -->
+                    <div class="game-mobile-tabs" id="game-mobile-tabs" role="tablist" aria-label="Game panels">
+                        <button
+                            type="button"
+                            class="game-mobile-tab active"
+                            id="game-mobile-tab-words"
+                            role="tab"
+                            aria-selected="true"
+                            aria-controls="mobile-words-panel"
+                        >WORDS</button>
+                        <button
+                            type="button"
+                            class="game-mobile-tab"
+                            id="game-mobile-tab-log"
+                            role="tab"
+                            aria-selected="false"
+                            aria-controls="mobile-log-panel"
+                        >LOG</button>
+                    </div>
+                    <div class="game-mobile-panels" id="game-mobile-panels">
+                        <div id="mobile-words-panel" class="game-mobile-panel" role="tabpanel" aria-labelledby="game-mobile-tab-words"></div>
+                        <div id="mobile-log-panel" class="game-mobile-panel hidden" role="tabpanel" aria-labelledby="game-mobile-tab-log"></div>
+                    </div>
                     
                     <div id="change-word-container" class="change-word-container hidden">
                         <p class="change-word-label">◈ TARGET ELIMINATED! Select new encryption:</p>
@@ -478,14 +502,19 @@
                             <button type="submit" class="btn btn-primary">&gt; TRANSMIT</button>
                         </form>
                     </div>
+                </main>
 
-                    <div class="history-section">
-                        <h3>// TRANSMISSION_LOG</h3>
-                        <div id="history-log" class="history-log">
-                            <!-- History entries will be added here -->
+                <!-- Transmission log (desktop right column / tablet below) -->
+                <aside class="game-log" aria-label="Transmission log">
+                    <div id="game-log-host">
+                        <div id="history-section" class="history-section">
+                            <h3>// TRANSMISSION_LOG</h3>
+                            <div id="history-log" class="history-log">
+                                <!-- History entries will be added here -->
+                            </div>
                         </div>
                     </div>
-                </main>
+                </aside>
             </div>
         </div>
 

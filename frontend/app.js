@@ -395,6 +395,16 @@ async function sendChatMessage(text) {
         }
     } catch (e) {
         console.error('Chat send failed:', e);
+        // If we got a backend error id, try to fetch the stored debug payload (admin/debug only).
+        try {
+            const errId = e?.response?.error_id;
+            if (errId) {
+                const dbg = await apiCall(`/api/debug/chat-error?id=${encodeURIComponent(errId)}`);
+                console.error('Chat debug payload:', dbg);
+            }
+        } catch (dbgErr) {
+            // Ignore debug fetch failures (likely not authorized).
+        }
         showError(e.message || 'Failed to send message');
     } finally {
         chatSendInFlight = false;
@@ -905,6 +915,9 @@ function showScreen(screenName) {
         if (screen) screen.classList.remove('active');
     });
     if (screens[screenName]) screens[screenName].classList.add('active');
+
+    // Allow CSS to widen/adjust layout when actively in a match
+    document.body.classList.toggle('in-game', screenName === 'game');
     
     // Start/stop lobby refresh based on screen
     if (screenName === 'home') {
