@@ -555,7 +555,21 @@ window.addEventListener('popstate', async (event) => {
 
 // ============ LOGIN SYSTEM ============
 
+function updateRankedUi() {
+    const rankedBtn = document.getElementById('ranked-btn');
+    const note = document.getElementById('ranked-signin-note');
+
+    // Ranked mode is allowed only when we have an auth token (Google sign-in).
+    const hasAuth = Boolean(gameState.authToken);
+
+    if (rankedBtn) rankedBtn.disabled = !hasAuth;
+    if (note) note.classList.toggle('hidden', hasAuth);
+}
+
 function initLogin() {
+    // Set initial ranked UI state (before token/user load finishes)
+    updateRankedUi();
+
     // Check for OAuth callback token in URL
     const urlParams = new URLSearchParams(window.location.search);
     const authToken = urlParams.get('auth_token');
@@ -620,6 +634,9 @@ async function loadAuthenticatedUser(token) {
         if (!response.ok) {
             // Token invalid or expired
             localStorage.removeItem('embeddle_auth_token');
+            gameState.authToken = null;
+            gameState.authUser = null;
+            updateRankedUi();
             return;
         }
         
@@ -627,9 +644,13 @@ async function loadAuthenticatedUser(token) {
         gameState.authToken = token;
         gameState.authUser = user;
         setLoggedInWithAuth(user);
+        updateRankedUi();
     } catch (error) {
         console.error('Failed to load authenticated user:', error);
         localStorage.removeItem('embeddle_auth_token');
+        gameState.authToken = null;
+        gameState.authUser = null;
+        updateRankedUi();
     }
 }
 
@@ -657,6 +678,8 @@ function setLoggedInWithAuth(user) {
     if (typeof loadUserCosmetics === 'function') {
         loadUserCosmetics();
     }
+
+    updateRankedUi();
 }
 
 function setLoggedIn(name) {
@@ -680,6 +703,7 @@ function setLoggedIn(name) {
     document.getElementById('login-box').classList.add('hidden');
     document.getElementById('logged-in-box').classList.remove('hidden');
     document.getElementById('logged-in-name').textContent = sanitizedName.toUpperCase();
+    updateRankedUi();
 }
 
 async function promptAdminPassword() {
@@ -734,6 +758,8 @@ function logout() {
         avatarEl.classList.add('hidden');
         avatarEl.src = '';
     }
+
+    updateRankedUi();
 }
 
 // Google login button
