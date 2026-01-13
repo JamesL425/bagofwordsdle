@@ -474,11 +474,12 @@ header h1 {
 
 /* ============ HOME SCREEN LAYOUT ============ */
 
-/* Mobile-first: single column */
+/* Mobile-first: single column, everything stacked */
 #home-screen.active.home-screen {
     display: flex;
     flex-direction: column;
     gap: var(--space-lg);
+    max-width: 100%;
 }
 
 #home-screen.active.home-screen .card {
@@ -495,37 +496,31 @@ header h1 {
     #home-screen.active.home-screen {
         display: grid;
         grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto auto;
+        grid-template-areas:
+            "hero lobbies"
+            "protocol protocol";
         gap: var(--space-lg);
     }
     
     /* Hero card in left column */
     #home-screen.active.home-screen .hero-card {
-        grid-column: 1;
-        grid-row: 1;
+        grid-area: hero;
     }
     
     /* Home columns (lobbies/leaderboard) in right column */
     #home-screen.active.home-screen .home-columns {
-        grid-column: 2;
-        grid-row: 1;
+        grid-area: lobbies;
     }
     
     /* Protocol section spans full width below */
     #home-screen.active.home-screen .protocol-section {
-        grid-column: 1 / -1;
-        grid-row: 2;
+        grid-area: protocol;
     }
 }
 
 /* Desktop: slightly larger gap */
 @media (min-width: 1100px) {
-    #home-screen.active.home-screen {
-        gap: var(--space-xl);
-    }
-}
-
-/* Wide desktop */
-@media (min-width: 1400px) {
     #home-screen.active.home-screen {
         gap: var(--space-xl);
     }
