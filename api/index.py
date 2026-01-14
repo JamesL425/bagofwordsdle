@@ -3936,7 +3936,6 @@ class handler(BaseHTTPRequestHandler):
                 return self._send_error("Player name required", 400)
             
             # URL decode the name
-            import urllib.parse
             player_name = urllib.parse.unquote(player_name)
             
             # Get casual stats by name

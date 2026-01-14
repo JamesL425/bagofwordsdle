@@ -3678,37 +3678,54 @@ function generateShareResults(game, isWinner) {
     
     const theme = game.theme?.name || 'Unknown';
     const turnCount = game.history ? game.history.filter(h => h.type !== 'word_change' && h.type !== 'forfeit').length : 0;
-    const elimCount = game.history ? game.history.reduce((acc, h) => acc + (h.eliminations?.length || 0), 0) : 0;
+    const totalElimCount = game.history ? game.history.reduce((acc, h) => acc + (h.eliminations?.length || 0), 0) : 0;
+    const isRanked = Boolean(game.is_ranked);
     
     // Generate game number (based on date + some uniqueness)
     const gameNum = Math.floor(Date.now() / 86400000) % 10000;
+    
+    // Count eliminations per player (who caused eliminations)
+    const elimsByPlayer = {};
+    if (game.history) {
+        game.history.forEach(entry => {
+            if (entry.eliminations && entry.eliminations.length > 0 && entry.guesser_id) {
+                elimsByPlayer[entry.guesser_id] = (elimsByPlayer[entry.guesser_id] || 0) + entry.eliminations.length;
+            }
+        });
+    }
     
     // Build player list with outcomes
     const playerOutcomes = game.players.map(p => ({
         name: p.name,
         isWinner: p.id === game.winner,
         isMe: p.id === gameState.playerId,
-        eliminated: !p.is_alive
+        eliminated: !p.is_alive,
+        elimCount: elimsByPlayer[p.id] || 0,
+        secretWord: p.secret_word || '???',
+        mmr: isRanked && Number.isFinite(Number(p?.mmr)) ? Number(p.mmr) : null
     }));
     
-    // Sort: winner first, then survivors, then eliminated
+    // Sort: winner first, then by elims (descending), then survivors before eliminated
     playerOutcomes.sort((a, b) => {
         if (a.isWinner) return -1;
         if (b.isWinner) return 1;
         if (a.eliminated && !b.eliminated) return 1;
         if (!a.eliminated && b.eliminated) return -1;
-        return 0;
+        return b.elimCount - a.elimCount;
     });
     
     // Build share text
-    let shareText = `EMBEDDLE #${gameNum} - ${isWinner ? 'Victory!' : 'Defeated'}\n`;
-    shareText += `Theme: ${theme} | Turns: ${turnCount} | Elims: ${elimCount}\n\n`;
+    const modeLabel = isRanked ? 'RANKED' : 'CASUAL';
+    let shareText = `EMBEDDLE #${gameNum} - ${isWinner ? 'Victory!' : 'Defeated'} [${modeLabel}]\n`;
+    shareText += `Theme: ${theme} | Turns: ${turnCount} | Elims: ${totalElimCount}\n\n`;
     
     // Add player outcomes
     playerOutcomes.forEach(p => {
         const status = p.isWinner ? '🏆' : (p.eliminated ? '☠️' : '✓');
         const youMarker = p.isMe ? ' (YOU)' : '';
-        shareText += `${status} ${p.name}${youMarker}\n`;
+        const elimInfo = p.elimCount > 0 ? ` [${p.elimCount} kill${p.elimCount > 1 ? 's' : ''}]` : '';
+        const mmrInfo = p.mmr !== null ? ` (${p.mmr})` : '';
+        shareText += `${status} ${p.name}${youMarker}${mmrInfo}${elimInfo} - "${p.secretWord}"\n`;
     });
     
     shareText += `\nembeddle.io`;
@@ -3717,16 +3734,18 @@ function generateShareResults(game, isWinner) {
     gameState.shareText = shareText;
     
     // Display preview with HTML formatting
-    let previewHtml = `<div class="share-header">EMBEDDLE #${gameNum} - ${isWinner ? 'Victory!' : 'Defeated'}</div>`;
-    previewHtml += `<div class="share-stats">Theme: ${escapeHtml(theme)} | Turns: ${turnCount} | Elims: ${elimCount}</div>`;
+    let previewHtml = `<div class="share-header">EMBEDDLE #${gameNum} - ${isWinner ? 'Victory!' : 'Defeated'} [${modeLabel}]</div>`;
+    previewHtml += `<div class="share-stats">Theme: ${escapeHtml(theme)} | Turns: ${turnCount} | Elims: ${totalElimCount}</div>`;
     previewHtml += `<div class="share-grid">`;
     
     playerOutcomes.forEach(p => {
         const status = p.isWinner ? '🏆' : (p.eliminated ? '☠️' : '✓');
         const youMarker = p.isMe ? ' (YOU)' : '';
+        const elimInfo = p.elimCount > 0 ? ` [${p.elimCount}]` : '';
+        const mmrInfo = p.mmr !== null ? ` (${p.mmr})` : '';
         previewHtml += `<div class="share-grid-row">`;
         previewHtml += `<span class="share-grid-blocks">${status}</span>`;
-        previewHtml += `<span class="share-grid-player">${escapeHtml(p.name)}${youMarker}</span>`;
+        previewHtml += `<span class="share-grid-player">${escapeHtml(p.name)}${youMarker}${mmrInfo}${elimInfo} - "${escapeHtml(p.secretWord)}"</span>`;
         previewHtml += `</div>`;
     });
     
