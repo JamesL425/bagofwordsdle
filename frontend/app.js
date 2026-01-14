@@ -1039,6 +1039,10 @@ document.getElementById('logout-btn').addEventListener('click', logout);
 document.getElementById('cosmetics-btn')?.addEventListener('click', toggleCosmeticsPanel);
 document.getElementById('close-cosmetics-btn')?.addEventListener('click', closeCosmeticsPanel);
 
+// Daily Ops button
+document.getElementById('daily-btn')?.addEventListener('click', toggleDailyPanel);
+document.getElementById('close-daily-btn')?.addEventListener('click', closeDailyPanel);
+
 // Options panel
 let optionsPanelOpen = false;
 
