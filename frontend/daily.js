@@ -655,7 +655,6 @@ function renderDailyShop() {
         });
     });
 }
-}
 
 function isOwnedCosmetic(categoryKey, cosmeticId) {
     const owned = dailyState.ownedCosmetics[categoryKey];

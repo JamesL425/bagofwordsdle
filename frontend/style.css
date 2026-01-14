@@ -4605,6 +4605,9 @@ body.nerd-mode .nerd-sim {
 .player-card .name.name-amber { color: #ff9500; text-shadow: 0 0 10px rgba(255, 149, 0, 0.6); }
 .player-card .name.name-teal { color: #00d4aa; text-shadow: 0 0 10px rgba(0, 212, 170, 0.6); }
 
+/* Cyan name color - First win unlock */
+.player-card .name.name-cyan { color: #00e5ff; text-shadow: 0 0 12px rgba(0, 229, 255, 0.7); }
+
 .player-card .name.name-gold { color: #ffd700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); }
 .player-card .name.name-rainbow { animation: rainbow-text 2s linear infinite; }
 .player-card .name.name-fire { color: #ff4400; text-shadow: 0 0 10px rgba(255, 100, 0, 0.7); }
@@ -5244,6 +5247,169 @@ body[data-particles="circuit"]::before {
     background-size: 100px 100px;
 }
 
+/* Rain - Digital rain drops */
+body[data-particles="rain"]::before {
+    content: '';
+    position: fixed;
+    top: -20%;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+    background-image: 
+        linear-gradient(180deg, rgba(100, 200, 255, 0.6) 0%, rgba(100, 200, 255, 0) 100%),
+        linear-gradient(180deg, rgba(100, 200, 255, 0.5) 0%, rgba(100, 200, 255, 0) 100%),
+        linear-gradient(180deg, rgba(100, 200, 255, 0.4) 0%, rgba(100, 200, 255, 0) 100%),
+        linear-gradient(180deg, rgba(100, 200, 255, 0.6) 0%, rgba(100, 200, 255, 0) 100%),
+        linear-gradient(180deg, rgba(100, 200, 255, 0.5) 0%, rgba(100, 200, 255, 0) 100%);
+    background-size: 1px 20px, 1px 25px, 1px 15px, 1px 22px, 1px 18px;
+    background-position: 10% 0, 25% 10%, 45% 5%, 70% 15%, 85% 0;
+    background-repeat: repeat-y;
+    animation: rain-fall 0.8s linear infinite;
+}
+
+@keyframes rain-fall {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(30px); }
+}
+
+/* Fireflies Overlay - Floating glowing particles (Shop) */
+body[data-particles="fireflies_overlay"]::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image: 
+        radial-gradient(4px 4px at 15% 25%, rgba(200, 255, 100, 0.9) 50%, transparent 100%),
+        radial-gradient(3px 3px at 35% 65%, rgba(180, 255, 80, 0.8) 50%, transparent 100%),
+        radial-gradient(5px 5px at 55% 15%, rgba(220, 255, 120, 0.85) 50%, transparent 100%),
+        radial-gradient(3px 3px at 75% 45%, rgba(200, 255, 100, 0.75) 50%, transparent 100%),
+        radial-gradient(4px 4px at 85% 75%, rgba(180, 255, 80, 0.9) 50%, transparent 100%),
+        radial-gradient(3px 3px at 25% 85%, rgba(220, 255, 120, 0.7) 50%, transparent 100%),
+        radial-gradient(4px 4px at 65% 55%, rgba(200, 255, 100, 0.8) 50%, transparent 100%),
+        radial-gradient(3px 3px at 45% 35%, rgba(180, 255, 80, 0.85) 50%, transparent 100%);
+    background-size: 500px 500px;
+    animation: fireflies-float 8s ease-in-out infinite;
+}
+
+@keyframes fireflies-float {
+    0%, 100% { 
+        opacity: 0.6;
+        transform: translate(0, 0);
+    }
+    25% { 
+        opacity: 0.9;
+        transform: translate(10px, -15px);
+    }
+    50% { 
+        opacity: 0.5;
+        transform: translate(-5px, 10px);
+    }
+    75% { 
+        opacity: 0.85;
+        transform: translate(15px, 5px);
+    }
+}
+
+/* Data Stream - Binary data flowing (Shop) */
+body[data-particles="data_stream"]::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.15;
+    background: 
+        repeating-linear-gradient(
+            90deg,
+            transparent 0px,
+            transparent 40px,
+            rgba(0, 255, 100, 0.3) 40px,
+            rgba(0, 255, 100, 0.3) 42px,
+            transparent 42px,
+            transparent 80px,
+            rgba(0, 200, 255, 0.25) 80px,
+            rgba(0, 200, 255, 0.25) 81px
+        ),
+        repeating-linear-gradient(
+            0deg,
+            transparent 0px,
+            transparent 30px,
+            rgba(0, 255, 100, 0.2) 30px,
+            rgba(0, 255, 100, 0.2) 32px,
+            transparent 32px,
+            transparent 60px,
+            rgba(0, 200, 255, 0.15) 60px,
+            rgba(0, 200, 255, 0.15) 61px
+        );
+    background-size: 200px 200px;
+    animation: data-flow 3s linear infinite;
+}
+
+@keyframes data-flow {
+    0% { background-position: 0 0, 0 0; }
+    100% { background-position: 200px 0, 0 -200px; }
+}
+
+/* Hologram Overlay - Holographic interference pattern (Shop) */
+body[data-particles="hologram_overlay"]::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.12;
+    background: 
+        repeating-linear-gradient(
+            0deg,
+            transparent 0px,
+            transparent 2px,
+            rgba(0, 255, 255, 0.15) 2px,
+            rgba(0, 255, 255, 0.15) 4px
+        ),
+        repeating-linear-gradient(
+            90deg,
+            transparent 0px,
+            transparent 4px,
+            rgba(255, 0, 255, 0.1) 4px,
+            rgba(255, 0, 255, 0.1) 6px
+        ),
+        linear-gradient(
+            135deg,
+            rgba(255, 0, 0, 0.05) 0%,
+            rgba(255, 255, 0, 0.05) 20%,
+            rgba(0, 255, 0, 0.05) 40%,
+            rgba(0, 255, 255, 0.05) 60%,
+            rgba(0, 0, 255, 0.05) 80%,
+            rgba(255, 0, 255, 0.05) 100%
+        );
+    background-size: 100% 100%, 100% 100%, 400% 400%;
+    animation: hologram-shift 6s ease-in-out infinite;
+}
+
+@keyframes hologram-shift {
+    0%, 100% { 
+        background-position: 0 0, 0 0, 0% 0%;
+        filter: hue-rotate(0deg);
+    }
+    50% { 
+        background-position: 0 2px, 2px 0, 100% 100%;
+        filter: hue-rotate(30deg);
+    }
+}
+
 /* ============ SEASONAL THEME COSMETICS ============ */
 
 body[data-seasonal="snowfall"]::after {
@@ -5364,6 +5530,167 @@ body[data-seasonal="cherry_blossom"]::after {
 @keyframes petals-fall {
     0% { background-position: 0 -220px, 0 -300px; }
     100% { background-position: 100px 110vh, -80px 110vh; }
+}
+
+/* Autumn - Falling leaves */
+body[data-seasonal="autumn"]::after {
+    content: '';
+    position: fixed;
+    top: -10%;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.55;
+    background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280' viewBox='0 0 280 280'%3E%3Cg%3E%3Cpath d='M30 20 Q35 30 30 40 Q25 30 30 20 M28 28 Q22 30 18 28 M32 32 Q38 34 42 32' fill='%23d4740a' stroke='%23a35608' stroke-width='0.5' transform='rotate(15 30 30)'/%3E%3Cpath d='M120 50 Q127 62 120 74 Q113 62 120 50 M117 60 Q109 62 103 60 M123 64 Q131 66 137 64' fill='%23c44d0a' stroke='%23922608' stroke-width='0.5' transform='rotate(-20 120 62)'/%3E%3Cpath d='M200 30 Q206 40 200 50 Q194 40 200 30 M198 38 Q192 40 188 38 M202 42 Q208 44 212 42' fill='%23e8a020' stroke='%23b87810' stroke-width='0.5' transform='rotate(35 200 40)'/%3E%3Cpath d='M70 140 Q76 152 70 164 Q64 152 70 140 M68 150 Q62 152 58 150 M72 154 Q78 156 82 154' fill='%23b8390a' stroke='%238a2508' stroke-width='0.5' transform='rotate(-10 70 152)'/%3E%3Cpath d='M180 160 Q186 172 180 184 Q174 172 180 160 M178 170 Q172 172 168 170 M182 174 Q188 176 192 174' fill='%23d4740a' stroke='%23a35608' stroke-width='0.5' transform='rotate(25 180 172)'/%3E%3Cpath d='M250 120 Q255 130 250 140 Q245 130 250 120 M248 128 Q242 130 238 128 M252 132 Q258 134 262 132' fill='%23e8a020' stroke='%23b87810' stroke-width='0.5' transform='rotate(-30 250 130)'/%3E%3C/g%3E%3C/svg%3E"),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320' viewBox='0 0 320 320'%3E%3Cg%3E%3Cpath d='M50 40 Q58 54 50 68 Q42 54 50 40 M47 52 Q39 54 33 52 M53 56 Q61 58 67 56' fill='%23c44d0a' stroke='%23922608' stroke-width='0.5' transform='rotate(20 50 54)'/%3E%3Cpath d='M160 70 Q168 84 160 98 Q152 84 160 70 M157 82 Q149 84 143 82 M163 86 Q171 88 177 86' fill='%23e8a020' stroke='%23b87810' stroke-width='0.5' transform='rotate(-15 160 84)'/%3E%3Cpath d='M280 50 Q286 62 280 74 Q274 62 280 50 M278 60 Q272 62 268 60 M282 64 Q288 66 292 64' fill='%23d4740a' stroke='%23a35608' stroke-width='0.5' transform='rotate(40 280 62)'/%3E%3Cpath d='M100 200 Q107 212 100 224 Q93 212 100 200 M98 210 Q92 212 88 210 M102 214 Q108 216 112 214' fill='%23b8390a' stroke='%238a2508' stroke-width='0.5' transform='rotate(-25 100 212)'/%3E%3Cpath d='M220 220 Q226 232 220 244 Q214 232 220 220 M218 230 Q212 232 208 230 M222 234 Q228 236 232 234' fill='%23c44d0a' stroke='%23922608' stroke-width='0.5' transform='rotate(10 220 232)'/%3E%3C/g%3E%3C/svg%3E");
+    background-repeat: repeat, repeat;
+    background-size: 280px 280px, 360px 360px;
+    animation: leaves-fall 12s linear infinite;
+}
+
+@keyframes leaves-fall {
+    0% { 
+        background-position: 0 -280px, 50px -360px; 
+        transform: translateX(0);
+    }
+    50% {
+        transform: translateX(30px);
+    }
+    100% { 
+        background-position: 80px 110vh, -40px 110vh; 
+        transform: translateX(0);
+    }
+}
+
+/* Sakura - Cherry blossom petals (Shop variant) */
+body[data-seasonal="sakura"]::after {
+    content: '';
+    position: fixed;
+    top: -5%;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+    background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cdefs%3E%3CradialGradient id='p1' cx='50%25' cy='30%25' r='50%25'%3E%3Cstop offset='0%25' stop-color='%23fff5f7'/%3E%3Cstop offset='100%25' stop-color='%23ffb7c5'/%3E%3C/radialGradient%3E%3C/defs%3E%3Cg%3E%3Cellipse cx='25' cy='30' rx='6' ry='12' fill='url(%23p1)' transform='rotate(20 25 30)' opacity='0.9'/%3E%3Cellipse cx='80' cy='50' rx='5' ry='10' fill='url(%23p1)' transform='rotate(-30 80 50)' opacity='0.85'/%3E%3Cellipse cx='150' cy='25' rx='6' ry='11' fill='url(%23p1)' transform='rotate(45 150 25)' opacity='0.9'/%3E%3Cellipse cx='40' cy='120' rx='5' ry='10' fill='url(%23p1)' transform='rotate(-15 40 120)' opacity='0.8'/%3E%3Cellipse cx='120' cy='140' rx='6' ry='12' fill='url(%23p1)' transform='rotate(35 120 140)' opacity='0.85'/%3E%3Cellipse cx='180' cy='100' rx='5' ry='9' fill='url(%23p1)' transform='rotate(-25 180 100)' opacity='0.9'/%3E%3Cellipse cx='60' cy='180' rx='4' ry='8' fill='url(%23p1)' transform='rotate(10 60 180)' opacity='0.75'/%3E%3C/g%3E%3C/svg%3E"),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cdefs%3E%3CradialGradient id='p2' cx='50%25' cy='30%25' r='50%25'%3E%3Cstop offset='0%25' stop-color='%23fff0f3'/%3E%3Cstop offset='100%25' stop-color='%23ffa0b4'/%3E%3C/radialGradient%3E%3C/defs%3E%3Cg%3E%3Cellipse cx='30' cy='40' rx='5' ry='11' fill='url(%23p2)' transform='rotate(-20 30 40)' opacity='0.85'/%3E%3Cellipse cx='100' cy='30' rx='6' ry='12' fill='url(%23p2)' transform='rotate(40 100 30)' opacity='0.9'/%3E%3Cellipse cx='200' cy='60' rx='5' ry='10' fill='url(%23p2)' transform='rotate(-35 200 60)' opacity='0.8'/%3E%3Cellipse cx='60' cy='160' rx='6' ry='11' fill='url(%23p2)' transform='rotate(25 60 160)' opacity='0.85'/%3E%3Cellipse cx='160' cy='180' rx='5' ry='10' fill='url(%23p2)' transform='rotate(-10 160 180)' opacity='0.9'/%3E%3Cellipse cx='220' cy='140' rx='4' ry='9' fill='url(%23p2)' transform='rotate(30 220 140)' opacity='0.8'/%3E%3C/g%3E%3C/svg%3E");
+    background-repeat: repeat, repeat;
+    background-size: 200px 200px, 280px 280px;
+    filter: drop-shadow(0 2px 4px rgba(255, 150, 180, 0.3));
+    animation: sakura-fall 16s ease-in-out infinite;
+}
+
+@keyframes sakura-fall {
+    0% { 
+        background-position: 0 -200px, 30px -280px;
+        transform: translateX(0) rotate(0deg);
+    }
+    25% {
+        transform: translateX(40px) rotate(2deg);
+    }
+    50% {
+        transform: translateX(-20px) rotate(-1deg);
+    }
+    75% {
+        transform: translateX(30px) rotate(1deg);
+    }
+    100% { 
+        background-position: 60px 110vh, -50px 110vh;
+        transform: translateX(0) rotate(0deg);
+    }
+}
+
+/* Northern Lights - Aurora borealis waves (Shop) */
+body[data-seasonal="northern_lights"] {
+    --accent-glow: rgba(100, 255, 200, 0.3);
+}
+
+body[data-seasonal="northern_lights"]::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+    background: 
+        linear-gradient(180deg, 
+            transparent 0%,
+            rgba(100, 255, 200, 0.15) 20%,
+            rgba(50, 200, 150, 0.2) 35%,
+            rgba(100, 150, 255, 0.15) 50%,
+            rgba(150, 100, 255, 0.1) 65%,
+            transparent 80%
+        ),
+        linear-gradient(135deg,
+            transparent 0%,
+            rgba(50, 255, 180, 0.1) 25%,
+            rgba(100, 200, 255, 0.15) 50%,
+            rgba(180, 100, 255, 0.1) 75%,
+            transparent 100%
+        );
+    background-size: 100% 200%, 200% 200%;
+    animation: aurora-wave 8s ease-in-out infinite;
+    filter: blur(30px);
+}
+
+body[data-seasonal="northern_lights"]::before {
+    content: '';
+    position: fixed;
+    top: 5%;
+    left: 0;
+    right: 0;
+    height: 60%;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.25;
+    background: 
+        radial-gradient(ellipse 80% 50% at 30% 20%, rgba(100, 255, 200, 0.4) 0%, transparent 50%),
+        radial-gradient(ellipse 60% 40% at 70% 30%, rgba(100, 200, 255, 0.35) 0%, transparent 50%),
+        radial-gradient(ellipse 70% 45% at 50% 40%, rgba(150, 100, 255, 0.3) 0%, transparent 50%);
+    animation: aurora-shimmer 12s ease-in-out infinite;
+    filter: blur(40px);
+}
+
+@keyframes aurora-wave {
+    0%, 100% { 
+        background-position: 0% 0%, 0% 0%;
+        opacity: 0.35;
+    }
+    25% {
+        background-position: 0% 50%, 50% 25%;
+        opacity: 0.45;
+    }
+    50% { 
+        background-position: 0% 100%, 100% 50%;
+        opacity: 0.4;
+    }
+    75% {
+        background-position: 0% 50%, 50% 75%;
+        opacity: 0.5;
+    }
+}
+
+@keyframes aurora-shimmer {
+    0%, 100% { 
+        transform: translateX(0) scaleY(1);
+        opacity: 0.25;
+    }
+    33% { 
+        transform: translateX(5%) scaleY(1.1);
+        opacity: 0.35;
+    }
+    66% { 
+        transform: translateX(-5%) scaleY(0.95);
+        opacity: 0.3;
+    }
 }
 
 /* ============ ALTERNATE BACKGROUND COSMETICS ============ */
@@ -5492,6 +5819,158 @@ body[data-background="aurora"]::before {
     0% { background-position: 0% 50%, 0 0; }
     50% { background-position: 100% 50%, 0 0; }
     100% { background-position: 0% 50%, 0 0; }
+}
+
+/* Void - Dark void with subtle particle effects */
+body[data-background="void"] .matrix-bg {
+    opacity: 0;
+}
+
+body[data-background="void"]::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: -2;
+    background: 
+        radial-gradient(ellipse at 50% 50%, rgba(20, 0, 40, 1) 0%, rgba(0, 0, 0, 1) 70%),
+        radial-gradient(1px 1px at 15% 25%, rgba(100, 50, 150, 0.4) 50%, transparent 100%),
+        radial-gradient(1px 1px at 45% 65%, rgba(80, 40, 120, 0.3) 50%, transparent 100%),
+        radial-gradient(2px 2px at 75% 35%, rgba(60, 30, 100, 0.35) 50%, transparent 100%),
+        radial-gradient(1px 1px at 85% 85%, rgba(100, 50, 150, 0.25) 50%, transparent 100%),
+        #000000;
+    background-size: 100% 100%, 300px 300px, 300px 300px, 300px 300px, 300px 300px, 100% 100%;
+    animation: void-pulse 10s ease-in-out infinite;
+}
+
+body[data-background="void"]::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(0, 0, 0, 0.8) 100%);
+}
+
+@keyframes void-pulse {
+    0%, 100% { 
+        filter: brightness(1);
+    }
+    50% { 
+        filter: brightness(0.85);
+    }
+}
+
+/* Cyberpunk City - Neon cityscape silhouette with glow (Shop) */
+body[data-background="cyberpunk_city"] .matrix-bg {
+    opacity: 0.15;
+}
+
+body[data-background="cyberpunk_city"]::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: -2;
+    background: 
+        linear-gradient(180deg, 
+            #0a0015 0%, 
+            #150025 30%,
+            #1a0030 60%,
+            #0f0020 100%
+        );
+}
+
+body[data-background="cyberpunk_city"]::after {
+    content: '';
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 45%;
+    z-index: -1;
+    pointer-events: none;
+    background: 
+        /* Neon glow effects */
+        linear-gradient(180deg, transparent 0%, rgba(255, 0, 100, 0.1) 60%, rgba(255, 0, 100, 0.2) 100%),
+        linear-gradient(180deg, transparent 0%, rgba(0, 200, 255, 0.08) 70%, rgba(0, 200, 255, 0.15) 100%),
+        /* City skyline silhouette */
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 300' preserveAspectRatio='xMidYMax slice'%3E%3Cdefs%3E%3ClinearGradient id='bldg' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%23150020'/%3E%3Cstop offset='100%25' stop-color='%230a0010'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23bldg)' x='0' y='180' width='40' height='120'/%3E%3Crect fill='url(%23bldg)' x='45' y='140' width='60' height='160'/%3E%3Crect fill='url(%23bldg)' x='110' y='200' width='35' height='100'/%3E%3Crect fill='url(%23bldg)' x='150' y='100' width='50' height='200'/%3E%3Crect fill='url(%23bldg)' x='205' y='160' width='40' height='140'/%3E%3Crect fill='url(%23bldg)' x='250' y='80' width='70' height='220'/%3E%3Crect fill='url(%23bldg)' x='325' y='150' width='45' height='150'/%3E%3Crect fill='url(%23bldg)' x='375' y='120' width='55' height='180'/%3E%3Crect fill='url(%23bldg)' x='435' y='60' width='80' height='240'/%3E%3Crect fill='url(%23bldg)' x='520' y='170' width='40' height='130'/%3E%3Crect fill='url(%23bldg)' x='565' y='130' width='50' height='170'/%3E%3Crect fill='url(%23bldg)' x='620' y='90' width='65' height='210'/%3E%3Crect fill='url(%23bldg)' x='690' y='160' width='45' height='140'/%3E%3Crect fill='url(%23bldg)' x='740' y='50' width='90' height='250'/%3E%3Crect fill='url(%23bldg)' x='835' y='140' width='50' height='160'/%3E%3Crect fill='url(%23bldg)' x='890' y='180' width='40' height='120'/%3E%3Crect fill='url(%23bldg)' x='935' y='110' width='60' height='190'/%3E%3Crect fill='url(%23bldg)' x='1000' y='70' width='75' height='230'/%3E%3Crect fill='url(%23bldg)' x='1080' y='150' width='50' height='150'/%3E%3Crect fill='url(%23bldg)' x='1135' y='190' width='65' height='110'/%3E%3C!-- Neon window lights --%3E%3Cg fill='%23ff0066' opacity='0.8'%3E%3Crect x='160' y='110' width='3' height='3'/%3E%3Crect x='175' y='130' width='2' height='2'/%3E%3Crect x='270' y='100' width='3' height='3'/%3E%3Crect x='290' y='140' width='2' height='2'/%3E%3Crect x='460' y='80' width='3' height='3'/%3E%3Crect x='480' y='120' width='2' height='2'/%3E%3Crect x='760' y='70' width='3' height='3'/%3E%3Crect x='800' y='100' width='2' height='2'/%3E%3Crect x='1020' y='90' width='3' height='3'/%3E%3Crect x='1050' y='130' width='2' height='2'/%3E%3C/g%3E%3Cg fill='%2300ccff' opacity='0.7'%3E%3Crect x='55' y='160' width='2' height='2'/%3E%3Crect x='70' y='180' width='3' height='3'/%3E%3Crect x='220' y='180' width='2' height='2'/%3E%3Crect x='345' y='170' width='3' height='3'/%3E%3Crect x='395' y='150' width='2' height='2'/%3E%3Crect x='585' y='150' width='3' height='3'/%3E%3Crect x='640' y='110' width='2' height='2'/%3E%3Crect x='710' y='180' width='3' height='3'/%3E%3Crect x='855' y='160' width='2' height='2'/%3E%3Crect x='955' y='130' width='3' height='3'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 100% 100%, 100% 100%, cover;
+    background-position: bottom;
+    animation: city-glow 6s ease-in-out infinite;
+}
+
+@keyframes city-glow {
+    0%, 100% { 
+        filter: brightness(1) saturate(1);
+    }
+    50% { 
+        filter: brightness(1.15) saturate(1.2);
+    }
+}
+
+/* Binary Rain - Falling 0s and 1s (Shop) */
+body[data-background="binary_rain"] .matrix-bg {
+    opacity: 0;
+}
+
+body[data-background="binary_rain"]::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: -2;
+    background: linear-gradient(180deg, #000508 0%, #001015 50%, #000810 100%);
+}
+
+body[data-background="binary_rain"]::after {
+    content: '01001010 10110100 01101001 00101011 11010010 01001101 10010110 01101011';
+    position: fixed;
+    top: -100%;
+    left: 0;
+    right: 0;
+    height: 300%;
+    z-index: -1;
+    pointer-events: none;
+    font-family: 'Courier Prime', monospace;
+    font-size: 14px;
+    line-height: 1.8;
+    letter-spacing: 8px;
+    word-spacing: 20px;
+    color: #00ff88;
+    text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+    opacity: 0.25;
+    white-space: pre-wrap;
+    word-break: break-all;
+    overflow: hidden;
+    animation: binary-fall 20s linear infinite;
+    background: 
+        repeating-linear-gradient(
+            180deg,
+            transparent 0px,
+            transparent 24px,
+            rgba(0, 255, 136, 0.03) 24px,
+            rgba(0, 255, 136, 0.03) 26px
+        );
+}
+
+@keyframes binary-fall {
+    0% { 
+        transform: translateY(0);
+    }
+    100% { 
+        transform: translateY(33.33%);
+    }
 }
 
 /* ============ SINGLEPLAYER LOBBY ============ */
