@@ -1857,6 +1857,18 @@ header h1 {
     display: flex;
 }
 
+/* Closable modal backdrop - clickable area behind modal content */
+.closable-modal .modal-backdrop {
+    position: absolute;
+    inset: 0;
+    cursor: pointer;
+}
+
+.closable-modal .modal {
+    position: relative;
+    z-index: 1;
+}
+
 .challenge-modal {
     position: relative;
     z-index: 1;
@@ -2212,6 +2224,202 @@ body.nerd-mode .nerd-sim {
     border: none;
     border-top: 1px solid var(--border);
     margin: 1rem 0;
+}
+
+/* ============ PLAYER PROFILE MODAL ============ */
+
+.profile-modal {
+    position: relative;
+    z-index: 1;
+    width: min(400px, 95%);
+    background: var(--bg-card);
+    border: 2px solid var(--accent-primary);
+    border-radius: var(--radius);
+    box-shadow: 0 0 30px rgba(0, 255, 65, 0.3);
+    padding: 1.5rem;
+    animation: profile-appear 0.15s ease-out;
+}
+
+@keyframes profile-appear {
+    from {
+        transform: scale(0.95) translateY(-10px);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+}
+
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.profile-avatar-wrapper {
+    flex-shrink: 0;
+}
+
+.profile-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 2px solid var(--accent-primary);
+    object-fit: cover;
+}
+
+.profile-avatar-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: var(--bg-secondary);
+    font-size: 1.5rem;
+}
+
+.profile-title-wrapper {
+    flex: 1;
+    min-width: 0;
+}
+
+.profile-header h2 {
+    color: var(--accent-primary);
+    margin: 0;
+    font-size: 1.3rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profile-joined {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+}
+
+.profile-header .btn-ghost {
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.profile-content {
+    position: relative;
+}
+
+.profile-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.profile-stats-grid:last-child {
+    margin-bottom: 0;
+}
+
+.profile-stat {
+    text-align: center;
+    padding: 0.75rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+}
+
+.profile-stat-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.profile-stat-label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-top: 0.25rem;
+}
+
+.profile-ranked-section {
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+}
+
+.profile-ranked-section h3 {
+    color: var(--accent-secondary);
+    font-size: 0.9rem;
+    margin: 0 0 1rem 0;
+}
+
+.profile-ranked-grid {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.profile-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-card);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.profile-loading.hidden {
+    display: none;
+}
+
+/* Clickable profile names */
+.clickable-profile {
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+
+.clickable-profile:hover {
+    color: var(--accent-primary);
+    text-decoration: underline;
+}
+
+/* Mini leaderboard clickable entries */
+.mini-lb-entry.clickable-profile {
+    cursor: pointer;
+}
+
+.mini-lb-entry.clickable-profile:hover {
+    background: var(--bg-secondary);
+}
+
+.mini-lb-entry.clickable-profile:hover .mini-lb-name {
+    color: var(--accent-primary);
+}
+
+/* Leaderboard table clickable rows */
+.leaderboard-table tr.clickable-profile {
+    cursor: pointer;
+}
+
+.leaderboard-table tr.clickable-profile:hover {
+    background: var(--bg-secondary);
+}
+
+.leaderboard-table tr.clickable-profile:hover .player-name {
+    color: var(--accent-primary);
+}
+
+/* Player card clickable names */
+.player-card .name.clickable-profile:hover {
+    color: var(--accent-primary);
 }
 
 /* ============ TOAST NOTIFICATIONS ============ */

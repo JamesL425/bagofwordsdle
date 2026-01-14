@@ -3925,6 +3925,71 @@ class handler(BaseHTTPRequestHandler):
                 "type": "ranked",
             })
 
+        # GET /api/profile/:name - Get player profile and stats
+        if path.startswith('/api/profile/'):
+            # Rate limit: 30/min for profile lookups
+            if not check_rate_limit(get_ratelimit_general(), f"profile:{client_ip}"):
+                return self._send_error("Too many requests. Please wait.", 429)
+            
+            player_name = path[len('/api/profile/'):]
+            if not player_name:
+                return self._send_error("Player name required", 400)
+            
+            # URL decode the name
+            import urllib.parse
+            player_name = urllib.parse.unquote(player_name)
+            
+            # Get casual stats by name
+            stats = get_player_stats(player_name)
+            
+            # Check if this player has a linked Google account (search users)
+            redis = get_redis()
+            user_data = None
+            ranked_stats = None
+            created_at = None
+            
+            # Try to find a Google user with this name
+            all_user_ids = redis.smembers('users:all') or []
+            for uid in all_user_ids:
+                if isinstance(uid, bytes):
+                    try:
+                        uid = uid.decode()
+                    except Exception:
+                        continue
+                user = get_user_by_id(uid)
+                if user and user.get('name', '').lower() == player_name.lower():
+                    user_data = user
+                    created_at = user.get('created_at')
+                    u_stats = get_user_stats(user)
+                    if u_stats.get('ranked_games', 0) > 0:
+                        ranked_stats = {
+                            "mmr": int(u_stats.get('mmr', 1000) or 1000),
+                            "peak_mmr": int(u_stats.get('peak_mmr', 1000) or 1000),
+                            "ranked_games": int(u_stats.get('ranked_games', 0) or 0),
+                            "ranked_wins": int(u_stats.get('ranked_wins', 0) or 0),
+                            "ranked_losses": int(u_stats.get('ranked_losses', 0) or 0),
+                        }
+                    break
+            
+            # Calculate win rate
+            games = stats.get('games_played', 0)
+            wins = stats.get('wins', 0)
+            win_rate = round((wins / games * 100), 1) if games > 0 else 0
+            
+            return self._send_json({
+                "name": stats.get('name', player_name),
+                "wins": wins,
+                "games_played": games,
+                "win_rate": win_rate,
+                "eliminations": stats.get('eliminations', 0),
+                "times_eliminated": stats.get('times_eliminated', 0),
+                "best_streak": stats.get('best_streak', 0),
+                "created_at": created_at,  # None if not a Google user
+                "has_google_account": user_data is not None,
+                "avatar": user_data.get('avatar', '') if user_data else None,
+                "ranked": ranked_stats,
+            })
+
         # GET /api/games/{code}/theme - Get theme for a game (before joining)
         if path.endswith('/theme') and path.startswith('/api/games/'):
             code = sanitize_game_code(path.split('/')[3])

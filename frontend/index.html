@@ -141,16 +141,13 @@
                 <span>Elimination SFX</span>
             </label>
             <hr class="option-divider">
-            <label class="option-row">
-                <input type="checkbox" id="opt-nerd-mode">
-                <span>🤓 Nerd Mode (show embedding details)</span>
-            </label>
             <button id="ml-info-btn" class="btn btn-secondary btn-small" style="margin-top: 1rem; width: 100%;">📊 How Embeddings Work</button>
         </div>
     </div>
 
     <!-- ML Info Modal -->
-    <div id="ml-info-modal" class="modal-overlay">
+    <div id="ml-info-modal" class="modal-overlay closable-modal">
+        <div class="modal-backdrop" data-close="true"></div>
         <div class="modal ml-info-modal">
             <div class="ml-info-header">
                 <h2>🧠 How EMBEDDLE Works</h2>
@@ -178,8 +175,66 @@
                 
                 <h3>Model</h3>
                 <p>We use <strong>GloVe embeddings</strong> (Global Vectors for Word Representation) trained on large text corpora, providing 300-dimensional vectors for ~400k words.</p>
-                
-                <p class="ml-footer">Enable <strong>Nerd Mode</strong> in options to see raw cosine similarity values!</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Player Profile Modal -->
+    <div id="profile-modal" class="modal-overlay closable-modal">
+        <div class="modal-backdrop" data-close="true"></div>
+        <div class="modal profile-modal">
+            <div class="profile-header">
+                <div class="profile-avatar-wrapper">
+                    <img id="profile-avatar" class="profile-avatar hidden" src="" alt="">
+                    <span id="profile-avatar-placeholder" class="profile-avatar-placeholder">👤</span>
+                </div>
+                <div class="profile-title-wrapper">
+                    <h2 id="profile-name">Player</h2>
+                    <span id="profile-joined" class="profile-joined"></span>
+                </div>
+                <button id="close-profile-btn" class="btn btn-ghost btn-tiny">×</button>
+            </div>
+            <div class="profile-content">
+                <div class="profile-stats-grid">
+                    <div class="profile-stat">
+                        <span class="profile-stat-value" id="profile-wins">0</span>
+                        <span class="profile-stat-label">Wins</span>
+                    </div>
+                    <div class="profile-stat">
+                        <span class="profile-stat-value" id="profile-games">0</span>
+                        <span class="profile-stat-label">Games</span>
+                    </div>
+                    <div class="profile-stat">
+                        <span class="profile-stat-value" id="profile-winrate">0%</span>
+                        <span class="profile-stat-label">Win Rate</span>
+                    </div>
+                    <div class="profile-stat">
+                        <span class="profile-stat-value" id="profile-elims">0</span>
+                        <span class="profile-stat-label">Eliminations</span>
+                    </div>
+                    <div class="profile-stat">
+                        <span class="profile-stat-value" id="profile-streak">0</span>
+                        <span class="profile-stat-label">Best Streak</span>
+                    </div>
+                </div>
+                <div id="profile-ranked-section" class="profile-ranked-section hidden">
+                    <h3>// RANKED</h3>
+                    <div class="profile-stats-grid profile-ranked-grid">
+                        <div class="profile-stat">
+                            <span class="profile-stat-value" id="profile-mmr">1000</span>
+                            <span class="profile-stat-label">MMR</span>
+                        </div>
+                        <div class="profile-stat">
+                            <span class="profile-stat-value" id="profile-peak-mmr">1000</span>
+                            <span class="profile-stat-label">Peak</span>
+                        </div>
+                        <div class="profile-stat">
+                            <span class="profile-stat-value" id="profile-ranked-record">0-0</span>
+                            <span class="profile-stat-label">W-L</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="profile-loading" class="profile-loading">Loading...</div>
             </div>
         </div>
     </div>

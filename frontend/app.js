@@ -384,7 +384,10 @@ async function pollChatOnce() {
         const res = await apiCall(`/api/games/${gameState.code}/chat?after=${chatState.lastId}&limit=50`);
         const msgs = Array.isArray(res?.messages) ? res.messages : [];
         if (msgs.length) {
-            chatState.messages = chatState.messages.concat(msgs);
+            // Deduplicate by ID to prevent double-showing sent messages
+            const existingIds = new Set(chatState.messages.map(m => m.id));
+            const newMsgs = msgs.filter(m => !existingIds.has(m.id));
+            chatState.messages = chatState.messages.concat(newMsgs);
             // Trim memory
             if (chatState.messages.length > 300) {
                 chatState.messages = chatState.messages.slice(-300);
@@ -1156,6 +1159,133 @@ document.getElementById('close-ml-info-btn')?.addEventListener('click', () => {
     if (modal) modal.classList.remove('show');
 });
 
+// Generic closable modal handlers (for modals with .closable-modal class)
+document.addEventListener('click', (e) => {
+    // Close modal when clicking on backdrop with data-close attribute
+    if (e.target?.dataset?.close) {
+        const modal = e.target.closest('.closable-modal');
+        if (modal) modal.classList.remove('show');
+    }
+});
+
+// Escape key closes any open closable modal
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const openModals = document.querySelectorAll('.closable-modal.show');
+        openModals.forEach(modal => modal.classList.remove('show'));
+    }
+});
+
+// ============ PLAYER PROFILE MODAL ============
+
+let profileModalInFlight = false;
+
+async function openProfileModal(playerName) {
+    if (!playerName || profileModalInFlight) return;
+    
+    const modal = document.getElementById('profile-modal');
+    if (!modal) return;
+    
+    // Show modal immediately with loading state
+    const loadingEl = document.getElementById('profile-loading');
+    const statsGrid = modal.querySelector('.profile-stats-grid');
+    const rankedSection = document.getElementById('profile-ranked-section');
+    
+    // Reset to loading state
+    if (loadingEl) loadingEl.classList.remove('hidden');
+    if (rankedSection) rankedSection.classList.add('hidden');
+    
+    // Set placeholder values
+    document.getElementById('profile-name').textContent = playerName;
+    document.getElementById('profile-joined').textContent = '';
+    document.getElementById('profile-avatar').classList.add('hidden');
+    document.getElementById('profile-avatar-placeholder').classList.remove('hidden');
+    
+    modal.classList.add('show');
+    
+    profileModalInFlight = true;
+    try {
+        const data = await apiCall(`/api/profile/${encodeURIComponent(playerName)}`);
+        
+        // Update name (might be different case)
+        document.getElementById('profile-name').textContent = data.name || playerName;
+        
+        // Update avatar
+        const avatarEl = document.getElementById('profile-avatar');
+        const placeholderEl = document.getElementById('profile-avatar-placeholder');
+        if (data.avatar) {
+            avatarEl.src = data.avatar;
+            avatarEl.classList.remove('hidden');
+            placeholderEl.classList.add('hidden');
+        } else {
+            avatarEl.classList.add('hidden');
+            placeholderEl.classList.remove('hidden');
+        }
+        
+        // Update joined date
+        const joinedEl = document.getElementById('profile-joined');
+        if (data.created_at) {
+            const joinDate = new Date(data.created_at * 1000);
+            const now = new Date();
+            const diffDays = Math.floor((now - joinDate) / (1000 * 60 * 60 * 24));
+            
+            let timeAgo;
+            if (diffDays === 0) {
+                timeAgo = 'today';
+            } else if (diffDays === 1) {
+                timeAgo = 'yesterday';
+            } else if (diffDays < 30) {
+                timeAgo = `${diffDays} days ago`;
+            } else if (diffDays < 365) {
+                const months = Math.floor(diffDays / 30);
+                timeAgo = months === 1 ? '1 month ago' : `${months} months ago`;
+            } else {
+                const years = Math.floor(diffDays / 365);
+                timeAgo = years === 1 ? '1 year ago' : `${years} years ago`;
+            }
+            joinedEl.textContent = `Playing since ${joinDate.toLocaleDateString()} (${timeAgo})`;
+        } else {
+            joinedEl.textContent = data.has_google_account ? '' : 'Guest player';
+        }
+        
+        // Update stats
+        document.getElementById('profile-wins').textContent = data.wins || 0;
+        document.getElementById('profile-games').textContent = data.games_played || 0;
+        document.getElementById('profile-winrate').textContent = `${data.win_rate || 0}%`;
+        document.getElementById('profile-elims').textContent = data.eliminations || 0;
+        document.getElementById('profile-streak').textContent = data.best_streak || 0;
+        
+        // Update ranked section
+        if (data.ranked) {
+            document.getElementById('profile-mmr').textContent = data.ranked.mmr || 1000;
+            document.getElementById('profile-peak-mmr').textContent = data.ranked.peak_mmr || 1000;
+            document.getElementById('profile-ranked-record').textContent = 
+                `${data.ranked.ranked_wins || 0}-${data.ranked.ranked_losses || 0}`;
+            rankedSection.classList.remove('hidden');
+        } else {
+            rankedSection.classList.add('hidden');
+        }
+        
+        // Hide loading
+        if (loadingEl) loadingEl.classList.add('hidden');
+        
+    } catch (e) {
+        console.error('Failed to load profile:', e);
+        // Show error state but keep modal open
+        if (loadingEl) loadingEl.textContent = 'Failed to load profile';
+    } finally {
+        profileModalInFlight = false;
+    }
+}
+
+function closeProfileModal() {
+    const modal = document.getElementById('profile-modal');
+    if (modal) modal.classList.remove('show');
+}
+
+// Profile modal close button
+document.getElementById('close-profile-btn')?.addEventListener('click', closeProfileModal);
+
 // Global button click SFX (placeholder)
 document.addEventListener('click', (e) => {
     const btn = e.target?.closest?.('button.btn');
@@ -1737,12 +1867,13 @@ async function loadCasualLeaderboard(type = 'alltime') {
             const winRate = games > 0 ? Math.round((wins / games) * 100) : 0;
             const weeklyWins = Number(p?.weekly_wins || 0);
             const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
+            const playerName = p?.name || '';
 
             if (type === 'weekly') {
                 return `
-                    <tr>
+                    <tr class="clickable-profile" data-player-name="${escapeHtml(playerName)}">
                         <td class="rank ${rankClass}">${escapeHtml(idx + 1)}</td>
-                        <td class="player-name">${escapeHtml(p?.name || '')}</td>
+                        <td class="player-name">${escapeHtml(playerName)}</td>
                         <td class="stat">${escapeHtml(weeklyWins)}</td>
                         <td class="stat">${escapeHtml(wins)}</td>
                         <td class="stat">${escapeHtml(games)}</td>
@@ -1752,9 +1883,9 @@ async function loadCasualLeaderboard(type = 'alltime') {
             }
 
             return `
-                <tr>
+                <tr class="clickable-profile" data-player-name="${escapeHtml(playerName)}">
                     <td class="rank ${rankClass}">${escapeHtml(idx + 1)}</td>
-                    <td class="player-name">${escapeHtml(p?.name || '')}</td>
+                    <td class="player-name">${escapeHtml(playerName)}</td>
                     <td class="stat">${escapeHtml(wins)}</td>
                     <td class="stat">${escapeHtml(games)}</td>
                     <td class="win-rate">${escapeHtml(winRate)}%</td>
@@ -1763,6 +1894,14 @@ async function loadCasualLeaderboard(type = 'alltime') {
         }).join('');
 
         renderLeaderboardTable('casual-leaderboard-table', headers, rows);
+        
+        // Add click handlers for profile viewing
+        container.querySelectorAll('.clickable-profile').forEach(el => {
+            el.addEventListener('click', () => {
+                const name = el.dataset.playerName;
+                if (name) openProfileModal(name);
+            });
+        });
     } catch (e) {
         renderLeaderboardTable('casual-leaderboard-table', ['Rank', 'Player', 'Wins'], '');
     }
@@ -1785,10 +1924,11 @@ async function loadRankedLeaderboard() {
             const losses = Number(p?.ranked_losses || 0);
             const tier = getRankTier(mmr);
             const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
+            const playerName = p?.name || '';
             return `
-                <tr>
+                <tr class="clickable-profile" data-player-name="${escapeHtml(playerName)}">
                     <td class="rank ${rankClass}">${escapeHtml(idx + 1)}</td>
-                    <td class="player-name">${escapeHtml(p?.name || '')}</td>
+                    <td class="player-name">${escapeHtml(playerName)}</td>
                     <td class="stat">${renderRankBadge(tier)}</td>
                     <td class="stat">${escapeHtml(mmr)}</td>
                     <td class="stat">${escapeHtml(peak)}</td>
@@ -1799,6 +1939,14 @@ async function loadRankedLeaderboard() {
         }).join('');
 
         renderLeaderboardTable('ranked-leaderboard-table', headers, rows);
+        
+        // Add click handlers for profile viewing
+        container.querySelectorAll('.clickable-profile').forEach(el => {
+            el.addEventListener('click', () => {
+                const name = el.dataset.playerName;
+                if (name) openProfileModal(name);
+            });
+        });
     } catch (e) {
         renderLeaderboardTable('ranked-leaderboard-table', ['Rank', 'Player', 'MMR'], '');
     }
@@ -1842,16 +1990,25 @@ async function loadMiniLeaderboard() {
         players.forEach((p, idx) => {
             const wins = Number(p?.wins || 0);
             const isTop3 = idx < 3;
+            const playerName = p?.name || 'Unknown';
             html += `
-                <div class="mini-lb-entry ${isTop3 ? 'top-3' : ''}">
+                <div class="mini-lb-entry ${isTop3 ? 'top-3' : ''} clickable-profile" data-player-name="${escapeHtml(playerName)}">
                     <span class="mini-lb-rank">#${idx + 1}</span>
-                    <span class="mini-lb-name">${escapeHtml(p?.name || 'Unknown')}</span>
+                    <span class="mini-lb-name">${escapeHtml(playerName)}</span>
                     <span class="mini-lb-score">${wins} wins</span>
                 </div>
             `;
         });
         
         container.innerHTML = html;
+        
+        // Add click handlers for profile viewing
+        container.querySelectorAll('.clickable-profile').forEach(el => {
+            el.addEventListener('click', () => {
+                const name = el.dataset.playerName;
+                if (name) openProfileModal(name);
+            });
+        });
     } catch (e) {
         console.error('Failed to load mini-leaderboard:', e);
         container.innerHTML = '<p class="loading-lobbies">Failed to load.</p>';
@@ -2180,12 +2337,25 @@ async function updateLobby() {
         
         // Update players list
         const playersList = document.getElementById('lobby-players');
-        playersList.innerHTML = data.players.map(p => `
-            <div class="lobby-player ${p.id === data.host_id ? 'host' : ''}">
-                <span class="player-name">${escapeHtml(p.name)}${p.id === gameState.playerId ? ' (you)' : ''}</span>
-                ${p.id === data.host_id ? '<span class="host-badge">HOST</span>' : ''}
-            </div>
-        `).join('');
+        playersList.innerHTML = data.players.map(p => {
+            const isAI = p.is_ai;
+            const clickableClass = !isAI ? 'clickable-profile' : '';
+            const dataAttr = !isAI ? `data-player-name="${escapeHtml(p.name)}"` : '';
+            return `
+                <div class="lobby-player ${p.id === data.host_id ? 'host' : ''}">
+                    <span class="player-name ${clickableClass}" ${dataAttr}>${escapeHtml(p.name)}${p.id === gameState.playerId ? ' (you)' : ''}</span>
+                    ${p.id === data.host_id ? '<span class="host-badge">HOST</span>' : ''}
+                </div>
+            `;
+        }).join('');
+        
+        // Add click handlers for profile viewing (non-AI players only)
+        playersList.querySelectorAll('.clickable-profile').forEach(el => {
+            el.addEventListener('click', () => {
+                const name = el.dataset.playerName;
+                if (name) openProfileModal(name);
+            });
+        });
         
         document.getElementById('player-count').textContent = data.players.length;
         
@@ -2313,12 +2483,25 @@ async function updateWordSelectScreen() {
         document.getElementById('total-count').textContent = data.players.length;
         
         const statusList = document.getElementById('player-status-list');
-        statusList.innerHTML = data.players.map(p => `
-            <div class="player-status-item ${p.has_word ? 'locked' : ''}">
-                <span>${escapeHtml(p.name)}${p.id === gameState.playerId ? ' (you)' : ''}</span>
-                <span>${p.has_word ? '✓ LOCKED' : '○ SELECTING'}</span>
-            </div>
-        `).join('');
+        statusList.innerHTML = data.players.map(p => {
+            const isAI = p.is_ai;
+            const clickableClass = !isAI ? 'clickable-profile' : '';
+            const dataAttr = !isAI ? `data-player-name="${escapeHtml(p.name)}"` : '';
+            return `
+                <div class="player-status-item ${p.has_word ? 'locked' : ''}">
+                    <span class="${clickableClass}" ${dataAttr}>${escapeHtml(p.name)}${p.id === gameState.playerId ? ' (you)' : ''}</span>
+                    <span>${p.has_word ? '✓ LOCKED' : '○ SELECTING'}</span>
+                </div>
+            `;
+        }).join('');
+        
+        // Add click handlers for profile viewing (non-AI players only)
+        statusList.querySelectorAll('.clickable-profile').forEach(el => {
+            el.addEventListener('click', () => {
+                const name = el.dataset.playerName;
+                if (name) openProfileModal(name);
+            });
+        });
         
         // Show host controls if all locked
         const myPlayer = data.players.find(p => p.id === gameState.playerId);
@@ -2976,14 +3159,30 @@ function updatePlayersGrid(game) {
             topGuessesHtml = '<div class="word-changed-note">Word changed!</div>';
         }
         
+        // Build name HTML with clickable profile (for non-AI players)
+        const nameClickable = !isAI ? 'clickable-profile' : '';
+        const nameDataAttr = !isAI ? `data-player-name="${escapeHtml(player.name)}"` : '';
+        
         div.innerHTML = `
             ${dangerHtml}
-            <div class="name ${nameColorClass}">${escapeHtml(player.name)}${aiDifficultyBadge}${badgeHtml}${isYou ? ' (you)' : ''}</div>
+            <div class="name ${nameColorClass} ${nameClickable}" ${nameDataAttr}>${escapeHtml(player.name)}${aiDifficultyBadge}${badgeHtml}${isYou ? ' (you)' : ''}</div>
             <div class="status ${player.is_alive ? 'alive' : 'eliminated'}">
                 ${player.is_alive ? 'Alive' : 'Eliminated'}
             </div>
             ${topGuessesHtml}
         `;
+        
+        // Add click handler for profile viewing (non-AI players only)
+        if (!isAI) {
+            const nameEl = div.querySelector('.name.clickable-profile');
+            if (nameEl) {
+                nameEl.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Don't trigger card click
+                    openProfileModal(player.name);
+                });
+            }
+        }
+        
         grid.appendChild(div);
     });
 }
@@ -3433,6 +3632,7 @@ function showGameOver(game) {
     
     game.players.forEach(player => {
         const isWinnerPlayer = player.id === game.winner;
+        const isAI = player.is_ai;
         const div = document.createElement('div');
         div.className = `revealed-word-item${isWinnerPlayer ? ' winner' : ''}${!player.is_alive ? ' eliminated' : ''}`;
 
@@ -3447,11 +3647,23 @@ function showGameOver(game) {
             `;
         }
 
+        const clickableClass = !isAI ? 'clickable-profile' : '';
+        const dataAttr = !isAI ? `data-player-name="${escapeHtml(player.name)}"` : '';
+        
         div.innerHTML = `
-            <span class="player-name">${escapeHtml(player.name)}${isWinnerPlayer ? ' 👑' : ''}</span>
+            <span class="player-name ${clickableClass}" ${dataAttr}>${escapeHtml(player.name)}${isWinnerPlayer ? ' 👑' : ''}</span>
             <span class="player-word">${escapeHtml(player.secret_word) || '???'}</span>
             ${mmrHtml}
         `;
+        
+        // Add click handler for profile viewing (non-AI players only)
+        if (!isAI) {
+            const nameEl = div.querySelector('.clickable-profile');
+            if (nameEl) {
+                nameEl.addEventListener('click', () => openProfileModal(player.name));
+            }
+        }
+        
         revealedWords.appendChild(div);
     });
     
@@ -4002,12 +4214,25 @@ function showSpectateLobby(game) {
     // Players list
     const playersList = document.getElementById('lobby-players');
     if (playersList) {
-        playersList.innerHTML = (game.players || []).map(p => `
-            <div class="lobby-player ${p.id === game.host_id ? 'host' : ''}">
-                <span class="player-name">${escapeHtml(p.name)}</span>
-                ${p.id === game.host_id ? '<span class="host-badge">HOST</span>' : ''}
-            </div>
-        `).join('');
+        playersList.innerHTML = (game.players || []).map(p => {
+            const isAI = p.is_ai;
+            const clickableClass = !isAI ? 'clickable-profile' : '';
+            const dataAttr = !isAI ? `data-player-name="${escapeHtml(p.name)}"` : '';
+            return `
+                <div class="lobby-player ${p.id === game.host_id ? 'host' : ''}">
+                    <span class="player-name ${clickableClass}" ${dataAttr}>${escapeHtml(p.name)}</span>
+                    ${p.id === game.host_id ? '<span class="host-badge">HOST</span>' : ''}
+                </div>
+            `;
+        }).join('');
+        
+        // Add click handlers for profile viewing (non-AI players only)
+        playersList.querySelectorAll('.clickable-profile').forEach(el => {
+            el.addEventListener('click', () => {
+                const name = el.dataset.playerName;
+                if (name) openProfileModal(name);
+            });
+        });
     }
 
     const countEl = document.getElementById('player-count');
