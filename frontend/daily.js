@@ -559,11 +559,28 @@ function renderDailyShop() {
     
     let html = '';
     
-    // Render bundles first (featured section)
+    // Render bundles first (featured section) - ROTATING DAILY
     const bundles = cosmeticsState.catalog.bundles || {};
-    if (Object.keys(bundles).length > 0) {
-        html += `<div class="shop-category shop-bundles"><div class="shop-category-label">🎁 BUNDLES (Save Credits!)</div>`;
-        for (const [bundleId, bundle] of Object.entries(bundles)) {
+    const bundleIds = Object.keys(bundles);
+    if (bundleIds.length > 0) {
+        // Get today's featured bundles (rotate based on day of year)
+        const today = new Date();
+        const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
+        
+        // Show 2 bundles per day, rotating through all bundles
+        const bundlesPerDay = 2;
+        const startIndex = (dayOfYear * bundlesPerDay) % bundleIds.length;
+        
+        // Select today's featured bundles
+        const featuredBundleIds = [];
+        for (let i = 0; i < Math.min(bundlesPerDay, bundleIds.length); i++) {
+            const idx = (startIndex + i) % bundleIds.length;
+            featuredBundleIds.push(bundleIds[idx]);
+        }
+        
+        html += `<div class="shop-category shop-bundles"><div class="shop-category-label">🎁 TODAY'S BUNDLES (Save Credits!)</div>`;
+        for (const bundleId of featuredBundleIds) {
+            const bundle = bundles[bundleId];
             const price = parseInt(bundle.price || 0, 10);
             const value = parseInt(bundle.value || 0, 10);
             const canAfford = dailyState.wallet.credits >= price;

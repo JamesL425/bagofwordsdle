@@ -3086,16 +3086,40 @@ function updateSidebarMeta(game) {
         modeBadge.className = `mode-badge ${isRanked ? 'ranked' : 'casual'}`;
     }
 
+    // Calculate round number based on complete rounds where all alive players have guessed
+    // A round completes when every alive player has had their turn
     const history = Array.isArray(game?.history) ? game.history : [];
-    const guessEntries = history
-        // Only count actual guess turns here (forfeit reveals include a word but are not a "turn")
-        .filter(e => e && e.word && e.type !== 'forfeit' && e.type !== 'word_change');
-
     const players = Array.isArray(game?.players) ? game.players : [];
     const totalPlayers = players.length || 1;
     
-    // Simple round calculation: floor(guesses / players) + 1
-    const roundNumber = Math.floor(guessEntries.length / totalPlayers) + 1;
+    // Count guesses per round, accounting for eliminations
+    // We track which round each guess belongs to by simulating the game
+    let roundNumber = 1;
+    let guessesInCurrentRound = 0;
+    let aliveCount = totalPlayers; // Start with all players alive
+    
+    for (const entry of history) {
+        if (entry.type === 'forfeit' || entry.type === 'word_change') {
+            // Forfeits and word changes don't count as turns
+            continue;
+        }
+        
+        if (entry.word) {
+            guessesInCurrentRound++;
+            
+            // Check if this guess caused eliminations
+            const eliminations = entry.eliminations || [];
+            aliveCount -= eliminations.length;
+            
+            // If we've had enough guesses for all alive players (before eliminations), round is complete
+            // We use the alive count BEFORE eliminations for the round threshold
+            const playersBeforeElim = aliveCount + eliminations.length;
+            if (guessesInCurrentRound >= playersBeforeElim) {
+                roundNumber++;
+                guessesInCurrentRound = 0;
+            }
+        }
+    }
     
     turnEl.textContent = String(roundNumber);
 

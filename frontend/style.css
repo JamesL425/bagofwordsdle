@@ -679,7 +679,6 @@ header h1 {
     border-color: var(--accent-primary);
     background: var(--bg-hover);
 }
-}
 
 .protocol-cards {
     display: grid;
@@ -1091,6 +1090,15 @@ header h1 {
     overflow: hidden;
     min-height: 0;
     max-height: 100%;
+}
+
+/* The host container must fill the log column */
+#game-log-host {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
 }
 
 /* Let the log fill its container and scroll internally (desktop + tablet) */
@@ -3492,7 +3500,6 @@ body.nerd-mode .nerd-sim {
 
 .theme-word:active {
     transform: translateY(0);
-}
 }
 
 .lobby-theme {

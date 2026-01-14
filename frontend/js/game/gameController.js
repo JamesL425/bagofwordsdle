@@ -52,11 +52,34 @@ export function updateSidebarMeta(game) {
     const specEl = document.getElementById('spectator-count');
     if (!turnEl || !specEl) return;
 
+    // Calculate round number based on complete rounds where all alive players have guessed
     const history = Array.isArray(game?.history) ? game.history : [];
-    const guessCount = history.filter(e => e && e.word && e.type !== 'forfeit').length;
+    const players = Array.isArray(game?.players) ? game.players : [];
+    const totalPlayers = players.length || 1;
     
-    const alivePlayers = game.players?.filter(p => p.is_alive).length || 1;
-    const roundNumber = Math.floor(guessCount / alivePlayers) + 1;
+    // Count guesses per round, accounting for eliminations
+    let roundNumber = 1;
+    let guessesInCurrentRound = 0;
+    let aliveCount = totalPlayers;
+    
+    for (const entry of history) {
+        if (entry.type === 'forfeit' || entry.type === 'word_change') {
+            continue;
+        }
+        
+        if (entry.word) {
+            guessesInCurrentRound++;
+            
+            const eliminations = entry.eliminations || [];
+            aliveCount -= eliminations.length;
+            
+            const playersBeforeElim = aliveCount + eliminations.length;
+            if (guessesInCurrentRound >= playersBeforeElim) {
+                roundNumber++;
+                guessesInCurrentRound = 0;
+            }
+        }
+    }
     
     turnEl.textContent = String(roundNumber);
     specEl.textContent = String(game.spectator_count || 0);
