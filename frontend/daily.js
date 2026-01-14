@@ -53,7 +53,7 @@ function closeDailyPanel() {
 // ============ LOAD DAILY DATA ============
 
 async function loadDaily() {
-    if (!gameState.authToken) {
+    if (typeof gameState === 'undefined' || !gameState.authToken) {
         renderDailyNoAuth();
         return;
     }
@@ -123,7 +123,7 @@ async function loadDaily() {
 // ============ CLAIM QUEST ============
 
 async function claimQuest(questId, questType = 'daily') {
-    if (!gameState.authToken) {
+    if (typeof gameState === 'undefined' || !gameState.authToken) {
         showError('Please sign in with Google to claim quests');
         return;
     }
@@ -165,7 +165,7 @@ async function claimQuest(questId, questType = 'daily') {
 // ============ PURCHASE COSMETIC ============
 
 async function purchaseCosmetic(category, cosmeticId) {
-    if (!gameState.authToken) {
+    if (typeof gameState === 'undefined' || !gameState.authToken) {
         showError('Please sign in with Google to purchase cosmetics');
         return;
     }
@@ -208,7 +208,7 @@ async function purchaseCosmetic(category, cosmeticId) {
 }
 
 async function purchaseBundle(bundleId) {
-    if (!gameState.authToken) {
+    if (typeof gameState === 'undefined' || !gameState.authToken) {
         showError('Please sign in with Google to purchase bundles');
         return;
     }

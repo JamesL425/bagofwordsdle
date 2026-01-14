@@ -2,7 +2,7 @@
  * EMBEDDLE - Client Application
  */
 
-const API_BASE = window.location.origin;
+// API_BASE is defined in cosmetics.js (loaded first)
 
 // ============ SECURITY UTILITIES ============
 

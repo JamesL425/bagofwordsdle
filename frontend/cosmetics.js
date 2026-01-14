@@ -3,6 +3,9 @@
  * Handles cosmetic effects, backgrounds, and visual customizations
  */
 
+// API base URL - defined here since this is the first script to load
+const API_BASE = window.location.origin;
+
 // Cosmetics state
 let cosmeticsState = {
     catalog: null,
@@ -32,7 +35,7 @@ async function loadCosmeticsCatalog() {
 }
 
 async function loadUserCosmetics() {
-    if (!gameState.authToken) return;
+    if (typeof gameState === 'undefined' || !gameState.authToken) return;
     try {
         const response = await fetch(`${API_BASE}/api/user/cosmetics`, {
             headers: { 'Authorization': `Bearer ${gameState.authToken}` }
@@ -58,7 +61,7 @@ async function loadUserCosmetics() {
 }
 
 async function equipCosmetic(category, cosmeticId) {
-    if (!gameState.authToken) {
+    if (typeof gameState === 'undefined' || !gameState.authToken) {
         showError('Please sign in with Google to use cosmetics');
         return false;
     }
