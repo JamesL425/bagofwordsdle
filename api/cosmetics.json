@@ -398,6 +398,42 @@
       "premium": false,
       "requirements": [{ "metric": "mp_eliminations", "min": 100 }]
     },
+    "crystallize": {
+      "name": "Crystallize",
+      "description": "Frozen solid then shattered (75 MP eliminations)",
+      "premium": false,
+      "requirements": [{ "metric": "mp_eliminations", "min": 75 }]
+    },
+    "gravity_well": {
+      "name": "Gravity Well",
+      "description": "Pulled into oblivion (125 MP eliminations)",
+      "premium": false,
+      "requirements": [{ "metric": "mp_eliminations", "min": 125 }]
+    },
+    "melt_down": {
+      "name": "Melt Down",
+      "description": "Melting into nothing (50 MP wins)",
+      "premium": false,
+      "requirements": [{ "metric": "mp_wins", "min": 50 }]
+    },
+    "ink_bleed": {
+      "name": "Ink Bleed",
+      "description": "Consumed by spreading darkness (Shop)",
+      "premium": false,
+      "price": 850
+    },
+    "burn_away": {
+      "name": "Burn Away",
+      "description": "Consumed by flames (Shop)",
+      "premium": false,
+      "price": 900
+    },
+    "static_wipe": {
+      "name": "Static Wipe",
+      "description": "Signal lost (Shop)",
+      "premium": false,
+      "price": 700
+    },
     "black_hole": {
       "name": "Black Hole",
       "description": "Sucked into singularity (Shop)",
@@ -411,7 +447,8 @@
       "price": 750
     },
     "disintegrate": { "name": "Disintegrate", "description": "Dust to void (Supporter)", "premium": true },
-    "void": { "name": "Void", "description": "Sucked into the void (Supporter)", "premium": true }
+    "void": { "name": "Void", "description": "Sucked into the void (Supporter)", "premium": true },
+    "soul_drain": { "name": "Soul Drain", "description": "Spirit departing (Supporter)", "premium": true }
   },
   "guess_effects": {
     "classic": { "name": "Classic", "description": "Simple submit", "premium": false },
@@ -769,6 +806,192 @@
         "name_color": "amber"
       },
       "value": 370
+    }
+  },
+  "profile_titles": {
+    "none": { "name": "None", "description": "No title", "premium": false, "text": "" },
+    "newcomer": {
+      "name": "The Newcomer",
+      "description": "Welcome to Embeddle (First game!)",
+      "premium": false,
+      "text": "The Newcomer",
+      "requirements": [{ "metric": "mp_games_played", "min": 1 }]
+    },
+    "word_hunter": {
+      "name": "Word Hunter",
+      "description": "Hunting for words (25 MP eliminations)",
+      "premium": false,
+      "text": "Word Hunter",
+      "requirements": [{ "metric": "mp_eliminations", "min": 25 }]
+    },
+    "semantic_scholar": {
+      "name": "Semantic Scholar",
+      "description": "Student of meaning (50 MP games)",
+      "premium": false,
+      "text": "Semantic Scholar",
+      "requirements": [{ "metric": "mp_games_played", "min": 50 }]
+    },
+    "embedding_master": {
+      "name": "Embedding Master",
+      "description": "Master of vectors (100 MP wins)",
+      "premium": false,
+      "text": "Embedding Master",
+      "requirements": [{ "metric": "mp_wins", "min": 100 }]
+    },
+    "the_eliminator": {
+      "name": "The Eliminator",
+      "description": "Fear the eliminator (200 MP eliminations)",
+      "premium": false,
+      "text": "The Eliminator",
+      "requirements": [{ "metric": "mp_eliminations", "min": 200 }]
+    },
+    "veteran_agent": {
+      "name": "Veteran Agent",
+      "description": "Seasoned operative (150 MP games)",
+      "premium": false,
+      "text": "Veteran Agent",
+      "requirements": [{ "metric": "mp_games_played", "min": 150 }]
+    },
+    "apex_predator": {
+      "name": "Apex Predator",
+      "description": "Top of the food chain (Shop)",
+      "premium": false,
+      "text": "Apex Predator",
+      "price": 1500
+    },
+    "shadow_broker": {
+      "name": "Shadow Broker",
+      "description": "Information dealer (Shop)",
+      "premium": false,
+      "text": "Shadow Broker",
+      "price": 1200
+    },
+    "code_breaker": {
+      "name": "Code Breaker",
+      "description": "Cracking the cipher (Shop)",
+      "premium": false,
+      "text": "Code Breaker",
+      "price": 800
+    },
+    "neural_architect": {
+      "name": "Neural Architect",
+      "description": "Builder of minds (Supporter)",
+      "premium": true,
+      "text": "Neural Architect"
+    },
+    "void_walker": {
+      "name": "Void Walker",
+      "description": "Between dimensions (Supporter)",
+      "premium": true,
+      "text": "Void Walker"
+    }
+  },
+  "profile_banners": {
+    "none": { "name": "None", "description": "No banner", "premium": false },
+    "circuit_pattern": {
+      "name": "Circuit",
+      "description": "Tech circuitry pattern (10 MP games)",
+      "premium": false,
+      "requirements": [{ "metric": "mp_games_played", "min": 10 }]
+    },
+    "hexagon_grid": {
+      "name": "Hexagon",
+      "description": "Honeycomb pattern (25 MP games)",
+      "premium": false,
+      "requirements": [{ "metric": "mp_games_played", "min": 25 }]
+    },
+    "wave_pattern": {
+      "name": "Wave",
+      "description": "Flowing waves (10 MP wins)",
+      "premium": false,
+      "requirements": [{ "metric": "mp_wins", "min": 10 }]
+    },
+    "cosmic_dust": {
+      "name": "Cosmic",
+      "description": "Stardust particles (50 MP games)",
+      "premium": false,
+      "requirements": [{ "metric": "mp_games_played", "min": 50 }]
+    },
+    "binary_stream": {
+      "name": "Binary",
+      "description": "Digital data flow (Shop)",
+      "premium": false,
+      "price": 600
+    },
+    "neon_grid": {
+      "name": "Neon Grid",
+      "description": "Retro neon lines (Shop)",
+      "premium": false,
+      "price": 800
+    },
+    "plasma_field": {
+      "name": "Plasma Field",
+      "description": "Swirling energy (Shop)",
+      "premium": false,
+      "price": 1000
+    },
+    "aurora_waves": {
+      "name": "Aurora",
+      "description": "Northern lights (Supporter)",
+      "premium": true
+    }
+  },
+  "profile_accents": {
+    "default": { "name": "Matrix Green", "description": "Default accent", "premium": false, "color": "#00ff41" },
+    "cyber_cyan": {
+      "name": "Cyber Cyan",
+      "description": "Cool cyan accent (5 MP games)",
+      "premium": false,
+      "color": "#00e5ff",
+      "requirements": [{ "metric": "mp_games_played", "min": 5 }]
+    },
+    "neon_pink": {
+      "name": "Neon Pink",
+      "description": "Hot pink accent (15 MP games)",
+      "premium": false,
+      "color": "#ff00ff",
+      "requirements": [{ "metric": "mp_games_played", "min": 15 }]
+    },
+    "solar_gold": {
+      "name": "Solar Gold",
+      "description": "Golden accent (25 MP wins)",
+      "premium": false,
+      "color": "#ffd700",
+      "requirements": [{ "metric": "mp_wins", "min": 25 }]
+    },
+    "toxic_green": {
+      "name": "Toxic Green",
+      "description": "Radioactive green (50 MP eliminations)",
+      "premium": false,
+      "color": "#39ff14",
+      "requirements": [{ "metric": "mp_eliminations", "min": 50 }]
+    },
+    "royal_purple": {
+      "name": "Royal Purple",
+      "description": "Majestic purple (Shop)",
+      "premium": false,
+      "color": "#9933ff",
+      "price": 400
+    },
+    "blood_red": {
+      "name": "Blood Red",
+      "description": "Crimson accent (Shop)",
+      "premium": false,
+      "color": "#dc143c",
+      "price": 500
+    },
+    "ice_blue": {
+      "name": "Ice Blue",
+      "description": "Frozen accent (Shop)",
+      "premium": false,
+      "color": "#00ccff",
+      "price": 400
+    },
+    "sunset_orange": {
+      "name": "Sunset Orange",
+      "description": "Warm sunset (Supporter)",
+      "premium": true,
+      "color": "#ff6b35"
     }
   }
 }

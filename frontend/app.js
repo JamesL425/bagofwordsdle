@@ -3119,10 +3119,17 @@ function updatePlayersGrid(game) {
             ? getNameColorClass(player.cosmetics) : '';
         const badgeHtml = typeof getBadgeHtml === 'function'
             ? getBadgeHtml(player.cosmetics) : '';
+        const titleHtml = typeof getTitleHtml === 'function'
+            ? getTitleHtml(player.cosmetics) : '';
         
         const div = document.createElement('div');
         div.className = `player-card${isCurrentTurn ? ' current-turn' : ''}${!player.is_alive ? ' eliminated' : ''}${isYou ? ' is-you' : ''}${isAI ? ' is-ai' : ''} ${cosmeticClasses}`;
         div.dataset.playerId = player.id;
+        
+        // Apply profile banner if set
+        if (player.cosmetics && player.cosmetics.profile_banner && player.cosmetics.profile_banner !== 'none') {
+            div.dataset.banner = player.cosmetics.profile_banner;
+        }
         
         // Check if this player recently changed their word
         const hasChangedWord = wordChangeAfterIndex[player.id] !== undefined;
@@ -3169,7 +3176,7 @@ function updatePlayersGrid(game) {
         
         div.innerHTML = `
             ${dangerHtml}
-            <div class="name ${nameColorClass} ${nameClickable}" ${nameDataAttr}>${escapeHtml(player.name)}${aiDifficultyBadge}${badgeHtml}${isYou ? ' (you)' : ''}</div>
+            <div class="name ${nameColorClass} ${nameClickable}" ${nameDataAttr}>${escapeHtml(player.name)}${aiDifficultyBadge}${badgeHtml}${isYou ? ' (you)' : ''}${titleHtml}</div>
             <div class="status ${player.is_alive ? 'alive' : 'eliminated'}">
                 ${player.is_alive ? 'Alive' : 'Eliminated'}
             </div>

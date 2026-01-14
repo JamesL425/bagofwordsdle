@@ -151,6 +151,7 @@ function updateCosmeticsPanel() {
         ['card_background', 'card_backgrounds', 'Card Background'],
         ['name_color', 'name_colors', 'Name Color'],
         ['badge', 'badges', 'Badge'],
+        ['profile_title', 'profile_titles', 'Profile Title'],
         ['elimination_effect', 'elimination_effects', 'Elimination Effect'],
         ['guess_effect', 'guess_effects', 'Guess Effect'],
         ['turn_indicator', 'turn_indicators', 'Turn Indicator'],
@@ -169,6 +170,8 @@ function updateCosmeticsPanel() {
         ['particle_overlay', 'particle_overlays', 'Particles'],
         ['seasonal_theme', 'seasonal_themes', 'Seasonal'],
         ['alt_background', 'alt_backgrounds', 'Background'],
+        ['profile_banner', 'profile_banners', 'Profile Banner'],
+        ['profile_accent', 'profile_accents', 'Profile Accent'],
     ];
     
     personalCategories.forEach(([key, catalogKey, label]) => {
@@ -236,12 +239,28 @@ function updateCosmeticsPreview() {
     const cosmeticClasses = typeof getPlayerCardClasses === 'function' ? getPlayerCardClasses(c) : '';
     card.className = `player-card cosmetics-preview-card ${cosmeticClasses}`.trim();
     if (keepTurn) card.classList.add('current-turn');
+    
+    // Apply banner data attribute
+    if (c.profile_banner && c.profile_banner !== 'none') {
+        card.dataset.banner = c.profile_banner;
+    } else {
+        delete card.dataset.banner;
+    }
 
     const nameColorClass = typeof getNameColorClass === 'function' ? getNameColorClass(c) : '';
     nameEl.className = `name ${nameColorClass}`.trim();
 
     const badgeHtml = typeof getBadgeHtml === 'function' ? getBadgeHtml(c) : '';
-    nameEl.innerHTML = `YOU${badgeHtml}`;
+    const titleHtml = typeof getTitleHtml === 'function' ? getTitleHtml(c) : '';
+    nameEl.innerHTML = `YOU${badgeHtml}${titleHtml}`;
+    
+    // Apply profile accent color if set
+    const accentColor = typeof getProfileAccentColor === 'function' ? getProfileAccentColor(c) : null;
+    if (accentColor) {
+        card.style.setProperty('--profile-accent', accentColor);
+    } else {
+        card.style.removeProperty('--profile-accent');
+    }
 }
 
 function renderCosmeticCategory(key, catalogKey, label, equipped, hasFullAccess, userStats) {
@@ -328,6 +347,9 @@ function applyPersonalCosmetics() {
     
     // Apply seasonal theme
     applySeasonalTheme(c.seasonal_theme || 'none');
+    
+    // Apply profile accent color
+    applyProfileAccent(c.profile_accent || 'default');
 }
 
 function applyMatrixColor(colorId) {
@@ -350,6 +372,18 @@ function applyAltBackground(bgId) {
 
 function applyParticleOverlay(particleId) {
     document.body.dataset.particles = particleId;
+}
+
+function applyProfileAccent(accentId) {
+    const catalog = cosmeticsState.catalog;
+    if (catalog && catalog.profile_accents && catalog.profile_accents[accentId]) {
+        const color = catalog.profile_accents[accentId].color;
+        if (color) {
+            document.documentElement.style.setProperty('--profile-accent', color);
+        }
+    } else {
+        document.documentElement.style.removeProperty('--profile-accent');
+    }
 }
 
 // ============ SEASONAL: SPOOKY FLOATING GHOST ============
@@ -562,6 +596,15 @@ function getPlayerCardClasses(cosmetics) {
     return classes.join(' ');
 }
 
+function getPlayerCardDataAttrs(cosmetics) {
+    if (!cosmetics) return {};
+    const attrs = {};
+    if (cosmetics.profile_banner && cosmetics.profile_banner !== 'none') {
+        attrs['data-banner'] = cosmetics.profile_banner;
+    }
+    return attrs;
+}
+
 function getNameColorClass(cosmetics) {
     if (!cosmetics || !cosmetics.name_color || cosmetics.name_color === 'default') return '';
     return `name-${cosmetics.name_color}`;
@@ -602,6 +645,29 @@ function getBadgeHtml(cosmetics) {
         flame: '🔥'
     };
     return badges[cosmetics.badge] ? `<span class="player-badge">${badges[cosmetics.badge]}</span>` : '';
+}
+
+function getTitleHtml(cosmetics) {
+    if (!cosmetics || !cosmetics.profile_title || cosmetics.profile_title === 'none') return '';
+    // Get title text from catalog if available
+    const catalog = cosmeticsState.catalog;
+    if (catalog && catalog.profile_titles && catalog.profile_titles[cosmetics.profile_title]) {
+        const titleData = catalog.profile_titles[cosmetics.profile_title];
+        const titleText = titleData.text || titleData.name || '';
+        if (titleText) {
+            return `<span class="player-title">${titleText}</span>`;
+        }
+    }
+    return '';
+}
+
+function getProfileAccentColor(cosmetics) {
+    if (!cosmetics || !cosmetics.profile_accent || cosmetics.profile_accent === 'default') return null;
+    const catalog = cosmeticsState.catalog;
+    if (catalog && catalog.profile_accents && catalog.profile_accents[cosmetics.profile_accent]) {
+        return catalog.profile_accents[cosmetics.profile_accent].color || null;
+    }
+    return null;
 }
 
 // ============ EFFECTS ============

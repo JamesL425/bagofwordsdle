@@ -4866,6 +4866,152 @@ body.nerd-mode .nerd-sim {
     font-size: 0.9rem;
 }
 
+/* Player Title - displayed under name */
+.player-title {
+    display: block;
+    font-size: 0.65rem;
+    color: var(--profile-accent, var(--text-muted));
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 0.15rem;
+    opacity: 0.85;
+    font-weight: 500;
+}
+
+/* Profile Accent Color Variable */
+:root {
+    --profile-accent: var(--accent-primary);
+}
+
+/* Profile Banner Patterns - used in profile views */
+.player-card[data-banner="circuit_pattern"]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0v15M30 45v15M0 30h15M45 30h15M30 30m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0' stroke='%2300ff41' stroke-width='1' fill='none' opacity='0.3'/%3E%3C/svg%3E");
+    background-size: 30px 30px;
+    pointer-events: none;
+    opacity: 0.5;
+    z-index: 0;
+}
+
+.player-card[data-banner="hexagon_grid"]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg width='56' height='100' viewBox='0 0 56 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M28 0L56 14v28L28 56 0 42V14z M28 44L56 58v28L28 100 0 86V58z' fill='none' stroke='%2300ff41' stroke-width='1' opacity='0.2'/%3E%3C/svg%3E");
+    background-size: 28px 50px;
+    pointer-events: none;
+    opacity: 0.5;
+    z-index: 0;
+}
+
+.player-card[data-banner="wave_pattern"]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: 
+        repeating-linear-gradient(
+            0deg,
+            transparent 0px,
+            transparent 8px,
+            rgba(0, 255, 65, 0.1) 8px,
+            rgba(0, 255, 65, 0.1) 10px
+        );
+    pointer-events: none;
+    animation: wave-shift 3s linear infinite;
+    z-index: 0;
+}
+
+@keyframes wave-shift {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(10px); }
+}
+
+.player-card[data-banner="cosmic_dust"]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: 
+        radial-gradient(1px 1px at 10% 20%, rgba(255, 255, 255, 0.5) 50%, transparent 100%),
+        radial-gradient(1px 1px at 30% 60%, rgba(200, 220, 255, 0.4) 50%, transparent 100%),
+        radial-gradient(2px 2px at 50% 30%, rgba(255, 255, 255, 0.6) 50%, transparent 100%),
+        radial-gradient(1px 1px at 70% 80%, rgba(220, 200, 255, 0.4) 50%, transparent 100%),
+        radial-gradient(1px 1px at 90% 50%, rgba(255, 255, 255, 0.5) 50%, transparent 100%);
+    background-size: 100px 100px;
+    pointer-events: none;
+    animation: cosmic-twinkle 4s ease-in-out infinite;
+    z-index: 0;
+}
+
+@keyframes cosmic-twinkle {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.8; }
+}
+
+.player-card[data-banner="binary_stream"]::before {
+    content: '01001010 10110100';
+    position: absolute;
+    inset: 0;
+    font-family: monospace;
+    font-size: 8px;
+    color: rgba(0, 255, 65, 0.15);
+    overflow: hidden;
+    word-wrap: break-word;
+    line-height: 1.2;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.player-card[data-banner="neon_grid"]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: 
+        linear-gradient(90deg, transparent 49%, rgba(255, 0, 255, 0.1) 50%, transparent 51%),
+        linear-gradient(0deg, transparent 49%, rgba(0, 255, 255, 0.1) 50%, transparent 51%);
+    background-size: 20px 20px;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.player-card[data-banner="plasma_field"]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: 
+        radial-gradient(ellipse at 30% 30%, rgba(255, 0, 255, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 70% 70%, rgba(0, 255, 255, 0.15) 0%, transparent 50%);
+    pointer-events: none;
+    animation: plasma-shift 4s ease-in-out infinite;
+    z-index: 0;
+}
+
+@keyframes plasma-shift {
+    0%, 100% { filter: hue-rotate(0deg); }
+    50% { filter: hue-rotate(30deg); }
+}
+
+.player-card[data-banner="aurora_waves"]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, 
+        rgba(100, 255, 200, 0.1) 0%,
+        rgba(100, 200, 255, 0.15) 30%,
+        rgba(200, 100, 255, 0.1) 60%,
+        transparent 100%
+    );
+    pointer-events: none;
+    animation: aurora-card 6s ease-in-out infinite;
+    z-index: 0;
+}
+
+@keyframes aurora-card {
+    0%, 100% { opacity: 0.5; transform: translateY(0); }
+    50% { opacity: 0.8; transform: translateY(-5px); }
+}
+
 /* ============ TURN INDICATOR COSMETICS ============ */
 
 .player-card.current-turn.turn-spotlight {
@@ -4958,6 +5104,17 @@ body.nerd-mode .nerd-sim {
 
 /* ============ ELIMINATION EFFECTS ============ */
 
+/* Classic elimination - simple fade out */
+.player-card.elim-classic {
+    animation: classic-elim 0.8s ease-out forwards;
+}
+
+@keyframes classic-elim {
+    0% { transform: scale(1); opacity: 1; }
+    70% { transform: scale(0.95); opacity: 0.5; }
+    100% { transform: scale(0.9); opacity: 0; }
+}
+
 .player-card.elim-shatter {
     animation: shatter 0.5s ease-out forwards;
 }
@@ -4970,11 +5127,38 @@ body.nerd-mode .nerd-sim {
 
 .player-card.elim-disintegrate {
     animation: disintegrate 1.5s ease-out forwards;
+    position: relative;
+}
+
+.player-card.elim-disintegrate::before,
+.player-card.elim-disintegrate::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.player-card.elim-disintegrate::before {
+    background: 
+        radial-gradient(circle at 20% 30%, transparent 0%, transparent 40%, rgba(100, 100, 100, 0.3) 41%, transparent 42%),
+        radial-gradient(circle at 60% 20%, transparent 0%, transparent 30%, rgba(100, 100, 100, 0.3) 31%, transparent 32%),
+        radial-gradient(circle at 80% 60%, transparent 0%, transparent 35%, rgba(100, 100, 100, 0.3) 36%, transparent 37%),
+        radial-gradient(circle at 40% 80%, transparent 0%, transparent 25%, rgba(100, 100, 100, 0.3) 26%, transparent 27%);
+    animation: disintegrate-particles 1.5s ease-out forwards;
 }
 
 @keyframes disintegrate {
-    0% { filter: blur(0); opacity: 1; }
-    100% { filter: blur(10px); opacity: 0; transform: translateY(-20px); }
+    0% { filter: blur(0) grayscale(0); opacity: 1; transform: scale(1); }
+    30% { filter: blur(1px) grayscale(0.3); opacity: 0.9; }
+    60% { filter: blur(3px) grayscale(0.7); opacity: 0.5; transform: scale(1.02) translateY(-5px); }
+    100% { filter: blur(12px) grayscale(1); opacity: 0; transform: scale(1.1) translateY(-30px); }
+}
+
+@keyframes disintegrate-particles {
+    0% { opacity: 0; transform: scale(1); }
+    30% { opacity: 0.5; }
+    60% { opacity: 1; transform: scale(1.5); }
+    100% { opacity: 0; transform: scale(3) translateY(-50px); }
 }
 
 .player-card.elim-glitch_out {
@@ -5011,12 +5195,276 @@ body.nerd-mode .nerd-sim {
 }
 
 .player-card.elim-void {
-    animation: void-elim 1s ease-in forwards;
+    animation: void-elim 1.2s ease-in forwards;
+    position: relative;
+}
+
+.player-card.elim-void::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 10px;
+    height: 10px;
+    background: radial-gradient(circle, #000000 0%, #1a0033 50%, transparent 70%);
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    animation: void-singularity 1.2s ease-in forwards;
+    z-index: 10;
 }
 
 @keyframes void-elim {
-    0% { transform: scale(1); filter: brightness(1); }
-    100% { transform: scale(0) rotate(360deg); filter: brightness(0); }
+    0% { transform: scale(1); filter: brightness(1) hue-rotate(0deg); opacity: 1; }
+    30% { transform: scale(1.05); filter: brightness(0.8) hue-rotate(-30deg); }
+    50% { transform: scale(0.9) rotate(10deg); filter: brightness(0.5) hue-rotate(-60deg) saturate(2); }
+    70% { transform: scale(0.5) rotate(180deg); filter: brightness(0.2) hue-rotate(-90deg); opacity: 0.7; }
+    100% { transform: scale(0) rotate(720deg); filter: brightness(0); opacity: 0; }
+}
+
+@keyframes void-singularity {
+    0% { transform: translate(-50%, -50%) scale(0); box-shadow: 0 0 0 rgba(102, 0, 204, 0); }
+    30% { transform: translate(-50%, -50%) scale(2); box-shadow: 0 0 30px rgba(102, 0, 204, 0.8), 0 0 60px rgba(0, 0, 0, 0.9); }
+    60% { transform: translate(-50%, -50%) scale(5); box-shadow: 0 0 50px rgba(102, 0, 204, 0.6), 0 0 100px rgba(0, 0, 0, 1); }
+    100% { transform: translate(-50%, -50%) scale(0); box-shadow: 0 0 0 rgba(102, 0, 204, 0); }
+}
+
+/* Crystallize elimination effect - frozen then shattered */
+.player-card.elim-crystallize {
+    animation: crystallize-elim 1.2s ease-out forwards;
+    position: relative;
+}
+
+.player-card.elim-crystallize::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, 
+        rgba(200, 240, 255, 0) 0%,
+        rgba(200, 240, 255, 0.3) 25%,
+        rgba(150, 220, 255, 0.5) 50%,
+        rgba(200, 240, 255, 0.3) 75%,
+        rgba(200, 240, 255, 0) 100%
+    );
+    opacity: 0;
+    animation: crystallize-frost 1.2s ease-out forwards;
+    pointer-events: none;
+}
+
+@keyframes crystallize-elim {
+    0% { transform: scale(1); filter: hue-rotate(0deg) brightness(1); }
+    40% { transform: scale(1.02); filter: hue-rotate(-60deg) brightness(1.3) saturate(1.5); }
+    50% { transform: scale(1.02); filter: hue-rotate(-60deg) brightness(1.5) saturate(2); }
+    60% { transform: scale(1.1) rotate(5deg); filter: hue-rotate(-60deg) brightness(1.2); }
+    70% { transform: scale(0.8) rotate(-10deg); opacity: 0.8; }
+    85% { transform: scale(0.4) rotate(15deg); opacity: 0.4; }
+    100% { transform: scale(0) rotate(45deg); opacity: 0; filter: hue-rotate(-60deg); }
+}
+
+@keyframes crystallize-frost {
+    0% { opacity: 0; }
+    30% { opacity: 0.8; }
+    50% { opacity: 1; }
+    60% { opacity: 0; }
+    100% { opacity: 0; }
+}
+
+/* Gravity Well elimination effect - pulled into center */
+.player-card.elim-gravity_well {
+    animation: gravity-well-elim 1.4s ease-in forwards;
+    transform-origin: center center;
+}
+
+@keyframes gravity-well-elim {
+    0% { transform: scale(1) perspective(500px) rotateX(0deg) rotateY(0deg); opacity: 1; }
+    20% { transform: scale(1.1) perspective(500px) rotateX(5deg) rotateY(-5deg); }
+    40% { transform: scale(0.9) perspective(400px) rotateX(-10deg) rotateY(10deg); }
+    60% { transform: scale(0.6) perspective(300px) rotateX(20deg) rotateY(-20deg) rotate(45deg); opacity: 0.7; }
+    80% { transform: scale(0.3) perspective(200px) rotateX(-30deg) rotateY(30deg) rotate(180deg); opacity: 0.4; }
+    100% { transform: scale(0) perspective(100px) rotateX(0deg) rotateY(0deg) rotate(720deg); opacity: 0; }
+}
+
+/* Melt Down elimination effect - melting downward */
+.player-card.elim-melt_down {
+    animation: melt-down-elim 1.3s ease-in forwards;
+    transform-origin: bottom center;
+}
+
+@keyframes melt-down-elim {
+    0% { transform: scaleY(1) scaleX(1) translateY(0); filter: blur(0); opacity: 1; }
+    20% { transform: scaleY(0.95) scaleX(1.02) translateY(2px); filter: blur(0.5px); }
+    40% { transform: scaleY(0.8) scaleX(1.1) translateY(10px); filter: blur(1px); opacity: 0.9; }
+    60% { transform: scaleY(0.5) scaleX(1.3) translateY(30px); filter: blur(2px); opacity: 0.7; }
+    80% { transform: scaleY(0.2) scaleX(1.5) translateY(60px); filter: blur(4px); opacity: 0.4; }
+    100% { transform: scaleY(0) scaleX(2) translateY(100px); filter: blur(8px); opacity: 0; }
+}
+
+/* Ink Bleed elimination effect - consumed by darkness */
+.player-card.elim-ink_bleed {
+    animation: ink-bleed-elim 1.5s ease-in forwards;
+    position: relative;
+    overflow: hidden;
+}
+
+.player-card.elim-ink_bleed::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, #000000 0%, #0a0012 30%, transparent 70%);
+    transform: translate(-50%, -50%) scale(0);
+    animation: ink-spread 1.5s ease-in forwards;
+    pointer-events: none;
+    z-index: 10;
+}
+
+@keyframes ink-bleed-elim {
+    0% { filter: brightness(1) contrast(1); }
+    50% { filter: brightness(0.7) contrast(1.2); }
+    80% { filter: brightness(0.3) contrast(1.5); opacity: 0.5; }
+    100% { filter: brightness(0) contrast(2); opacity: 0; }
+}
+
+@keyframes ink-spread {
+    0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+    30% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.8; }
+    70% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.5); opacity: 1; }
+}
+
+/* Burn Away elimination effect - consumed by flames */
+.player-card.elim-burn_away {
+    animation: burn-away-elim 1.4s ease-in forwards;
+    position: relative;
+}
+
+.player-card.elim-burn_away::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(0deg, 
+        rgba(255, 100, 0, 0.9) 0%,
+        rgba(255, 50, 0, 0.7) 20%,
+        rgba(200, 0, 0, 0.5) 40%,
+        rgba(50, 0, 0, 0.3) 60%,
+        transparent 80%
+    );
+    transform: translateY(100%);
+    animation: burn-sweep 1.4s ease-in forwards;
+    pointer-events: none;
+}
+
+.player-card.elim-burn_away::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: 
+        radial-gradient(circle at 20% 80%, rgba(255, 200, 50, 0.8) 0%, transparent 20%),
+        radial-gradient(circle at 50% 70%, rgba(255, 150, 0, 0.6) 0%, transparent 25%),
+        radial-gradient(circle at 80% 85%, rgba(255, 100, 0, 0.7) 0%, transparent 15%);
+    opacity: 0;
+    animation: burn-embers 1.4s ease-in forwards;
+    pointer-events: none;
+}
+
+@keyframes burn-away-elim {
+    0% { filter: brightness(1) sepia(0); clip-path: inset(0 0 0 0); }
+    30% { filter: brightness(1.2) sepia(0.3); clip-path: inset(0 0 0 0); }
+    60% { filter: brightness(0.8) sepia(0.6); clip-path: inset(30% 0 0 0); opacity: 0.8; }
+    80% { filter: brightness(0.5) sepia(1); clip-path: inset(60% 0 0 0); opacity: 0.5; }
+    100% { filter: brightness(0) sepia(1); clip-path: inset(100% 0 0 0); opacity: 0; }
+}
+
+@keyframes burn-sweep {
+    0% { transform: translateY(100%); }
+    100% { transform: translateY(-20%); }
+}
+
+@keyframes burn-embers {
+    0% { opacity: 0; transform: translateY(0); }
+    30% { opacity: 1; }
+    70% { opacity: 0.8; transform: translateY(-30px); }
+    100% { opacity: 0; transform: translateY(-60px); }
+}
+
+/* Static Wipe elimination effect - signal lost */
+.player-card.elim-static_wipe {
+    animation: static-wipe-elim 1s steps(20) forwards;
+    position: relative;
+    overflow: hidden;
+}
+
+.player-card.elim-static_wipe::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: 
+        repeating-linear-gradient(0deg,
+            transparent 0px,
+            transparent 2px,
+            rgba(255, 255, 255, 0.1) 2px,
+            rgba(255, 255, 255, 0.1) 4px
+        ),
+        repeating-linear-gradient(90deg,
+            rgba(0, 0, 0, 0.3) 0px,
+            rgba(255, 255, 255, 0.2) 1px,
+            rgba(0, 0, 0, 0.3) 2px
+        );
+    background-size: 100% 4px, 2px 100%;
+    transform: translateX(-100%);
+    animation: static-sweep 1s steps(20) forwards;
+    pointer-events: none;
+    z-index: 10;
+}
+
+@keyframes static-wipe-elim {
+    0% { filter: brightness(1) contrast(1); opacity: 1; }
+    30% { filter: brightness(1.2) contrast(1.5) saturate(0.5); }
+    60% { filter: brightness(0.8) contrast(2) saturate(0); opacity: 0.7; }
+    100% { filter: brightness(0.5) contrast(3) saturate(0); opacity: 0; }
+}
+
+@keyframes static-sweep {
+    0% { transform: translateX(-100%); opacity: 0; }
+    20% { opacity: 1; }
+    100% { transform: translateX(100%); opacity: 0; }
+}
+
+/* Soul Drain elimination effect - spirit departing (Premium) */
+.player-card.elim-soul_drain {
+    animation: soul-drain-elim 1.6s ease-out forwards;
+    position: relative;
+}
+
+.player-card.elim-soul_drain::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: 
+        radial-gradient(ellipse at 30% 20%, rgba(200, 220, 255, 0.6) 0%, transparent 40%),
+        radial-gradient(ellipse at 70% 30%, rgba(180, 200, 255, 0.5) 0%, transparent 35%),
+        radial-gradient(ellipse at 50% 10%, rgba(220, 230, 255, 0.7) 0%, transparent 30%);
+    opacity: 0;
+    animation: soul-wisps 1.6s ease-out forwards;
+    pointer-events: none;
+    filter: blur(3px);
+}
+
+@keyframes soul-drain-elim {
+    0% { filter: brightness(1) saturate(1); opacity: 1; transform: translateY(0); }
+    30% { filter: brightness(1.1) saturate(0.8); }
+    50% { filter: brightness(0.9) saturate(0.5); opacity: 0.8; }
+    70% { filter: brightness(0.6) saturate(0.2); opacity: 0.5; transform: translateY(5px); }
+    100% { filter: brightness(0.3) saturate(0); opacity: 0; transform: translateY(10px); }
+}
+
+@keyframes soul-wisps {
+    0% { opacity: 0; transform: translateY(0) scale(1); }
+    20% { opacity: 0.8; }
+    50% { opacity: 1; transform: translateY(-20px) scale(1.1); }
+    80% { opacity: 0.6; transform: translateY(-50px) scale(1.3); }
+    100% { opacity: 0; transform: translateY(-100px) scale(1.5); }
 }
 
 /* Vaporize elimination effect */
@@ -5041,16 +5489,36 @@ body.nerd-mode .nerd-sim {
     100% { transform: scale(0) rotate(720deg); opacity: 0; filter: brightness(0); }
 }
 
-/* Pixelate elimination effect (Shop) */
+/* Pixelate elimination effect (Shop) - retro pixel death */
 .player-card.elim-pixelate {
-    animation: pixelate-elim 0.8s steps(8) forwards;
+    animation: pixelate-elim 1s steps(10) forwards;
+    image-rendering: pixelated;
+}
+
+.player-card.elim-pixelate::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: 
+        repeating-linear-gradient(0deg, transparent 0px, transparent 4px, rgba(0, 0, 0, 0.3) 4px, rgba(0, 0, 0, 0.3) 8px),
+        repeating-linear-gradient(90deg, transparent 0px, transparent 4px, rgba(0, 0, 0, 0.3) 4px, rgba(0, 0, 0, 0.3) 8px);
+    opacity: 0;
+    animation: pixelate-grid 1s steps(10) forwards;
+    pointer-events: none;
 }
 
 @keyframes pixelate-elim {
-    0% { filter: blur(0); opacity: 1; }
-    50% { filter: blur(2px); }
-    75% { filter: blur(4px); opacity: 0.5; }
-    100% { filter: blur(8px); opacity: 0; transform: scale(0.5); }
+    0% { transform: scale(1); opacity: 1; filter: contrast(1); }
+    30% { transform: scale(1); filter: contrast(1.5) saturate(0.5); }
+    60% { transform: scale(0.9); filter: contrast(2) saturate(0) brightness(1.2); opacity: 0.7; }
+    100% { transform: scale(0.5); opacity: 0; filter: contrast(3) saturate(0) brightness(2); }
+}
+
+@keyframes pixelate-grid {
+    0% { opacity: 0; background-size: 2px 2px; }
+    30% { opacity: 0.5; background-size: 4px 4px; }
+    60% { opacity: 0.8; background-size: 8px 8px; }
+    100% { opacity: 1; background-size: 16px 16px; }
 }
 
 .player-card.elim-lightning_strike {
@@ -5066,6 +5534,18 @@ body.nerd-mode .nerd-sim {
 }
 
 /* ============ GUESS EFFECTS ============ */
+
+/* Classic guess effect - subtle green pulse */
+#guess-form.guess-classic,
+#cosmetics-guess-form.guess-classic {
+    animation: classic-guess 0.4s ease-out;
+}
+
+@keyframes classic-guess {
+    0% { box-shadow: none; }
+    50% { box-shadow: 0 0 15px var(--accent-glow), inset 0 0 5px rgba(0, 255, 65, 0.1); }
+    100% { box-shadow: none; }
+}
 
 #guess-form.guess-pulse_wave::after,
 #cosmetics-guess-form.guess-pulse_wave::after {
