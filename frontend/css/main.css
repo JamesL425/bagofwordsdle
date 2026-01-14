@@ -1,0 +1,24 @@
+/**
+ * CSS Module Index
+ * Main entry point that imports all CSS modules
+ * 
+ * Note: This file provides the modular structure. The original style.css
+ * is preserved for backward compatibility. When ready to fully migrate,
+ * update index.html to use this file instead.
+ */
+
+/* Base - Variables, resets, typography */
+@import './base.css';
+
+/* Components - Buttons, cards, inputs, forms */
+@import './components.css';
+
+/* Layout - Grid, screens, panels, containers */
+@import './layout.css';
+
+/* Game - Game-specific styles */
+@import './game.css';
+
+/* Effects - Animations, cosmetics, particles */
+@import './effects.css';
+

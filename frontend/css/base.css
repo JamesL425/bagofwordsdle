@@ -1,0 +1,124 @@
+/**
+ * Base Styles
+ * CSS variables, resets, typography, and foundational styles
+ */
+
+:root {
+    /* ============ SPACING SCALE (4px base) ============ */
+    --space-xs: 0.25rem;   /* 4px */
+    --space-sm: 0.5rem;    /* 8px */
+    --space-md: 0.75rem;   /* 12px */
+    --space-lg: 1rem;      /* 16px */
+    --space-xl: 1.5rem;    /* 24px */
+    --space-2xl: 2rem;     /* 32px */
+    
+    /* Component-specific spacing tokens */
+    --card-padding: var(--space-xl);
+    --card-padding-compact: var(--space-lg);
+    --section-gap: var(--space-lg);
+    --element-gap: var(--space-sm);
+    
+    /* Interactive element sizing (WCAG touch targets) */
+    --btn-min-height: 44px;
+    --input-min-height: 44px;
+    --touch-target-min: 44px;
+    
+    /* ============ COLORS ============ */
+    --bg-primary: #000000;
+    --bg-secondary: #0a0f0a;
+    --bg-card: #0d120d;
+    --bg-hover: #141f14;
+    --text-primary: #00ff41;
+    --text-secondary: #00cc33;
+    --text-muted: #006622;
+    --accent-primary: #00ff41;
+    --accent-secondary: #33ff66;
+    --accent-glow: rgba(0, 255, 65, 0.3);
+    --success: #00ff41;
+    --danger: #ff3333;
+    --warning: #ffcc00;
+    --info: #00ccff;
+    --border: #003311;
+    --border-light: #004422;
+    
+    /* ============ BORDERS & EFFECTS ============ */
+    --radius: 4px;
+    --radius-sm: 2px;
+    --radius-pill: 9999px;
+    --shadow: 0 0 20px rgba(0, 255, 65, 0.2);
+    --shadow-hover: 0 0 25px rgba(0, 255, 65, 0.3);
+    --transition: 0.15s ease;
+    --transition-fast: 0.1s ease;
+    
+    /* ============ FOCUS RING ============ */
+    --focus-ring: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--accent-primary);
+    --focus-ring-inset: inset 0 0 0 2px var(--accent-primary);
+    
+    /* ============ MATRIX COLOR (customizable) ============ */
+    --matrix-color: #00ff41;
+}
+
+/* Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Base body styles */
+body {
+    font-family: 'Courier Prime', 'Courier New', monospace;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    line-height: 1.6;
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--accent-primary);
+}
+
+h1 { font-size: 2.5rem; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.25rem; }
+h4 { font-size: 1rem; }
+
+a {
+    color: var(--accent-primary);
+    text-decoration: none;
+    transition: color var(--transition);
+}
+
+a:hover {
+    color: var(--accent-secondary);
+}
+
+/* Utility classes */
+.hidden { display: none !important; }
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Reduced motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+

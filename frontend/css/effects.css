@@ -1,0 +1,309 @@
+/**
+ * Effects & Animations
+ * Cosmetics, particles, victory effects, elimination animations
+ */
+
+/* ============ MATRIX BACKGROUND ============ */
+
+.matrix-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0.15;
+}
+
+/* ============ CONFETTI ============ */
+
+.confetti-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9998;
+    overflow: hidden;
+}
+
+.confetti-piece {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    animation: confettiFall 3s ease-out forwards;
+}
+
+@keyframes confettiFall {
+    0% {
+        transform: translateY(-100px) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) rotate(720deg);
+        opacity: 0;
+    }
+}
+
+/* ============ ELIMINATION EFFECTS ============ */
+
+.player-card.elim-classic {
+    animation: elimClassic 0.5s ease;
+}
+
+@keyframes elimClassic {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); background: rgba(255, 51, 51, 0.3); }
+    100% { transform: scale(1); }
+}
+
+.player-card.elim-glitch {
+    animation: elimGlitch 0.8s ease;
+}
+
+@keyframes elimGlitch {
+    0%, 100% { transform: translate(0); filter: none; }
+    10% { transform: translate(-5px, 5px); filter: hue-rotate(90deg); }
+    20% { transform: translate(5px, -5px); filter: hue-rotate(180deg); }
+    30% { transform: translate(-5px, -5px); filter: hue-rotate(270deg); }
+    40% { transform: translate(5px, 5px); filter: hue-rotate(360deg); }
+    50% { transform: translate(0); filter: none; }
+}
+
+.player-card.elim-shatter {
+    animation: elimShatter 0.6s ease forwards;
+}
+
+@keyframes elimShatter {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.8; }
+    100% { transform: scale(0.8); opacity: 0.6; }
+}
+
+/* ============ GUESS EFFECTS ============ */
+
+#guess-form.guess-classic {
+    animation: guessClassic 0.3s ease;
+}
+
+@keyframes guessClassic {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+#guess-form.guess-pulse {
+    animation: guessPulse 0.4s ease;
+}
+
+@keyframes guessPulse {
+    0% { box-shadow: 0 0 0 0 var(--accent-glow); }
+    50% { box-shadow: 0 0 20px 10px var(--accent-glow); }
+    100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+}
+
+/* ============ VICTORY EFFECTS ============ */
+
+.firework {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--warning);
+    animation: fireworkExplode 1s ease-out forwards;
+}
+
+@keyframes fireworkExplode {
+    0% {
+        transform: scale(0);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(20);
+        opacity: 0;
+    }
+}
+
+.gold-particle {
+    position: absolute;
+    top: -20px;
+    width: var(--size, 15px);
+    height: var(--size, 15px);
+    background: linear-gradient(135deg, #ffd700, #ffed4a, #ffd700);
+    border-radius: 50%;
+    opacity: var(--opacity, 0.8);
+    animation: goldFall var(--dur, 3s) ease-in forwards;
+}
+
+@keyframes goldFall {
+    0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: var(--opacity, 0.8);
+    }
+    100% {
+        transform: translateY(var(--fall-distance, 100vh)) rotate(360deg);
+        opacity: 0;
+    }
+}
+
+.supernova {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 10px;
+    height: 10px;
+    background: radial-gradient(circle, #fff, var(--warning), transparent);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: supernovaExpand 2s ease-out forwards;
+}
+
+@keyframes supernovaExpand {
+    0% {
+        width: 10px;
+        height: 10px;
+        opacity: 1;
+    }
+    100% {
+        width: 200vmax;
+        height: 200vmax;
+        opacity: 0;
+    }
+}
+
+.champion-crown {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 4rem;
+    animation: crownDescend 2s ease-out forwards;
+}
+
+@keyframes crownDescend {
+    0% {
+        top: -100px;
+        opacity: 0;
+    }
+    50% {
+        top: 30%;
+        opacity: 1;
+    }
+    100% {
+        top: 40%;
+        opacity: 1;
+    }
+}
+
+/* ============ CARD BORDER COSMETICS ============ */
+
+.player-card.border-gold_elite {
+    border-color: #ffd700;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+}
+
+.player-card.border-fire {
+    border-color: #ff4500;
+    box-shadow: 0 0 15px rgba(255, 69, 0, 0.4);
+}
+
+.player-card.border-ice {
+    border-color: #00bfff;
+    box-shadow: 0 0 15px rgba(0, 191, 255, 0.4);
+}
+
+.player-card.border-electric {
+    border-color: #ffff00;
+    box-shadow: 0 0 15px rgba(255, 255, 0, 0.4);
+}
+
+/* ============ NAME COLOR COSMETICS ============ */
+
+.name.name-gold { color: #ffd700; }
+.name.name-fire { color: #ff4500; }
+.name.name-ice { color: #00bfff; }
+.name.name-shadow { color: #8b008b; }
+.name.name-rainbow {
+    background: linear-gradient(90deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #8b00ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* ============ CARD BACKGROUND COSMETICS ============ */
+
+.player-card.bg-gradient_gold {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), var(--bg-card));
+}
+
+.player-card.bg-gradient_ice {
+    background: linear-gradient(135deg, rgba(0, 191, 255, 0.1), var(--bg-card));
+}
+
+.player-card.bg-matrix_code {
+    background: var(--bg-card);
+    position: relative;
+}
+
+.player-card.bg-matrix_code::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 255, 65, 0.03) 2px,
+        rgba(0, 255, 65, 0.03) 4px
+    );
+    pointer-events: none;
+}
+
+/* ============ PARTICLE OVERLAYS ============ */
+
+body[data-particles="sparkles"]::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 9997;
+    background-image: radial-gradient(2px 2px at 20% 30%, rgba(255, 255, 255, 0.3), transparent),
+                      radial-gradient(2px 2px at 40% 70%, rgba(255, 255, 255, 0.2), transparent),
+                      radial-gradient(2px 2px at 60% 20%, rgba(255, 255, 255, 0.3), transparent),
+                      radial-gradient(2px 2px at 80% 60%, rgba(255, 255, 255, 0.2), transparent);
+    animation: sparkleFloat 4s ease-in-out infinite;
+}
+
+@keyframes sparkleFloat {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+/* ============ REDUCED MOTION ============ */
+
+@media (prefers-reduced-motion: reduce) {
+    .confetti-piece,
+    .firework,
+    .gold-particle,
+    .supernova,
+    .champion-crown {
+        animation: none !important;
+    }
+    
+    .player-card.elim-classic,
+    .player-card.elim-glitch,
+    .player-card.elim-shatter,
+    #guess-form.guess-classic,
+    #guess-form.guess-pulse {
+        animation: none !important;
+    }
+}
+
