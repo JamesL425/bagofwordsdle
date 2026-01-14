@@ -3671,75 +3671,47 @@ function showGameOver(game) {
     generateShareResults(game, isWinner);
 }
 
-// Generate Wordle-style share results
+// Generate share results
 function generateShareResults(game, isWinner) {
     const sharePreview = document.getElementById('share-preview');
     if (!sharePreview) return;
     
-    const me = game.players.find(p => p.id === gameState.playerId);
-    const winner = game.players.find(p => p.id === game.winner);
-    const theme = game.theme || 'Unknown';
+    const theme = game.theme?.name || 'Unknown';
     const turnCount = game.history ? game.history.filter(h => h.type !== 'word_change' && h.type !== 'forfeit').length : 0;
     const elimCount = game.history ? game.history.reduce((acc, h) => acc + (h.eliminations?.length || 0), 0) : 0;
     
     // Generate game number (based on date + some uniqueness)
     const gameNum = Math.floor(Date.now() / 86400000) % 10000;
     
-    // Build player similarity grid
-    // For each player, show their "danger progression" through the game
-    const playerGrids = {};
-    game.players.forEach(p => {
-        playerGrids[p.id] = {
-            name: p.name,
-            isWinner: p.id === game.winner,
-            isMe: p.id === gameState.playerId,
-            eliminated: !p.is_alive,
-            maxSims: [] // Track max similarity per turn
-        };
+    // Build player list with outcomes
+    const playerOutcomes = game.players.map(p => ({
+        name: p.name,
+        isWinner: p.id === game.winner,
+        isMe: p.id === gameState.playerId,
+        eliminated: !p.is_alive
+    }));
+    
+    // Sort: winner first, then survivors, then eliminated
+    playerOutcomes.sort((a, b) => {
+        if (a.isWinner) return -1;
+        if (b.isWinner) return 1;
+        if (a.eliminated && !b.eliminated) return 1;
+        if (!a.eliminated && b.eliminated) return -1;
+        return 0;
     });
-    
-    // Process history to build similarity progression
-    if (game.history) {
-        game.history.forEach(entry => {
-            if (entry.type === 'word_change' || entry.type === 'forfeit') return;
-            if (!entry.similarities) return;
-            
-            Object.keys(playerGrids).forEach(pid => {
-                const sim = entry.similarities[pid];
-                if (sim !== undefined) {
-                    // Track max similarity seen so far
-                    const currentMax = playerGrids[pid].maxSims.length > 0 
-                        ? Math.max(...playerGrids[pid].maxSims) 
-                        : 0;
-                    playerGrids[pid].maxSims.push(Math.max(sim, currentMax));
-                }
-            });
-        });
-    }
-    
-    // Generate emoji blocks for each player
-    function simToEmoji(sim) {
-        if (sim >= 0.95) return '🟥'; // Critical danger
-        if (sim >= 0.80) return '🟧'; // High danger
-        if (sim >= 0.60) return '🟨'; // Medium danger
-        if (sim >= 0.40) return '🟩'; // Low danger
-        return '⬛'; // Safe
-    }
     
     // Build share text
     let shareText = `EMBEDDLE #${gameNum} - ${isWinner ? 'Victory!' : 'Defeated'}\n`;
-    shareText += `Theme: ${theme}\n`;
-    shareText += `Turns: ${turnCount} | Eliminations: ${elimCount}\n\n`;
+    shareText += `Theme: ${theme} | Turns: ${turnCount} | Elims: ${elimCount}\n\n`;
     
-    // Add player grids (max 5 blocks per player for readability)
-    Object.values(playerGrids).forEach(pg => {
-        const blocks = pg.maxSims.slice(-5).map(simToEmoji).join('');
-        const status = pg.isWinner ? ' 🏆' : (pg.eliminated ? ' ☠️' : '');
-        const youMarker = pg.isMe ? ' (YOU)' : '';
-        shareText += `${blocks.padEnd(5, '⬛')} ${pg.name}${youMarker}${status}\n`;
+    // Add player outcomes
+    playerOutcomes.forEach(p => {
+        const status = p.isWinner ? '🏆' : (p.eliminated ? '☠️' : '✓');
+        const youMarker = p.isMe ? ' (YOU)' : '';
+        shareText += `${status} ${p.name}${youMarker}\n`;
     });
     
-    shareText += `\nembeddle.vercel.app`;
+    shareText += `\nembeddle.io`;
     
     // Store for copy/share
     gameState.shareText = shareText;
@@ -3749,18 +3721,17 @@ function generateShareResults(game, isWinner) {
     previewHtml += `<div class="share-stats">Theme: ${escapeHtml(theme)} | Turns: ${turnCount} | Elims: ${elimCount}</div>`;
     previewHtml += `<div class="share-grid">`;
     
-    Object.values(playerGrids).forEach(pg => {
-        const blocks = pg.maxSims.slice(-5).map(simToEmoji).join('');
-        const status = pg.isWinner ? ' 🏆' : (pg.eliminated ? ' ☠️' : '');
-        const youMarker = pg.isMe ? ' (YOU)' : '';
+    playerOutcomes.forEach(p => {
+        const status = p.isWinner ? '🏆' : (p.eliminated ? '☠️' : '✓');
+        const youMarker = p.isMe ? ' (YOU)' : '';
         previewHtml += `<div class="share-grid-row">`;
-        previewHtml += `<span class="share-grid-blocks">${blocks.padEnd(5, '⬛')}</span>`;
-        previewHtml += `<span class="share-grid-player">${escapeHtml(pg.name)}${youMarker}${status}</span>`;
+        previewHtml += `<span class="share-grid-blocks">${status}</span>`;
+        previewHtml += `<span class="share-grid-player">${escapeHtml(p.name)}${youMarker}</span>`;
         previewHtml += `</div>`;
     });
     
     previewHtml += `</div>`;
-    previewHtml += `<div class="share-url">embeddle.vercel.app</div>`;
+    previewHtml += `<div class="share-url">embeddle.io</div>`;
     
     sharePreview.innerHTML = previewHtml;
 }

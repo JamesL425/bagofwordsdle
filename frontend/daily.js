@@ -675,11 +675,9 @@ function escapeHtml(str) {
 
 // ============ INIT ============
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Panel toggle
-    document.getElementById('daily-btn')?.addEventListener('click', toggleDailyPanel);
-    document.getElementById('close-daily-btn')?.addEventListener('click', closeDailyPanel);
-});
+// Panel toggle - attach directly since script is loaded at end of body
+document.getElementById('daily-btn')?.addEventListener('click', toggleDailyPanel);
+document.getElementById('close-daily-btn')?.addEventListener('click', closeDailyPanel);
 
 // Expose for external calls (e.g., after game ends)
 window.loadDaily = loadDaily;

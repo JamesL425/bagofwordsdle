@@ -1930,8 +1930,8 @@ header h1 {
 .replay-modal {
     position: relative;
     z-index: 1;
-    width: min(600px, 95%);
-    max-height: 90vh;
+    width: min(800px, 95%);
+    max-height: 95vh;
     background: var(--bg-card);
     border: 2px solid var(--accent-primary);
     border-radius: var(--radius);
@@ -1976,8 +1976,8 @@ header h1 {
 
 .replay-players {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
     margin-bottom: 1rem;
 }
 
@@ -1985,7 +1985,7 @@ header h1 {
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 0.75rem;
+    padding: 1rem;
     text-align: center;
     transition: all 0.15s ease;
 }

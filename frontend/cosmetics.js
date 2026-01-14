@@ -772,27 +772,25 @@ function createMatrixCascadeEffect(container) {
     setTimeout(() => container.innerHTML = '', 4000);
 }
 
-// Initialize cosmetics
-document.addEventListener('DOMContentLoaded', () => {
-    loadCosmeticsCatalog();
-    // Preview/test harness
-    document.getElementById('cosmetics-test-turn')?.addEventListener('click', () => {
-        const card = document.getElementById('cosmetics-preview-card');
-        if (!card) return;
-        card.classList.toggle('current-turn');
-        updateCosmeticsPreview();
-    });
-    document.getElementById('cosmetics-test-guess')?.addEventListener('click', () => {
-        const c = cosmeticsState.userCosmetics || {};
-        playGuessEffect(c.guess_effect || 'classic', document.getElementById('cosmetics-guess-form'));
-    });
-    document.getElementById('cosmetics-test-elim')?.addEventListener('click', () => {
-        const c = cosmeticsState.userCosmetics || {};
-        playEliminationEffect('cosmetics_preview', c.elimination_effect || 'classic');
-    });
-    document.getElementById('cosmetics-test-victory')?.addEventListener('click', () => {
-        const c = cosmeticsState.userCosmetics || {};
-        playVictoryEffect(c.victory_effect || 'classic', document.getElementById('cosmetics-victory-container'));
-    });
+// Initialize cosmetics - attach directly since script is loaded at end of body
+loadCosmeticsCatalog();
+// Preview/test harness
+document.getElementById('cosmetics-test-turn')?.addEventListener('click', () => {
+    const card = document.getElementById('cosmetics-preview-card');
+    if (!card) return;
+    card.classList.toggle('current-turn');
     updateCosmeticsPreview();
 });
+document.getElementById('cosmetics-test-guess')?.addEventListener('click', () => {
+    const c = cosmeticsState.userCosmetics || {};
+    playGuessEffect(c.guess_effect || 'classic', document.getElementById('cosmetics-guess-form'));
+});
+document.getElementById('cosmetics-test-elim')?.addEventListener('click', () => {
+    const c = cosmeticsState.userCosmetics || {};
+    playEliminationEffect('cosmetics_preview', c.elimination_effect || 'classic');
+});
+document.getElementById('cosmetics-test-victory')?.addEventListener('click', () => {
+    const c = cosmeticsState.userCosmetics || {};
+    playVictoryEffect(c.victory_effect || 'classic', document.getElementById('cosmetics-victory-container'));
+});
+updateCosmeticsPreview();
