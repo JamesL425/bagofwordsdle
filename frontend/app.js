@@ -1085,8 +1085,9 @@ function updateHomeStatsBar() {
     }
     
     // Update rank (show placement progress or MMR)
+    // Stats come from authUser (set on login)
     if (rankEl) {
-        const stats = gameState.userData?.stats;
+        const stats = gameState.authUser?.stats;
         const mmr = stats?.mmr;
         const rankedGames = stats?.ranked_games || 0;
         
@@ -1103,8 +1104,8 @@ function updateHomeStatsBar() {
     if (statsBar) statsBar.classList.remove('hidden');
     
     // Update your stats card
-    if (yourStatsCard && gameState.userData?.stats) {
-        const stats = gameState.userData.stats;
+    if (yourStatsCard && gameState.authUser?.stats) {
+        const stats = gameState.authUser.stats;
         const gamesEl = document.getElementById('home-stat-games');
         const winsEl = document.getElementById('home-stat-wins');
         const elimsEl = document.getElementById('home-stat-elims');
@@ -1195,7 +1196,6 @@ function logout() {
     gameState.authToken = null;
     gameState.authUser = null;
     gameState.isAdminSession = false;
-    gameState.userData = null;
     localStorage.removeItem('embeddle_name');
     localStorage.removeItem('embeddle_auth_token');
     sessionStorage.removeItem('embeddle_admin_token');
@@ -2723,7 +2723,6 @@ function startSingleplayerLobbyPolling() {
     gameState.pollingInterval = setInterval(updateSingleplayerLobby, 2000);
 }
 
-let spThemeAutoVoted = false;
 let spStartInProgress = false;
 
 const AI_DIFFICULTY_INFO = {
@@ -2773,29 +2772,15 @@ async function updateSingleplayerLobby() {
         // Update theme voting UI (singleplayer uses the same vote endpoint, but only the host typically votes)
         updateSingleplayerThemeVoting(data.theme_options || [], data.theme_votes || {});
 
-        // Auto-vote a default theme once so the player sees a selection immediately
-        if (!spThemeAutoVoted && data.status === 'waiting' && (data.theme_options || []).length > 0) {
-            const alreadyVoted = (data.theme_options || []).some(t => (data.theme_votes?.[t] || []).some(v => v.id === gameState.playerId));
-            if (!alreadyVoted) {
-                spThemeAutoVoted = true;
-                voteForTheme(data.theme_options[0]).catch(() => {
-                    // If vote fails (rare), allow retry next poll
-                    spThemeAutoVoted = false;
-                });
-            } else {
-                spThemeAutoVoted = true;
-            }
-        }
-
-        // Update theme display (show voted theme while in lobby)
+        // Update theme display (show voted theme while in lobby, or prompt to select)
         let chosenTheme = data.theme?.name;
         if (!chosenTheme) {
             const opts = data.theme_options || [];
             const votes = data.theme_votes || {};
             const myVote = opts.find(t => (votes[t] || []).some(v => v.id === gameState.playerId));
-            chosenTheme = myVote || opts[0] || '';
+            chosenTheme = myVote || '';
         }
-        document.getElementById('sp-theme-name').textContent = chosenTheme || 'Loading...';
+        document.getElementById('sp-theme-name').textContent = chosenTheme || 'Select a database below';
         
         // Update players list
         const playersList = document.getElementById('sp-players-list');
