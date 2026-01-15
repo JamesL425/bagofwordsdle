@@ -4681,6 +4681,10 @@ class handler(BaseHTTPRequestHandler):
 
     def _debug_allowed(self) -> bool:
         """Return True if we can safely return debug details to this client."""
+        # SECURITY: In production, only admins can see debug info to prevent information leakage
+        if os.getenv('VERCEL_ENV') == 'production':
+            return self._is_admin_request()
+        # In development, respect DEBUG_ERRORS setting or admin status
         return bool(DEBUG_ERRORS or self._is_admin_request())
 
     def _validate_player_session(self, body: dict, game_code: str) -> tuple:
@@ -4723,8 +4727,8 @@ class handler(BaseHTTPRequestHandler):
         # Allow localhost in development
         if DEV_MODE and origin.startswith('http://localhost:'):
             return origin
-        # Default to first allowed origin (or empty for security)
-        return ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else ''
+        # SECURITY: Don't set CORS header for unknown origins (prevents confused deputy attacks)
+        return ''
 
     def _send_json(self, data, status=200):
         self.send_response(status)
@@ -5050,6 +5054,20 @@ class handler(BaseHTTPRequestHandler):
             # Helper to redirect back to frontend with error/success params
             def _redirect_frontend(params: dict, return_to: str = ''):
                 qs = urllib.parse.urlencode({k: v for k, v in params.items() if v is not None and v != ''})
+                # SECURITY: Validate return_to against allowed origins to prevent open redirect
+                if return_to:
+                    valid_return = False
+                    for allowed in ALLOWED_ORIGINS:
+                        if return_to.startswith(allowed):
+                            valid_return = True
+                            break
+                    # Also allow localhost in dev mode
+                    if DEV_MODE and return_to.startswith('http://localhost:'):
+                        valid_return = True
+                    if not valid_return:
+                        print(f"[SECURITY] OAuth callback: rejecting untrusted return_to URL: {return_to[:100]}")
+                        return_to = ''  # Fall back to relative redirect
+                
                 if return_to:
                     target = return_to.rstrip('/') + '/?' + qs
                 else:
@@ -6789,9 +6807,9 @@ class handler(BaseHTTPRequestHandler):
 
             is_ranked = bool(game.get('is_ranked', False))
 
-            # Determine authenticated user (prefer JWT; keep body field for backwards compatibility)
+            # SECURITY: Determine authenticated user from JWT only (no body fallback to prevent identity spoofing)
             token_user_id = self._get_auth_user_id()
-            auth_user_id = token_user_id or (body.get('auth_user_id', '') if isinstance(body.get('auth_user_id', ''), str) else '')
+            auth_user_id = token_user_id
 
             # Ranked games require JWT-authenticated identity
             if is_ranked and not token_user_id:
