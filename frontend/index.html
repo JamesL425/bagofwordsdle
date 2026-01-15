@@ -48,7 +48,6 @@
         <button id="cosmetics-btn" class="btn btn-ghost btn-tiny" title="Cosmetics">🎨</button>
         <button id="chat-btn" class="btn btn-ghost btn-tiny" title="Chat">💬<span id="chat-unread-dot" class="unread-dot hidden"></span></button>
         <button id="options-btn" class="btn btn-ghost btn-tiny" title="Options">⚙️</button>
-        <button id="logout-btn" class="btn btn-ghost btn-tiny">×</button>
     </div>
 
     <!-- Cosmetics Panel -->
@@ -311,6 +310,9 @@
                 <div class="profile-actions">
                     <button id="share-profile-btn" class="btn btn-secondary btn-small">
                         <span class="share-icon">🔗</span> SHARE PROFILE
+                    </button>
+                    <button id="profile-logout-btn" class="btn btn-danger btn-small">
+                        LOGOUT
                     </button>
                 </div>
                 <div id="profile-loading" class="profile-loading">Loading...</div>
@@ -741,23 +743,23 @@
                     
                     <div id="change-word-container" class="change-word-container hidden">
                         <div class="change-word-header">
-                            <p class="change-word-label">◈ TARGET ELIMINATED! Select new encryption:</p>
+                            <p class="change-word-label">🎯 YOU ELIMINATED SOMEONE! PICK A NEW SECRET WORD:</p>
                             <div id="word-change-timer" class="word-change-timer hidden">
-                                <span id="word-change-countdown">15</span>s
+                                <span id="word-change-countdown">30</span>s
                             </div>
                         </div>
                         <div id="word-pool-options" class="word-pool-options">
                             <!-- Available words will be shown here -->
                         </div>
                         <div class="change-word-input-row">
-                            <span id="new-word-display" class="selected-word-display">Click a word above</span>
-                            <button id="change-word-btn" class="btn btn-small btn-accent">ENCRYPT</button>
-                            <button id="skip-word-change-btn" class="btn btn-small btn-ghost">KEEP</button>
+                            <span id="new-word-display" class="selected-word-display">👆 Click a word above to select it</span>
+                            <button id="change-word-btn" class="btn btn-small btn-accent">CONFIRM NEW WORD</button>
+                            <button id="skip-word-change-btn" class="btn btn-small btn-ghost">KEEP CURRENT</button>
                         </div>
                     </div>
                     
                     <div id="waiting-for-change" class="waiting-notice hidden">
-                        <span id="waiting-player-name">Operative</span> is re-encrypting...
+                        ⏳ <span id="waiting-player-name">Operative</span> is picking a new secret word...
                     </div>
 
                     <!-- Mobile-only docked tabs (WORDS / LOG) -->

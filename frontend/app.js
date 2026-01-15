@@ -1202,7 +1202,8 @@ document.getElementById('login-name').addEventListener('keydown', (e) => {
     }
 });
 
-document.getElementById('logout-btn').addEventListener('click', logout);
+// Logout button in profile modal
+document.getElementById('profile-logout-btn')?.addEventListener('click', logout);
 
 // Cosmetics button
 document.getElementById('cosmetics-btn')?.addEventListener('click', toggleCosmeticsPanel);
@@ -1400,6 +1401,14 @@ async function openProfileModal(playerName) {
     document.getElementById('profile-badge').textContent = '';
     
     modal.classList.add('show');
+    
+    // Show logout button only when viewing own profile
+    const logoutBtn = document.getElementById('profile-logout-btn');
+    if (logoutBtn) {
+        const isOwnProfile = gameState.playerName && 
+            gameState.playerName.toLowerCase() === playerName.toLowerCase();
+        logoutBtn.classList.toggle('hidden', !isOwnProfile);
+    }
     
     profileModalInFlight = true;
     try {
@@ -3943,7 +3952,8 @@ function updatePlayersGrid(game) {
     }
     
     game.players.forEach(player => {
-        const isCurrentTurn = player.id === game.current_player_id;
+        // Don't highlight current turn if game is paused for word change
+        const isCurrentTurn = player.id === game.current_player_id && !game.waiting_for_word_change;
         const isYou = player.id === gameState.playerId;
         const isAI = player.is_ai;
         const isRankedGame = Boolean(game.is_ranked);
@@ -4089,6 +4099,22 @@ function updateTurnIndicator(game) {
         return;
     }
     
+    // If game is paused for word change, show that instead of whose turn it is
+    if (game.waiting_for_word_change) {
+        const waitingPlayer = game.players.find(p => p.id === game.waiting_for_word_change);
+        const isMe = game.waiting_for_word_change === gameState.playerId;
+        
+        if (isMe) {
+            indicator.classList.add('your-turn');
+            turnText.textContent = "🎯 PICK A NEW SECRET WORD NOW!";
+        } else {
+            indicator.classList.remove('your-turn');
+            turnText.textContent = `⏳ ${waitingPlayer?.name || '...'} is choosing a new secret word...`;
+        }
+        hideTimer();
+        return;
+    }
+    
     const currentPlayer = game.players.find(p => p.id === game.current_player_id);
     const isMyTurn = game.current_player_id === gameState.playerId;
     
@@ -4167,7 +4193,8 @@ function updateTimerDisplay() {
     const initialTime = timeControl?.initial_time || 0;
     const increment = timeControl?.increment || 0;
     
-    if (initialTime <= 0) {
+    // Don't update timers if game is paused for word change
+    if (initialTime <= 0 || gameState.game?.waiting_for_word_change) {
         hideTimer();
         return;
     }
@@ -4206,6 +4233,11 @@ function updateTimerDisplay() {
 function updatePlayerCardTimers(currentPlayerRemaining) {
     // Update the current player's card timer in real-time
     // Other players' times are static (from last server sync)
+    // Don't update if game is paused for word change
+    if (gameState.game?.waiting_for_word_change) {
+        return;
+    }
+    
     const playerTimeEls = document.querySelectorAll('.player-time');
     playerTimeEls.forEach(el => {
         const playerId = el.dataset.playerId;
@@ -4236,7 +4268,7 @@ function hideTimer() {
     }
 }
 
-// ============ WORD CHANGE TIMER (15 seconds after elimination) ============
+// ============ WORD CHANGE TIMER (30 seconds after elimination) ============
 
 function updateWordChangeTimer(serverTimeRemaining) {
     const timerEl = document.getElementById('word-change-timer');

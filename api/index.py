@@ -4873,7 +4873,7 @@ class handler(BaseHTTPRequestHandler):
                 word_selection_time_remaining = max(0, word_selection_time - elapsed)
             
             # Calculate word change time remaining (15 seconds to pick a new word after elimination)
-            WORD_CHANGE_TIME_LIMIT = 15
+            WORD_CHANGE_TIME_LIMIT = 30
             word_change_time_remaining = None
             word_change_started_at = game.get('word_change_started_at')
             if game.get('waiting_for_word_change') and word_change_started_at:
@@ -5684,7 +5684,7 @@ class handler(BaseHTTPRequestHandler):
                     word_selection_time_remaining = max(0, word_selection_time - elapsed)
                 
                 # Calculate word change time remaining (15 seconds to pick a new word after elimination)
-                WORD_CHANGE_TIME_LIMIT = 15
+                WORD_CHANGE_TIME_LIMIT = 30
                 word_change_time_remaining = None
                 word_change_started_at = game.get('word_change_started_at')
                 if game.get('waiting_for_word_change') and word_change_started_at:
@@ -6016,7 +6016,7 @@ class handler(BaseHTTPRequestHandler):
                     word_selection_time_remaining = max(0, word_selection_time - elapsed)
                 
                 # Calculate word change time remaining (15 seconds to pick a new word after elimination)
-                WORD_CHANGE_TIME_LIMIT = 15
+                WORD_CHANGE_TIME_LIMIT = 30
                 word_change_time_remaining = None
                 word_change_started_at = game.get('word_change_started_at')
                 if game.get('waiting_for_word_change') and word_change_started_at:
@@ -7546,7 +7546,7 @@ class handler(BaseHTTPRequestHandler):
             if eliminations:
                 player['can_change_word'] = True
                 game['waiting_for_word_change'] = player_id  # Pause game until word is changed
-                game['word_change_started_at'] = time.time()  # Start 15-second word change timer
+                game['word_change_started_at'] = time.time()  # Start 30-second word change timer
             
             # Record history
             history_entry = {
@@ -7818,7 +7818,7 @@ class handler(BaseHTTPRequestHandler):
                 return self._send_error("No word change in progress", 400)
             
             # Verify the word change time has actually expired (server-authoritative)
-            WORD_CHANGE_TIME_LIMIT = 15
+            WORD_CHANGE_TIME_LIMIT = 30
             word_change_started_at = game.get('word_change_started_at')
             
             if not word_change_started_at:

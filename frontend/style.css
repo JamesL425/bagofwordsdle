@@ -1004,11 +1004,22 @@ header h1 {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    padding: 1rem;
-    background: var(--bg-secondary);
-    border: 2px solid var(--accent-primary);
+    padding: 1.25rem;
+    background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(var(--accent-primary-rgb, 0, 255, 136), 0.1) 100%);
+    border: 3px solid var(--accent-primary);
     border-radius: var(--radius);
     margin-top: 1rem;
+    box-shadow: 0 0 20px rgba(var(--accent-primary-rgb, 0, 255, 136), 0.3);
+    animation: pulse-border 2s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+    0%, 100% {
+        box-shadow: 0 0 20px rgba(var(--accent-primary-rgb, 0, 255, 136), 0.3);
+    }
+    50% {
+        box-shadow: 0 0 30px rgba(var(--accent-primary-rgb, 0, 255, 136), 0.5);
+    }
 }
 
 .change-word-container.hidden {
@@ -1016,9 +1027,12 @@ header h1 {
 }
 
 .change-word-label {
-    font-weight: 600;
+    font-weight: 700;
+    font-size: 1.1rem;
     color: var(--accent-primary);
     margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .word-change-timer {
@@ -2995,6 +3009,7 @@ body.nerd-mode .nerd-sim {
 .profile-actions {
     display: flex;
     justify-content: center;
+    gap: 0.75rem;
     margin-top: 1rem;
     padding-top: 1rem;
     border-top: 1px solid var(--border);
