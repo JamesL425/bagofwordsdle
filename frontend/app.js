@@ -3569,6 +3569,10 @@ function showGame(game) {
     updateGame(game);
 }
 
+// Track last game state to avoid unnecessary re-renders
+let lastGameHistoryLength = -1;
+let lastGameCurrentPlayerId = null;
+
 function updateGame(game) {
     const isSpectator = Boolean(gameState.isSpectator);
     const myPlayer = game.players.find(p => p.id === gameState.playerId);
@@ -3766,7 +3770,14 @@ function updateGame(game) {
         }
     }
     
-    updateHistory(game);
+    // Only re-render history if it has actually changed (avoid flicker)
+    const historyLength = game.history?.length || 0;
+    const currentPlayerId = game.current_player_id;
+    if (historyLength !== lastGameHistoryLength || currentPlayerId !== lastGameCurrentPlayerId) {
+        lastGameHistoryLength = historyLength;
+        lastGameCurrentPlayerId = currentPlayerId;
+        updateHistory(game);
+    }
 }
 
 function updateSidebarMeta(game) {
@@ -4726,17 +4737,17 @@ function isAiTurn(game) {
 async function maybeRunSingleplayerAiTurns(game) {
     if (singleplayerAiRunnerActive) return;
     if (!game || !isAiTurn(game)) return;
-    // Fire and forget - keep UI responsive
-    runSingleplayerAiTurns().catch(err => console.error('AI runner error:', err));
+    // Fire and forget - keep UI responsive, pass the game state to avoid re-fetch
+    runSingleplayerAiTurns(game).catch(err => console.error('AI runner error:', err));
 }
 
-async function runSingleplayerAiTurns() {
+async function runSingleplayerAiTurns(initialGame) {
     if (singleplayerAiRunnerActive) return;
     singleplayerAiRunnerActive = true;
 
     try {
-        // Get initial state to check if it's AI turn
-        let game = await apiCall(`/api/games/${gameState.code}?player_id=${gameState.playerId}`);
+        // Use the passed game state instead of re-fetching
+        let game = initialGame;
         
         while (isAiTurn(game)) {
             const currentAi = game.players.find(p => p.id === game.current_player_id);

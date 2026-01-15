@@ -1057,8 +1057,8 @@ def _nemesis_update_beliefs(ai_player: dict, game: dict, guess_word: str, simila
         _nemesis_init_beliefs(ai_player, game)
         beliefs = memory.get("nemesis_beliefs", {})
     
-    # Get cached embeddings from game state
-    theme_embeddings = game.get('theme_embeddings', {})
+    # Get cached embeddings from Redis
+    theme_embeddings = get_theme_embeddings(game)
     guess_lower = guess_word.lower()
     guess_embedding = theme_embeddings.get(guess_lower)
     if not guess_embedding:
@@ -1157,8 +1157,8 @@ def _nemesis_expected_info_gain(ai_player: dict, game: dict, guess_word: str,
     if not beliefs:
         return 0.0
     
-    # Get cached embeddings from game state
-    theme_embeddings = game.get('theme_embeddings', {})
+    # Get cached embeddings from Redis
+    theme_embeddings = get_theme_embeddings(game)
     guess_lower = guess_word.lower()
     guess_embedding = theme_embeddings.get(guess_lower)
     if not guess_embedding:
@@ -1403,7 +1403,7 @@ def _nemesis_get_priority_candidates(ai_player: dict, game: dict,
     
     memory = ai_player.get("ai_memory", {})
     beliefs = memory.get("nemesis_beliefs", {})
-    theme_embeddings = game.get('theme_embeddings', {})
+    theme_embeddings = get_theme_embeddings(game)
     
     priority_words = set()
     
@@ -1566,7 +1566,7 @@ def ai_find_similar_words(target_word: str, theme_words: list, guessed_words: li
     """
     try:
         # Use cached embeddings if available
-        theme_embeddings = game.get('theme_embeddings', {}) if game else {}
+        theme_embeddings = get_theme_embeddings(game) if game else {}
         
         target_lower = target_word.lower()
         target_embedding = theme_embeddings.get(target_lower)
@@ -1680,8 +1680,9 @@ def _ai_self_similarity(ai_player: dict, word: str, game: dict = None) -> Option
             return None
         
         # Try cached embedding first
-        if game and game.get('theme_embeddings'):
-            emb = game['theme_embeddings'].get(word.lower())
+        if game:
+            theme_embeddings = get_theme_embeddings(game)
+            emb = theme_embeddings.get(word.lower())
             if emb:
                 return float(cosine_similarity(emb, secret_emb))
         
@@ -1923,7 +1924,7 @@ def _ai_maybe_bluff(ai_player: dict, game: dict, available_words: list) -> Optio
             return None
         
         # Use cached embeddings if available
-        theme_embeddings = game.get('theme_embeddings', {})
+        theme_embeddings = get_theme_embeddings(game)
         
         bluff_candidates = []
         for word in available_words[:30]:  # Sample for performance
@@ -4074,14 +4075,8 @@ def build_word_change_options(player: dict, game: dict) -> list:
 
 
 def get_embedding(word: str, game: dict = None) -> list:
-    """Get embedding for a word, checking game cache first, then Redis cache."""
+    """Get embedding for a word from Redis cache (game parameter kept for API compatibility)."""
     word_lower = word.lower().strip()
-    
-    # Check game-level cache first (fastest - in-memory)
-    if game and game.get('theme_embeddings'):
-        cached = game['theme_embeddings'].get(word_lower)
-        if cached:
-            return cached
     
     # Check Redis cache
     redis = get_redis()
@@ -4149,6 +4144,33 @@ def batch_get_embeddings(words: list) -> dict:
                     pass
         except Exception as e:
             print(f"Batch embedding error: {e}")
+    
+    return result
+
+
+def get_theme_embeddings(game: dict) -> dict:
+    """
+    Get all theme word embeddings from Redis cache.
+    Returns dict mapping lowercase words to their embeddings.
+    """
+    theme_words = game.get('theme', {}).get('words', [])
+    if not theme_words:
+        return {}
+    
+    result = {}
+    redis = get_redis()
+    
+    for word in theme_words:
+        word_lower = word.lower().strip()
+        if not word_lower:
+            continue
+        cache_key = f"emb:{word_lower}"
+        try:
+            cached = redis.get(cache_key)
+            if cached:
+                result[word_lower] = json.loads(cached)
+        except Exception:
+            pass
     
     return result
 
@@ -7305,15 +7327,14 @@ class handler(BaseHTTPRequestHandler):
             for p in game['players']:
                 p['time_remaining'] = initial_time
 
-            # Pre-cache all theme word embeddings for fast AI calculations
-            # This eliminates per-turn API calls during gameplay
+            # Pre-cache all theme word embeddings in Redis for fast AI calculations
+            # This warms the cache so per-turn lookups are fast (but doesn't store in game state)
             theme_words = game.get('theme', {}).get('words', [])
             if theme_words:
                 try:
-                    game['theme_embeddings'] = batch_get_embeddings(theme_words)
+                    batch_get_embeddings(theme_words)  # Just warm the cache
                 except Exception as e:
                     print(f"Theme embedding pre-cache error: {e}")
-                    game['theme_embeddings'] = {}
 
             game['status'] = 'playing'
             game['turn_started_at'] = time.time()  # Start the turn timer
