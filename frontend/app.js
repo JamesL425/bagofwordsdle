@@ -4751,8 +4751,8 @@ async function runSingleplayerAiTurns() {
                 session_token: gameState.sessionToken,
             });
             
-            // Use dynamic thinking time from server (or fallback to 350ms)
-            const thinkTimeMs = updated.ai_think_time_ms || 350;
+            // Use minimal thinking time for fast response (capped at 150ms)
+            const thinkTimeMs = Math.min(updated.ai_think_time_ms || 100, 150);
             
             // Wait for the AI's "thinking" time for natural feel
             await sleep(thinkTimeMs);

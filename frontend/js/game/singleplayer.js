@@ -89,8 +89,8 @@ export async function maybeRunAiTurns(game) {
     if (isAiTurn(game)) {
         aiTurnInFlight = true;
         try {
-            // Add small delay for more natural feel
-            await sleep(500 + Math.random() * 1000);
+            // Minimal delay for UI responsiveness (reduced from 500-1500ms)
+            await sleep(100);
             await singleplayer.aiTurn(gameState.code, gameState.playerId);
         } catch (e) {
             console.error('AI turn error:', e);

@@ -558,37 +558,37 @@ AI_PERSONALITY_CONFIG = {
     },
 }
 
-# AI Timing configuration - simulates human thinking patterns
+# AI Timing configuration - fast response times for snappy gameplay
 AI_TIMING_CONFIG = {
     "rookie": {
-        "base_think_ms": (800, 2500),       # Slower, uncertain
-        "strategic_think_ms": (1500, 4000), # Takes longer on hard decisions
-        "hesitation_chance": 0.3,           # Sometimes pauses mid-thought
-        "hesitation_ms": (300, 800),        # How long the hesitation lasts
+        "base_think_ms": (50, 150),          # Fast response
+        "strategic_think_ms": (80, 200),     # Slightly longer for decisions
+        "hesitation_chance": 0.1,            # Rare hesitation
+        "hesitation_ms": (20, 50),           # Brief pause
     },
     "analyst": {
-        "base_think_ms": (600, 2000),
-        "strategic_think_ms": (1200, 3000),
-        "hesitation_chance": 0.2,
-        "hesitation_ms": (200, 600),
+        "base_think_ms": (40, 120),
+        "strategic_think_ms": (60, 180),
+        "hesitation_chance": 0.08,
+        "hesitation_ms": (15, 40),
     },
     "field-agent": {
-        "base_think_ms": (500, 1500),
-        "strategic_think_ms": (1000, 2500),
-        "hesitation_chance": 0.15,
-        "hesitation_ms": (150, 500),
+        "base_think_ms": (30, 100),
+        "strategic_think_ms": (50, 150),
+        "hesitation_chance": 0.05,
+        "hesitation_ms": (10, 30),
     },
     "spymaster": {
-        "base_think_ms": (450, 1300),
-        "strategic_think_ms": (900, 2000),
-        "hesitation_chance": 0.1,
-        "hesitation_ms": (100, 400),
+        "base_think_ms": (25, 80),
+        "strategic_think_ms": (40, 120),
+        "hesitation_chance": 0.03,
+        "hesitation_ms": (8, 25),
     },
     "ghost": {
-        "base_think_ms": (350, 1100),       # Quick, confident
-        "strategic_think_ms": (700, 1800),
-        "hesitation_chance": 0.05,
-        "hesitation_ms": (80, 300),
+        "base_think_ms": (20, 60),           # Very quick
+        "strategic_think_ms": (30, 100),
+        "hesitation_chance": 0.01,
+        "hesitation_ms": (5, 20),
     },
 }
 
@@ -756,7 +756,7 @@ AI_DIFFICULTY_CONFIG = {
         "self_leak_hard_max": 0.80,          # Hard cutoff lower
         "panic_danger": "safe",              # Never panics (always calculated)
         "panic_aggression_boost": 0.0,       # No emotional response
-        "candidate_pool": 30,                # Evaluates more options
+        "candidate_pool": 15,                # Reduced for speed (was 30)
         "clue_words_per_target": 5,          # Uses more intel
         "makes_mistakes": False,             # No human-like errors
         "has_personality": False,            # No personality modifiers
@@ -1057,10 +1057,15 @@ def _nemesis_update_beliefs(ai_player: dict, game: dict, guess_word: str, simila
         _nemesis_init_beliefs(ai_player, game)
         beliefs = memory.get("nemesis_beliefs", {})
     
-    try:
-        guess_embedding = get_embedding(guess_word)
-    except Exception:
-        return
+    # Get cached embeddings from game state
+    theme_embeddings = game.get('theme_embeddings', {})
+    guess_lower = guess_word.lower()
+    guess_embedding = theme_embeddings.get(guess_lower)
+    if not guess_embedding:
+        try:
+            guess_embedding = get_embedding(guess_word, game)
+        except Exception:
+            return
     
     for player_id, observed_sim in similarities.items():
         if player_id == ai_player.get("id"):
@@ -1080,22 +1085,23 @@ def _nemesis_update_beliefs(ai_player: dict, game: dict, guess_word: str, simila
         total_prob = 0.0
         
         for word, prior_prob in player_beliefs.items():
-            try:
-                word_embedding = get_embedding(word)
-                expected_sim = cosine_similarity(guess_embedding, word_embedding)
-                
-                # Likelihood: how well does observed similarity match expected?
-                # Use Gaussian likelihood with sigma=0.15
-                sigma = 0.15
-                diff = observed_sim - expected_sim
-                likelihood = math.exp(-(diff ** 2) / (2 * sigma ** 2))
-                
-                posterior = prior_prob * likelihood
-                new_beliefs[word] = posterior
-                total_prob += posterior
-            except Exception:
+            word_embedding = theme_embeddings.get(word.lower())
+            if not word_embedding:
                 new_beliefs[word] = prior_prob
                 total_prob += prior_prob
+                continue
+            
+            expected_sim = cosine_similarity(guess_embedding, word_embedding)
+            
+            # Likelihood: how well does observed similarity match expected?
+            # Use Gaussian likelihood with sigma=0.15
+            sigma = 0.15
+            diff = observed_sim - expected_sim
+            likelihood = math.exp(-(diff ** 2) / (2 * sigma ** 2))
+            
+            posterior = prior_prob * likelihood
+            new_beliefs[word] = posterior
+            total_prob += posterior
         
         # Normalize
         if total_prob > 0:
@@ -1141,23 +1147,25 @@ def _nemesis_expected_info_gain(ai_player: dict, game: dict, guess_word: str,
     """
     Calculate expected information gain from making a guess.
     
-    Information gain = current entropy - expected entropy after observation
-    
-    This measures how much we expect to learn about opponents' words
-    from making this guess.
+    FAST VERSION: Uses a heuristic based on how well the guess word
+    discriminates between high-probability and low-probability candidates
+    in our beliefs. Uses cached embeddings for speed.
     """
-    import math
-    
     memory = ai_player.get("ai_memory", {})
     beliefs = memory.get("nemesis_beliefs", {})
     
     if not beliefs:
         return 0.0
     
-    try:
-        guess_embedding = get_embedding(guess_word)
-    except Exception:
-        return 0.0
+    # Get cached embeddings from game state
+    theme_embeddings = game.get('theme_embeddings', {})
+    guess_lower = guess_word.lower()
+    guess_embedding = theme_embeddings.get(guess_lower)
+    if not guess_embedding:
+        try:
+            guess_embedding = get_embedding(guess_word, game)
+        except Exception:
+            return 0.0
     
     total_info_gain = 0.0
     
@@ -1174,49 +1182,25 @@ def _nemesis_expected_info_gain(ai_player: dict, game: dict, guess_word: str,
         if not player_beliefs:
             continue
         
-        # Current entropy for this player
-        current_entropy = _nemesis_calculate_entropy(player_beliefs)
+        # Fast heuristic: measure variance in similarities to top candidates
+        # High variance = good discriminating power = high info gain
+        top_candidates = sorted(player_beliefs.items(), key=lambda x: x[1], reverse=True)[:5]
+        if not top_candidates:
+            continue
         
-        # Expected entropy after observing similarity
-        # We need to marginalize over possible observations
-        # For efficiency, discretize similarity into buckets
+        similarities = []
+        for word, prob in top_candidates:
+            word_emb = theme_embeddings.get(word.lower())
+            if not word_emb:
+                continue
+            sim = cosine_similarity(guess_embedding, word_emb)
+            similarities.append(sim)
         
-        expected_entropy = 0.0
-        sim_buckets = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
-        
-        for i in range(len(sim_buckets) - 1):
-            sim_low = sim_buckets[i]
-            sim_high = sim_buckets[i + 1]
-            sim_mid = (sim_low + sim_high) / 2
-            
-            # Probability of observing similarity in this bucket
-            bucket_prob = 0.0
-            posterior_beliefs = {}
-            
-            for word, prior in player_beliefs.items():
-                try:
-                    word_emb = get_embedding(word)
-                    expected_sim = cosine_similarity(guess_embedding, word_emb)
-                    
-                    # Probability this word produces similarity in bucket
-                    if sim_low <= expected_sim < sim_high:
-                        bucket_prob += prior
-                        posterior_beliefs[word] = prior
-                except Exception:
-                    continue
-            
-            if bucket_prob > 0:
-                # Normalize posterior
-                for word in posterior_beliefs:
-                    posterior_beliefs[word] /= bucket_prob
-                
-                # Entropy of posterior
-                posterior_entropy = _nemesis_calculate_entropy(posterior_beliefs)
-                expected_entropy += bucket_prob * posterior_entropy
-        
-        # Information gain for this player
-        info_gain = current_entropy - expected_entropy
-        total_info_gain += max(0, info_gain)
+        if len(similarities) >= 2:
+            # Variance of similarities indicates discrimination power
+            mean_sim = sum(similarities) / len(similarities)
+            variance = sum((s - mean_sim) ** 2 for s in similarities) / len(similarities)
+            total_info_gain += variance * 10  # Scale up for scoring
     
     return total_info_gain
 
@@ -1276,8 +1260,8 @@ def _nemesis_score_guess(ai_player: dict, game: dict, guess_word: str,
         threat_level = _nemesis_get_threat_level(ai_player, game, pid)
         threat_weighted_elim += elim_prob * (1 + threat_level)
     
-    # Self-leak penalty
-    self_sim = _ai_self_similarity(ai_player, guess_word)
+    # Self-leak penalty (use cached embeddings)
+    self_sim = _ai_self_similarity(ai_player, guess_word, game)
     if self_sim is None:
         self_sim = 0.0
     
@@ -1412,13 +1396,14 @@ def _nemesis_get_priority_candidates(ai_player: dict, game: dict,
     
     Prioritizes:
     1. Words with high probability of being opponents' secrets
-    2. Words similar to high-scoring guesses
+    2. Words similar to high-scoring guesses (using cached embeddings)
     3. Random sample for exploration
     """
     import random
     
     memory = ai_player.get("ai_memory", {})
     beliefs = memory.get("nemesis_beliefs", {})
+    theme_embeddings = game.get('theme_embeddings', {})
     
     priority_words = set()
     
@@ -1433,7 +1418,7 @@ def _nemesis_get_priority_candidates(ai_player: dict, game: dict,
                         priority_words.add(aw)
                         break
     
-    # Add words similar to recent high-similarity guesses
+    # Add words similar to recent high-similarity guesses (using cached embeddings)
     for player in game.get("players", []):
         pid = player.get("id")
         if pid == ai_player.get("id"):
@@ -1441,18 +1426,14 @@ def _nemesis_get_priority_candidates(ai_player: dict, game: dict,
         top_guesses = _ai_top_guesses_since_change(game, pid, k=3)
         for word, sim in top_guesses:
             if sim > 0.5:
-                # Find similar words in available
-                try:
-                    word_emb = get_embedding(word)
-                    for aw in available_words[:50]:  # Sample for efficiency
-                        try:
-                            aw_emb = get_embedding(aw)
-                            if cosine_similarity(word_emb, aw_emb) > 0.6:
-                                priority_words.add(aw)
-                        except Exception:
-                            continue
-                except Exception:
+                # Find similar words using cached embeddings
+                word_emb = theme_embeddings.get(word.lower())
+                if not word_emb:
                     continue
+                for aw in available_words[:50]:  # Sample for efficiency
+                    aw_emb = theme_embeddings.get(aw.lower())
+                    if aw_emb and cosine_similarity(word_emb, aw_emb) > 0.6:
+                        priority_words.add(aw)
     
     # Fill remaining with random sample
     remaining = count - len(priority_words)
@@ -1577,18 +1558,27 @@ def ai_find_best_target(ai_player: dict, game: dict) -> Optional[dict]:
     return best_target
 
 
-def ai_find_similar_words(target_word: str, theme_words: list, guessed_words: list, count: int = 5) -> list:
+def ai_find_similar_words(target_word: str, theme_words: list, guessed_words: list, count: int = 5, game: dict = None) -> list:
     """Find words in theme that are semantically similar to target word using embeddings.
     
     Note: guessed_words parameter is kept for API compatibility but no longer used for filtering.
     Bots should be able to re-guess words because players may have changed their words.
     """
     try:
-        target_embedding = get_embedding(target_word)
+        # Use cached embeddings if available
+        theme_embeddings = game.get('theme_embeddings', {}) if game else {}
+        
+        target_lower = target_word.lower()
+        target_embedding = theme_embeddings.get(target_lower)
+        if not target_embedding:
+            target_embedding = get_embedding(target_word, game)
         
         candidates = []
         for word in theme_words:
-            word_embedding = get_embedding(word)
+            word_lower = word.lower()
+            word_embedding = theme_embeddings.get(word_lower)
+            if not word_embedding:
+                word_embedding = get_embedding(word, game)
             sim = cosine_similarity(target_embedding, word_embedding)
             candidates.append((word, sim))
         
@@ -1682,13 +1672,20 @@ def _ai_is_panic(danger_level: str, panic_threshold: str) -> bool:
     return order.get(danger_level, 0) >= order.get(panic_threshold, 4)
 
 
-def _ai_self_similarity(ai_player: dict, word: str) -> Optional[float]:
+def _ai_self_similarity(ai_player: dict, word: str, game: dict = None) -> Optional[float]:
     """Cosine similarity between a candidate guess and the AI's own secret embedding."""
     try:
         secret_emb = ai_player.get("secret_embedding")
         if not secret_emb:
             return None
-        emb = get_embedding(word)
+        
+        # Try cached embedding first
+        if game and game.get('theme_embeddings'):
+            emb = game['theme_embeddings'].get(word.lower())
+            if emb:
+                return float(cosine_similarity(emb, secret_emb))
+        
+        emb = get_embedding(word, game)
         return float(cosine_similarity(emb, secret_emb))
     except Exception:
         return None
@@ -1925,9 +1922,14 @@ def _ai_maybe_bluff(ai_player: dict, game: dict, available_words: list) -> Optio
         if not my_embedding:
             return None
         
+        # Use cached embeddings if available
+        theme_embeddings = game.get('theme_embeddings', {})
+        
         bluff_candidates = []
         for word in available_words[:30]:  # Sample for performance
-            word_emb = get_embedding(word)
+            word_emb = theme_embeddings.get(word.lower())
+            if not word_emb:
+                word_emb = get_embedding(word, game)
             sim = cosine_similarity(my_embedding, word_emb)
             # Sweet spot: 0.5-0.75 similarity (close enough to mislead, not too close to self-eliminate)
             if 0.5 < sim < 0.75:
@@ -2119,7 +2121,7 @@ def ai_choose_guess(ai_player: dict, game: dict) -> Optional[str]:
         wl = str(word).lower()
         if wl in _self_sim_cache:
             return _self_sim_cache[wl]
-        sim = _ai_self_similarity(ai_player, wl)
+        sim = _ai_self_similarity(ai_player, wl, game)
         _self_sim_cache[wl] = sim
         return sim
 
@@ -2253,6 +2255,7 @@ def ai_choose_guess(ai_player: dict, game: dict) -> Optional[str]:
                     available_words,
                     guessed_words,
                     count=combined_list_max,
+                    game=game,
                 )
                 if not sim_list:
                     continue
@@ -4070,10 +4073,17 @@ def build_word_change_options(player: dict, game: dict) -> list:
     return sorted(random.sample(available, WORD_CHANGE_SAMPLE_SIZE))
 
 
-def get_embedding(word: str) -> list:
+def get_embedding(word: str, game: dict = None) -> list:
+    """Get embedding for a word, checking game cache first, then Redis cache."""
     word_lower = word.lower().strip()
     
-    # Check Redis cache first
+    # Check game-level cache first (fastest - in-memory)
+    if game and game.get('theme_embeddings'):
+        cached = game['theme_embeddings'].get(word_lower)
+        if cached:
+            return cached
+    
+    # Check Redis cache
     redis = get_redis()
     cache_key = f"emb:{word_lower}"
     cached = redis.get(cache_key)
@@ -4090,6 +4100,57 @@ def get_embedding(word: str) -> list:
     # Cache embedding
     redis.setex(cache_key, EMBEDDING_CACHE_SECONDS, json.dumps(embedding))
     return embedding
+
+
+def batch_get_embeddings(words: list) -> dict:
+    """
+    Get embeddings for multiple words efficiently using batch API.
+    Returns dict mapping lowercase words to their embeddings.
+    """
+    result = {}
+    to_fetch = []
+    redis = get_redis()
+    
+    # Check cache for each word
+    for word in words:
+        word_lower = word.lower().strip()
+        if not word_lower:
+            continue
+        cache_key = f"emb:{word_lower}"
+        try:
+            cached = redis.get(cache_key)
+            if cached:
+                result[word_lower] = json.loads(cached)
+                continue
+        except Exception:
+            pass
+        if word_lower not in [w for w in to_fetch]:  # Dedupe
+            to_fetch.append(word_lower)
+    
+    # Batch fetch remaining from API
+    if to_fetch:
+        try:
+            client = get_openai_client()
+            response = client.embeddings.create(
+                model=EMBEDDING_MODEL,
+                input=to_fetch,
+            )
+            
+            for i, embedding_data in enumerate(response.data):
+                word = to_fetch[i]
+                embedding = embedding_data.embedding
+                result[word] = embedding
+                
+                # Cache in Redis
+                try:
+                    cache_key = f"emb:{word}"
+                    redis.setex(cache_key, EMBEDDING_CACHE_SECONDS, json.dumps(embedding))
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"Batch embedding error: {e}")
+    
+    return result
 
 
 def cosine_similarity(embedding1, embedding2) -> float:
@@ -7243,6 +7304,16 @@ class handler(BaseHTTPRequestHandler):
             initial_time = int(time_control.get('initial_time', 0) or 0)
             for p in game['players']:
                 p['time_remaining'] = initial_time
+
+            # Pre-cache all theme word embeddings for fast AI calculations
+            # This eliminates per-turn API calls during gameplay
+            theme_words = game.get('theme', {}).get('words', [])
+            if theme_words:
+                try:
+                    game['theme_embeddings'] = batch_get_embeddings(theme_words)
+                except Exception as e:
+                    print(f"Theme embedding pre-cache error: {e}")
+                    game['theme_embeddings'] = {}
 
             game['status'] = 'playing'
             game['turn_started_at'] = time.time()  # Start the turn timer
