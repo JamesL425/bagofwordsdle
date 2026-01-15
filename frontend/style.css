@@ -1512,6 +1512,48 @@ header h1 {
     font-size: 0.7rem;
 }
 
+/* Player Time (Chess Clock) */
+.player-time {
+    font-family: 'JetBrains Mono', 'Courier Prime', monospace;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--surface-hover);
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--radius-sm);
+    margin: 0.25rem 0;
+    display: inline-block;
+}
+
+.player-time.warning {
+    color: var(--warning);
+    background: rgba(255, 193, 7, 0.15);
+}
+
+.player-time.critical {
+    color: var(--danger);
+    background: rgba(244, 67, 54, 0.2);
+    animation: timer-pulse 1s ease-in-out infinite;
+}
+
+.player-card.current-turn .player-time {
+    color: var(--accent-primary);
+    background: rgba(0, 229, 255, 0.15);
+    border: 1px solid var(--accent-primary);
+}
+
+.player-card.current-turn .player-time.warning {
+    color: var(--warning);
+    background: rgba(255, 193, 7, 0.15);
+    border-color: var(--warning);
+}
+
+.player-card.current-turn .player-time.critical {
+    color: var(--danger);
+    background: rgba(244, 67, 54, 0.2);
+    border-color: var(--danger);
+}
+
 .player-card .status {
     font-size: 0.875rem;
     color: var(--text-secondary);

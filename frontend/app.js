@@ -174,11 +174,12 @@ let gameState = {
     authUser: null,   // Authenticated user data
     isSpectator: false,
     spectatorId: null,
-    // Timer state
+    // Timer state (chess clock model)
     turnTimerInterval: null,
-    turnTimeRemaining: null,
-    turnStartedAt: null,
-    timeControl: null,
+    currentPlayerTime: null,  // Current player's time remaining
+    turnStartedAt: null,      // When current turn started (client timestamp)
+    timeControl: null,        // {initial_time, increment}
+    game: null,               // Current game state for reference
 };
 
 // ============ OPTIONS ============
@@ -2910,15 +2911,18 @@ async function updateLobby() {
             modeBadge.className = `mode-badge ${isRanked ? 'ranked' : 'casual'}`;
         }
         
-        // Update time control badge
+        // Update time control badge (chess clock format)
         const timeBadge = document.getElementById('lobby-time-badge');
         if (timeBadge) {
             const timeControl = data.time_control;
-            const turnTime = timeControl?.turn_time || 0;
+            const initialTime = timeControl?.initial_time || 0;
             const increment = timeControl?.increment || 0;
             
-            if (turnTime > 0) {
-                timeBadge.textContent = `⏱ ${turnTime}s +${increment}s`;
+            if (initialTime > 0) {
+                const mins = Math.floor(initialTime / 60);
+                const secs = initialTime % 60;
+                const timeStr = secs > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : `${mins} min`;
+                timeBadge.textContent = `⏱ ${timeStr} +${increment}s`;
                 timeBadge.classList.remove('hidden', 'no-limit');
             } else {
                 timeBadge.textContent = '⏱ No Limit';
@@ -3479,6 +3483,9 @@ function updateGame(game) {
     // Update sidebar word list with highlights
     updateSidebarWordList(game);
     
+    // Store game state for timer access
+    gameState.game = game;
+    
     updatePlayersGrid(game);
     updateTurnIndicator(game);
     
@@ -3777,10 +3784,24 @@ function updatePlayersGrid(game) {
         const nameClickable = !isAI ? 'clickable-profile' : '';
         const nameDataAttr = !isAI ? `data-player-name="${escapeHtml(player.name)}"` : '';
         
+        // Build time remaining HTML (chess clock)
+        let timeHtml = '';
+        const timeControl = game.time_control;
+        const hasTimeControl = timeControl && timeControl.initial_time > 0;
+        if (hasTimeControl && player.time_remaining !== null && player.time_remaining !== undefined) {
+            const timeRemaining = Math.max(0, player.time_remaining);
+            const timeStr = formatChessClockTime(timeRemaining);
+            const isLowTime = timeRemaining < 30;
+            const isCriticalTime = timeRemaining < 10;
+            const timeClass = isCriticalTime ? 'critical' : (isLowTime ? 'warning' : '');
+            timeHtml = `<div class="player-time ${timeClass}" data-player-id="${player.id}">${timeStr}</div>`;
+        }
+        
         div.innerHTML = `
             ${dangerHtml}
             <div class="name ${nameColorClass} ${nameClickable}" ${nameDataAttr}>${escapeHtml(player.name)}${aiDifficultyBadge}${badgeHtml}${isYou ? ' (you)' : ''}${titleHtml}</div>
             ${rankedInfoHtml}
+            ${timeHtml}
             <div class="status ${player.is_alive ? 'alive' : 'eliminated'}">
                 ${player.is_alive ? 'Alive' : 'Eliminated'}
             </div>
@@ -3838,32 +3859,41 @@ function updateTurnIndicator(game) {
     updateTimerFromGame(game);
 }
 
-// ============ TURN TIMER ============
+// ============ TURN TIMER (Chess Clock Model) ============
+
+function formatChessClockTime(seconds) {
+    if (seconds <= 0) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
 
 function updateTimerFromGame(game) {
     const timeControl = game.time_control;
-    const turnTime = timeControl?.turn_time || 0;
+    const initialTime = timeControl?.initial_time || 0;
+    const increment = timeControl?.increment || 0;
     
     // Store time control for later use
     gameState.timeControl = timeControl;
     
     // No timer if no time limit or game is paused
-    if (turnTime <= 0 || game.waiting_for_word_change || game.status !== 'playing' || !game.all_words_set) {
+    if (initialTime <= 0 || game.waiting_for_word_change || game.status !== 'playing' || !game.all_words_set) {
         hideTimer();
         return;
     }
     
-    // Sync with server time
-    if (game.turn_time_remaining !== null && game.turn_time_remaining !== undefined) {
-        gameState.turnTimeRemaining = game.turn_time_remaining;
-        gameState.turnStartedAt = Date.now() - ((turnTime - game.turn_time_remaining) * 1000);
+    // Get current player's time from server (already calculated)
+    const currentPlayer = game.players.find(p => p.id === game.current_player_id);
+    if (currentPlayer && currentPlayer.time_remaining !== null && currentPlayer.time_remaining !== undefined) {
+        gameState.currentPlayerTime = currentPlayer.time_remaining;
+        gameState.turnStartedAt = Date.now();
     }
     
     // Start or continue the timer
-    startTurnTimer(turnTime);
+    startTurnTimer();
 }
 
-function startTurnTimer(turnTime) {
+function startTurnTimer() {
     // Clear any existing timer
     if (gameState.turnTimerInterval) {
         clearInterval(gameState.turnTimerInterval);
@@ -3888,29 +3918,31 @@ function updateTimerDisplay() {
     if (!timerEl) return;
     
     const timeControl = gameState.timeControl;
-    const turnTime = timeControl?.turn_time || 0;
+    const initialTime = timeControl?.initial_time || 0;
+    const increment = timeControl?.increment || 0;
     
-    if (turnTime <= 0) {
+    if (initialTime <= 0) {
         hideTimer();
         return;
     }
     
-    // Calculate remaining time
-    let remaining = gameState.turnTimeRemaining;
+    // Calculate remaining time (chess clock: decrement from player's stored time)
+    let remaining = gameState.currentPlayerTime || 0;
     if (gameState.turnStartedAt) {
         const elapsed = (Date.now() - gameState.turnStartedAt) / 1000;
-        remaining = Math.max(0, turnTime - elapsed);
+        remaining = Math.max(0, remaining - elapsed);
     }
     
-    // Format time
-    const seconds = Math.ceil(remaining);
-    timerEl.textContent = formatTimerDisplay(seconds);
+    // Format time with increment display
+    const timeStr = formatChessClockTime(remaining);
+    const incrementStr = increment > 0 ? ` +${increment}s` : '';
+    timerEl.textContent = `⏱ ${timeStr}${incrementStr}`;
     
     // Update urgency class
     timerEl.classList.remove('normal', 'warning', 'critical');
-    if (seconds <= 5) {
+    if (remaining <= 10) {
         timerEl.classList.add('critical');
-    } else if (seconds <= 15) {
+    } else if (remaining <= 30) {
         timerEl.classList.add('warning');
     } else {
         timerEl.classList.add('normal');
@@ -3920,15 +3952,31 @@ function updateTimerDisplay() {
     if (remaining <= 0) {
         handleTurnTimeout();
     }
+    
+    // Update player card timers too
+    updatePlayerCardTimers(remaining);
 }
 
-function formatTimerDisplay(seconds) {
-    if (seconds >= 60) {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
-    }
-    return `${seconds}s`;
+function updatePlayerCardTimers(currentPlayerRemaining) {
+    // Update the current player's card timer in real-time
+    // Other players' times are static (from last server sync)
+    const playerTimeEls = document.querySelectorAll('.player-time');
+    playerTimeEls.forEach(el => {
+        const playerId = el.dataset.playerId;
+        // Only update the current player's timer
+        if (playerId && gameState.game && gameState.game.current_player_id === playerId) {
+            const timeStr = formatChessClockTime(currentPlayerRemaining);
+            el.textContent = timeStr;
+            
+            // Update urgency class
+            el.classList.remove('warning', 'critical');
+            if (currentPlayerRemaining <= 10) {
+                el.classList.add('critical');
+            } else if (currentPlayerRemaining <= 30) {
+                el.classList.add('warning');
+            }
+        }
+    });
 }
 
 function hideTimer() {
@@ -3960,29 +4008,20 @@ async function handleTurnTimeout() {
         });
         
         if (result.timeout) {
-            // Show notification about the timeout
+            // Show notification about the timeout (always elimination in chess clock model)
             const timedOutPlayer = result.timed_out_player;
-            const penalty = result.penalty;
             const isMe = timedOutPlayer?.id === gameState.playerId;
             
-            if (penalty === 'eliminate') {
-                if (isMe) {
-                    showError('Time expired! You have been eliminated.');
-                } else {
-                    showSuccess(`${timedOutPlayer?.name || 'Player'} ran out of time and was eliminated!`);
-                }
-                // Play elimination effect
-                if (timedOutPlayer?.id && typeof playEliminationEffect === 'function') {
-                    playEliminationEffect(timedOutPlayer.id, 'classic');
-                }
-                playEliminationSfx();
+            if (isMe) {
+                showError('Time expired! You have been eliminated.');
             } else {
-                if (isMe) {
-                    showError('Time expired! Your turn was skipped.');
-                } else {
-                    showSuccess(`${timedOutPlayer?.name || 'Player'} ran out of time. Turn skipped.`);
-                }
+                showSuccess(`${timedOutPlayer?.name || 'Player'} ran out of time and was eliminated!`);
             }
+            // Play elimination effect
+            if (timedOutPlayer?.id && typeof playEliminationEffect === 'function') {
+                playEliminationEffect(timedOutPlayer.id, 'classic');
+            }
+            playEliminationSfx();
             
             // Update game state with response
             if (result.status) {
