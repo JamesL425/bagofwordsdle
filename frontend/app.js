@@ -2648,6 +2648,7 @@ async function joinSingleplayerLobby(code, name) {
         
         gameState.code = code;
         gameState.playerId = data.player_id;
+        gameState.sessionToken = data.session_token;  // SECURITY: Store session token
         gameState.playerName = name;
         gameState.isHost = data.is_host;
         gameState.isSingleplayer = true;
@@ -2903,6 +2904,7 @@ async function joinLobby(code, name) {
         
         gameState.code = code;
         gameState.playerId = data.player_id;
+        gameState.sessionToken = data.session_token;  // SECURITY: Store session token
         gameState.playerName = name;
         gameState.isHost = data.is_host;
         
@@ -6097,6 +6099,7 @@ async function attemptRejoin() {
     // Determine which code and session to use
     let code = urlCode;
     let playerId = null;
+    let sessionToken = null;  // SECURITY: Session token for game actions
     let playerName = gameState.playerName;
     let isSingleplayer = false;
     
@@ -6104,12 +6107,14 @@ async function attemptRejoin() {
         // If URL has a code, use it but check if saved session matches
         if (urlCode && savedSession.code === urlCode) {
             playerId = savedSession.playerId;
+            sessionToken = savedSession.sessionToken;  // SECURITY: Restore session token
             playerName = savedSession.playerName || playerName;
             isSingleplayer = savedSession.isSingleplayer || false;
         } else if (!urlCode) {
             // No URL code, use saved session
             code = savedSession.code;
             playerId = savedSession.playerId;
+            sessionToken = savedSession.sessionToken;  // SECURITY: Restore session token
             playerName = savedSession.playerName || playerName;
             isSingleplayer = savedSession.isSingleplayer || false;
         }
@@ -6120,6 +6125,7 @@ async function attemptRejoin() {
         const recent = recentGames.find(r => r.code === urlCode);
         if (recent) {
             playerId = recent.playerId || playerId;
+            sessionToken = recent.sessionToken || sessionToken;  // SECURITY: Restore session token
             playerName = recent.playerName || playerName;
             isSingleplayer = recent.isSingleplayer || isSingleplayer;
         }
@@ -6164,6 +6170,7 @@ async function attemptRejoin() {
         // Restore game state
         gameState.code = code;
         gameState.playerId = player.id;
+        gameState.sessionToken = sessionToken;  // SECURITY: Restore session token
         gameState.playerName = player.name;
         gameState.isHost = game.host_id === player.id;
         gameState.isSingleplayer = game.is_singleplayer || false;

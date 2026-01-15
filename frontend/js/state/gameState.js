@@ -10,6 +10,7 @@ const gameState = {
     code: null,
     playerId: null,
     playerName: null,
+    sessionToken: null,  // SECURITY: Session token for authenticated game actions
     isHost: false,
     pollingInterval: null,
     theme: null,
@@ -102,6 +103,7 @@ export function update(updates) {
 export function resetGame() {
     gameState.code = null;
     gameState.playerId = null;
+    gameState.sessionToken = null;  // SECURITY: Clear session token
     gameState.isHost = false;
     gameState.pollingInterval = null;
     gameState.theme = null;

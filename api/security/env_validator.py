@@ -90,6 +90,18 @@ OPTIONAL_ENV_VARS: List[EnvVarConfig] = [
         description="Explicit OAuth redirect URI",
         sensitive=False,
     ),
+    EnvVarConfig(
+        name="SESSION_TOKEN_SECRET",
+        required=False,
+        description="Secret for signing game session tokens (defaults to JWT_SECRET)",
+        sensitive=True,
+    ),
+    EnvVarConfig(
+        name="KOFI_SKIP_VERIFICATION",
+        required=False,
+        description="Set to 'true' to skip Ko-fi webhook verification (development only)",
+        sensitive=False,
+    ),
 ]
 
 

@@ -13,6 +13,7 @@ export function saveGameSession(gameState) {
             code: gameState.code,
             playerId: gameState.playerId,
             playerName: gameState.playerName,
+            sessionToken: gameState.sessionToken || null,  // SECURITY: Store session token
             isSingleplayer: gameState.isSingleplayer || false,
         };
         localStorage.setItem('embeddle_session', JSON.stringify(session));
@@ -76,6 +77,7 @@ export function upsertRecentGame(session) {
         code: session.code,
         playerId: session.playerId || null,
         playerName: session.playerName || null,
+        sessionToken: session.sessionToken || null,  // SECURITY: Store session token
         isSingleplayer: Boolean(session.isSingleplayer),
         lastSeen: now,
     };
@@ -89,6 +91,21 @@ export function upsertRecentGame(session) {
 }
 
 /**
+ * Generate a random 32-character hex ID (128 bits for better security)
+ * @returns {string}
+ */
+export function generateHexId32() {
+    const bytes = new Uint8Array(16);
+    if (window.crypto && window.crypto.getRandomValues) {
+        window.crypto.getRandomValues(bytes);
+    } else {
+        for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+    }
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * @deprecated Use generateHexId32 instead for better security
  * Generate a random 16-character hex ID
  * @returns {string}
  */
@@ -110,14 +127,15 @@ export function getOrCreateSpectatorId() {
     try {
         const key = 'embeddle_spectator_id';
         const existing = localStorage.getItem(key);
-        if (existing && /^[a-f0-9]{16}$/i.test(existing)) {
+        // Accept both old 16-char and new 32-char IDs
+        if (existing && /^[a-f0-9]{16,32}$/i.test(existing)) {
             return existing.toLowerCase();
         }
-        const id = generateHexId16();
+        const id = generateHexId32();
         localStorage.setItem(key, id);
         return id;
     } catch (e) {
-        return generateHexId16();
+        return generateHexId32();
     }
 }
 

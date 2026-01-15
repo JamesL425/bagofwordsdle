@@ -30,8 +30,8 @@ class Validators:
     # Game code: 6 uppercase alphanumeric characters
     GAME_CODE = re.compile(r'^[A-Z0-9]{6}$')
     
-    # Player ID: 16 lowercase hex characters
-    PLAYER_ID = re.compile(r'^[a-f0-9]{16}$')
+    # Player ID: 32 lowercase hex characters (128 bits for better entropy)
+    PLAYER_ID = re.compile(r'^[a-f0-9]{32}$')
     
     # Player name: 1-20 alphanumeric, underscore, space
     PLAYER_NAME = re.compile(r'^[a-zA-Z0-9_ ]{1,20}$')
@@ -140,14 +140,14 @@ def sanitize_player_id(player_id: Any) -> Optional[str]:
     """
     Validate player ID format.
     
-    Returns lowercase 16-char hex string or None if invalid.
+    Returns lowercase 32-char hex string or None if invalid.
     """
     result = Validators.validate(
         player_id,
         Validators.PLAYER_ID,
         transform=str.lower,
-        max_length=16,
-        min_length=16,
+        max_length=32,
+        min_length=32,
     )
     return result.value if result.is_valid else None
 

@@ -103,7 +103,7 @@ except ImportError as e:
 
 # Validation patterns
 GAME_CODE_PATTERN = re.compile(r'^[A-Z0-9]{6}$')
-PLAYER_ID_PATTERN = re.compile(r'^[a-f0-9]{16}$')
+PLAYER_ID_PATTERN = re.compile(r'^[a-f0-9]{32}$')  # 128 bits (32 hex chars) for better entropy
 PLAYER_NAME_PATTERN = re.compile(r'^[a-zA-Z0-9_ ]{1,20}$')
 WORD_PATTERN = re.compile(r'^[a-zA-Z]{2,30}$')
 # AI player IDs: ai_{difficulty}_{8-char-hex} - e.g., ai_rookie_a1b2c3d4
@@ -355,6 +355,8 @@ COSMETICS_UNLOCK_ALL = env_bool(
 
 # Ko-fi webhook verification token
 KOFI_VERIFICATION_TOKEN = os.getenv('KOFI_VERIFICATION_TOKEN', '')
+# SECURITY: Explicit opt-out for development only - requires setting env var to skip verification
+KOFI_SKIP_VERIFICATION = env_bool('KOFI_SKIP_VERIFICATION', False)
 
 # Default cosmetics for new users
 DEFAULT_COSMETICS = {
@@ -2727,13 +2729,15 @@ GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
 
 # JWT Configuration - SECURITY: Require JWT_SECRET in production
 def _get_jwt_secret() -> str:
-    """Get JWT secret with fallback for development."""
+    """Get JWT secret with strict production requirements."""
     secret = os.getenv('JWT_SECRET')
     if not secret:
-        # Generate a random secret - this means tokens won't persist across cold starts
-        # but the app will still work. Log a warning.
-        print("[SECURITY WARNING] JWT_SECRET not set. Generating temporary secret. Tokens will not persist across restarts.")
-        return secrets.token_hex(32)
+        # SECURITY: Fail hard in production
+        if os.getenv('VERCEL_ENV') == 'production':
+            raise RuntimeError("JWT_SECRET environment variable is required in production")
+        # Development: use insecure fallback with clear warning
+        print("[SECURITY WARNING] JWT_SECRET not set. Using insecure development secret.")
+        return "INSECURE_DEV_SECRET_DO_NOT_USE_IN_PRODUCTION"
     if len(secret) < 32:
         print("[SECURITY WARNING] JWT_SECRET should be at least 32 characters.")
     return secret
@@ -2850,15 +2854,100 @@ def refresh_jwt_token_if_needed(token: str) -> Optional[str]:
     return create_jwt_token(user_data)
 
 
+# ============== SESSION TOKEN SYSTEM ==============
+# Session tokens prevent player impersonation (IDOR vulnerability)
+# Each player gets a signed token when joining that must be provided with all game actions
+
+SESSION_TOKEN_SECRET = os.getenv('SESSION_TOKEN_SECRET', '') or JWT_SECRET
+SESSION_TOKEN_EXPIRY_HOURS = 24  # Session tokens valid for 24 hours
+
+
+def generate_session_token(player_id: str, game_code: str) -> str:
+    """
+    Generate an HMAC-signed session token for a player in a game.
+    
+    Token format: {player_id}:{game_code}:{timestamp}:{signature}
+    The signature covers player_id, game_code, and timestamp to prevent tampering.
+    """
+    timestamp = int(time.time())
+    payload = f"{player_id}:{game_code}:{timestamp}"
+    signature = hmac.new(
+        SESSION_TOKEN_SECRET.encode(),
+        payload.encode(),
+        hashlib.sha256
+    ).hexdigest()[:32]
+    return f"{payload}:{signature}"
+
+
+def verify_session_token(token: str, player_id: str, game_code: str) -> bool:
+    """
+    Verify that a session token is valid for the given player and game.
+    
+    Checks:
+    1. Token structure is valid
+    2. Player ID matches
+    3. Game code matches
+    4. Signature is valid (constant-time comparison)
+    5. Token has not expired
+    
+    Returns True if valid, False otherwise.
+    """
+    if not token or not player_id or not game_code:
+        return False
+    
+    try:
+        parts = token.split(':')
+        if len(parts) != 4:
+            return False
+        
+        token_player_id, token_game_code, token_timestamp, token_signature = parts
+        
+        # Verify player ID and game code match
+        if token_player_id != player_id:
+            return False
+        if token_game_code.upper() != game_code.upper():
+            return False
+        
+        # Verify timestamp is valid and not expired
+        try:
+            timestamp = int(token_timestamp)
+        except ValueError:
+            return False
+        
+        now = int(time.time())
+        token_age_hours = (now - timestamp) / 3600
+        if token_age_hours > SESSION_TOKEN_EXPIRY_HOURS:
+            return False
+        if timestamp > now + 60:  # Allow 60 seconds clock skew, but not future tokens
+            return False
+        
+        # Recompute signature and verify (constant-time comparison)
+        payload = f"{token_player_id}:{token_game_code}:{token_timestamp}"
+        expected_signature = hmac.new(
+            SESSION_TOKEN_SECRET.encode(),
+            payload.encode(),
+            hashlib.sha256
+        ).hexdigest()[:32]
+        
+        if not constant_time_compare(token_signature, expected_signature):
+            return False
+        
+        return True
+        
+    except Exception as e:
+        print(f"[SECURITY] Session token verification error: {e}")
+        return False
+
+
 # Admin emails that automatically get donor status
 # SECURITY: Load from environment variable in production
 def _get_admin_emails() -> list:
-    """Get admin emails from environment or fallback."""
+    """Get admin emails from environment. No fallback - require explicit configuration."""
     env_admins = os.getenv('ADMIN_EMAILS', '')
     if env_admins:
         return [e.strip().lower() for e in env_admins.split(',') if e.strip()]
-    # Fallback for backwards compatibility
-    return ['jamesleung425@gmail.com']
+    # SECURITY: No hardcoded fallback - require explicit configuration
+    return []
 
 ADMIN_EMAILS = _get_admin_emails()
 
@@ -3919,7 +4008,7 @@ def generate_game_code() -> str:
 
 
 def generate_player_id() -> str:
-    return secrets.token_hex(8)
+    return secrets.token_hex(16)  # 128 bits (32 hex chars) for better entropy
 
 
 def is_valid_word(word: str) -> bool:
@@ -4410,46 +4499,47 @@ def update_game_stats(game: dict):
         if not player.get('auth_user_id'):
             continue
         
-        stats = get_player_stats(player['name'])
-        stats['games_played'] += 1
-        
-        # Track eliminations
-        stats['eliminations'] = stats.get('eliminations', 0) + eliminations_by_player.get(player['id'], 0)
-        
-        # Track times eliminated
-        if player['id'] in eliminated_players:
-            stats['times_eliminated'] = stats.get('times_eliminated', 0) + 1
-        
-        if player['id'] == winner_id:
-            stats['wins'] += 1
-            # Update win streak
-            stats['win_streak'] = stats.get('win_streak', 0) + 1
-            if stats['win_streak'] > stats.get('best_streak', 0):
-                stats['best_streak'] = stats['win_streak']
-        else:
-            # Reset win streak on loss
-            stats['win_streak'] = 0
-        
-        # Calculate average closeness from this player's guesses
-        for entry in game.get('history', []):
-            # Skip word_change entries which don't have guesser_id
-            if entry.get('type') == 'word_change':
-                continue
-            if entry.get('guesser_id') == player['id']:
-                stats['total_guesses'] += 1
-                # Get the max similarity to other players (not self)
-                similarities = entry.get('similarities', {})
-                other_sims = [
-                    sim for pid, sim in similarities.items() 
-                    if pid != player['id']
-                ]
-                if other_sims:
-                    stats['total_similarity'] += max(other_sims)
-        
-        save_player_stats(player['name'], stats)
-
-        # Multiplayer-only: also update authenticated user's mp_* stats for cosmetics unlocks.
+        # Only update leaderboard stats for multiplayer games (not solo)
         if is_multiplayer:
+            stats = get_player_stats(player['name'])
+            stats['games_played'] += 1
+            
+            # Track eliminations
+            stats['eliminations'] = stats.get('eliminations', 0) + eliminations_by_player.get(player['id'], 0)
+            
+            # Track times eliminated
+            if player['id'] in eliminated_players:
+                stats['times_eliminated'] = stats.get('times_eliminated', 0) + 1
+            
+            if player['id'] == winner_id:
+                stats['wins'] += 1
+                # Update win streak
+                stats['win_streak'] = stats.get('win_streak', 0) + 1
+                if stats['win_streak'] > stats.get('best_streak', 0):
+                    stats['best_streak'] = stats['win_streak']
+            else:
+                # Reset win streak on loss
+                stats['win_streak'] = 0
+            
+            # Calculate average closeness from this player's guesses
+            for entry in game.get('history', []):
+                # Skip word_change entries which don't have guesser_id
+                if entry.get('type') == 'word_change':
+                    continue
+                if entry.get('guesser_id') == player['id']:
+                    stats['total_guesses'] += 1
+                    # Get the max similarity to other players (not self)
+                    similarities = entry.get('similarities', {})
+                    other_sims = [
+                        sim for pid, sim in similarities.items() 
+                        if pid != player['id']
+                    ]
+                    if other_sims:
+                        stats['total_similarity'] += max(other_sims)
+            
+            save_player_stats(player['name'], stats)
+
+            # Also update authenticated user's mp_* stats for cosmetics unlocks.
             auth_user_id = player.get('auth_user_id')
             if auth_user_id:
                 auth_user = get_user_by_id(auth_user_id)
@@ -4592,6 +4682,38 @@ class handler(BaseHTTPRequestHandler):
     def _debug_allowed(self) -> bool:
         """Return True if we can safely return debug details to this client."""
         return bool(DEBUG_ERRORS or self._is_admin_request())
+
+    def _validate_player_session(self, body: dict, game_code: str) -> tuple:
+        """
+        Validate player session token from request body.
+        
+        Returns:
+            (player_id, None) if valid
+            (None, error_message) if invalid
+        """
+        player_id = body.get('player_id', '')
+        session_token = body.get('session_token', '')
+        
+        # Validate player ID format (human or AI)
+        if player_id.startswith('ai_'):
+            validated_id = sanitize_ai_player_id(player_id)
+            # AI players don't need session tokens - they're server-controlled
+            if not validated_id:
+                return None, "Invalid AI player ID format"
+            return validated_id, None
+        else:
+            validated_id = sanitize_player_id(player_id)
+            if not validated_id:
+                return None, "Invalid player ID format"
+        
+        # SECURITY: Require valid session token for human players
+        if not session_token:
+            return None, "Session token required"
+        
+        if not verify_session_token(session_token, validated_id, game_code):
+            return None, "Invalid or expired session token"
+        
+        return validated_id, None
 
     def _get_cors_origin(self):
         """Get the appropriate CORS origin header value."""
@@ -4925,23 +5047,8 @@ class handler(BaseHTTPRequestHandler):
             error = query.get('error', '')
             state = query.get('state', '')
 
-            # Recover redirect_uri used in the auth request to avoid redirect-uri mismatch.
-            # Also recover the frontend base URL to redirect back to.
-            redirect_uri = get_oauth_redirect_uri()
-            return_to = ''
-            if state:
-                try:
-                    redis = get_redis()
-                    raw = redis.get(f"oauth_state:{state}")
-                    if raw:
-                        data = json.loads(raw)
-                        redirect_uri = data.get('redirect_uri') or redirect_uri
-                        return_to = data.get('return_to') or ''
-                        redis.delete(f"oauth_state:{state}")
-                except Exception as e:
-                    print(f"OAuth state load failed: {e}")
-
-            def _redirect_frontend(params: dict):
+            # Helper to redirect back to frontend with error/success params
+            def _redirect_frontend(params: dict, return_to: str = ''):
                 qs = urllib.parse.urlencode({k: v for k, v in params.items() if v is not None and v != ''})
                 if return_to:
                     target = return_to.rstrip('/') + '/?' + qs
@@ -4950,19 +5057,42 @@ class handler(BaseHTTPRequestHandler):
                 self.send_response(302)
                 self.send_header('Location', target)
                 self.end_headers()
+
+            # SECURITY: State parameter is MANDATORY to prevent CSRF attacks
+            if not state:
+                print("[SECURITY] OAuth callback: missing state parameter")
+                return _redirect_frontend({'auth_error': 'missing_state'})
+
+            # Validate and consume the state token (single-use)
+            redirect_uri = get_oauth_redirect_uri()
+            return_to = ''
+            try:
+                redis = get_redis()
+                raw = redis.get(f"oauth_state:{state}")
+                if not raw:
+                    print(f"[SECURITY] OAuth callback: invalid or expired state token")
+                    return _redirect_frontend({'auth_error': 'invalid_state'})
+                data = json.loads(raw)
+                redirect_uri = data.get('redirect_uri') or redirect_uri
+                return_to = data.get('return_to') or ''
+                # SECURITY: Delete state immediately (single-use token)
+                redis.delete(f"oauth_state:{state}")
+            except Exception as e:
+                print(f"[SECURITY] OAuth state validation failed: {e}")
+                return _redirect_frontend({'auth_error': 'state_validation_failed'})
             
             if error:
                 return _redirect_frontend({
                     'auth_error': error,
                     'auth_error_description': query.get('error_description', ''),
-                })
+                }, return_to)
             
             if not code:
-                return self._send_error("No authorization code provided", 400)
+                return _redirect_frontend({'auth_error': 'no_code'}, return_to)
             
             try:
                 if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
-                    return _redirect_frontend({'auth_error': 'oauth_not_configured'})
+                    return _redirect_frontend({'auth_error': 'oauth_not_configured'}, return_to)
 
                 # Exchange code for tokens
                 token_response = requests.post(GOOGLE_TOKEN_URL, data={
@@ -4989,7 +5119,7 @@ class handler(BaseHTTPRequestHandler):
                         'auth_error_status': str(token_response.status_code),
                         'google_error': google_error,
                         'google_error_description': google_error_description,
-                    })
+                    }, return_to)
                 
                 tokens = token_response.json()
                 access_token = tokens.get('access_token')
@@ -5006,7 +5136,7 @@ class handler(BaseHTTPRequestHandler):
                     return _redirect_frontend({
                         'auth_error': 'userinfo_failed',
                         'auth_error_status': str(userinfo_response.status_code),
-                    })
+                    }, return_to)
                 
                 google_user = userinfo_response.json()
                 
@@ -5017,11 +5147,11 @@ class handler(BaseHTTPRequestHandler):
                 jwt_token = create_jwt_token(user)
                 
                 # Redirect to frontend with token
-                return _redirect_frontend({'auth_token': jwt_token})
+                return _redirect_frontend({'auth_token': jwt_token}, return_to)
                 
             except Exception as e:
                 print(f"OAuth callback error: {e}")
-                return _redirect_frontend({'auth_error': 'callback_failed'})
+                return _redirect_frontend({'auth_error': 'callback_failed'}, return_to)
 
         # GET /api/auth/me - Get current user info
         if path == '/api/auth/me':
@@ -6163,14 +6293,10 @@ class handler(BaseHTTPRequestHandler):
             if len(game['players']) >= MAX_PLAYERS:
                 return self._send_error("Game is full", 400)
             
-            player_id = body.get('player_id', '')
-            # Validate player ID (human or AI format)
-            if player_id.startswith('ai_'):
-                player_id = sanitize_ai_player_id(player_id)
-            else:
-                player_id = sanitize_player_id(player_id)
-            if not player_id:
-                return self._send_error("Invalid player ID format", 400)
+            # SECURITY: Validate player session token
+            player_id, session_error = self._validate_player_session(body, code)
+            if session_error:
+                return self._send_error(session_error, 403)
             
             # Verify requester is the host
             if game['host_id'] != player_id:
@@ -6213,14 +6339,10 @@ class handler(BaseHTTPRequestHandler):
             if game['status'] != 'waiting':
                 return self._send_error("Game has already started", 400)
             
-            player_id = body.get('player_id', '')
-            # Validate player ID (human or AI format)
-            if player_id.startswith('ai_'):
-                player_id = sanitize_ai_player_id(player_id)
-            else:
-                player_id = sanitize_player_id(player_id)
-            if not player_id:
-                return self._send_error("Invalid player ID format", 400)
+            # SECURITY: Validate player session token
+            player_id, session_error = self._validate_player_session(body, code)
+            if session_error:
+                return self._send_error(session_error, 403)
             
             # Verify requester is the host
             if game['host_id'] != player_id:
@@ -6258,9 +6380,10 @@ class handler(BaseHTTPRequestHandler):
             if game['status'] != 'waiting':
                 return self._send_error("Voting is closed", 400)
             
-            player_id = sanitize_player_id(body.get('player_id', ''))
-            if not player_id:
-                return self._send_error("Invalid player ID format", 400)
+            # SECURITY: Validate player session token
+            player_id, session_error = self._validate_player_session(body, code)
+            if session_error:
+                return self._send_error(session_error, 403)
             
             theme = body.get('theme', '').strip()
             
@@ -6324,9 +6447,10 @@ class handler(BaseHTTPRequestHandler):
             if not game:
                 return self._send_error("Game not found", 404)
 
-            player_id = sanitize_player_id(body.get('player_id', ''))
-            if not player_id:
-                return self._send_error("Invalid player ID format", 400)
+            # SECURITY: Validate player session token
+            player_id, session_error = self._validate_player_session(body, code)
+            if session_error:
+                return self._send_error(session_error, 403)
 
             player = next((p for p in game.get('players', []) if p.get('id') == player_id), None)
             if not player:
@@ -6503,10 +6627,12 @@ class handler(BaseHTTPRequestHandler):
                 if not code:
                     return self._send_error("Invalid game code format", 400)
 
+                # SECURITY: Validate player session token
+                player_id, session_error = self._validate_player_session(body, code)
+                if session_error:
+                    return self._send_error(session_error, 403)
+
                 # Rate limit: 20 messages/min per player (best-effort)
-                player_id = sanitize_player_id(body.get('player_id', ''))
-                if not player_id:
-                    return self._send_error("Invalid player ID format", 400)
                 if not check_rate_limit(get_ratelimit_chat(), f"{code}:{player_id}"):
                     return self._send_error("Too many messages. Please wait.", 429)
 
@@ -6699,9 +6825,12 @@ class handler(BaseHTTPRequestHandler):
                     existing_player['auth_user_id'] = auth_user_id
                 existing_player['name'] = name
                 save_game(code, game)
+                # Generate new session token for rejoin
+                session_token = generate_session_token(existing_player['id'], code)
                 # Allow rejoin - return their player_id
                 return self._send_json({
                     "player_id": existing_player['id'],
+                    "session_token": session_token,
                     "game_code": code,
                     "is_host": existing_player['id'] == game['host_id'],
                     "rejoined": True,
@@ -6753,8 +6882,11 @@ class handler(BaseHTTPRequestHandler):
                 game['host_id'] = player_id
             
             save_game(code, game)
+            # Generate session token for new player
+            session_token = generate_session_token(player_id, code)
             return self._send_json({
                 "player_id": player_id,
+                "session_token": session_token,
                 "game_code": code,
                 "is_host": player_id == game['host_id'],
                 "theme_options": game.get('theme_options', []),
@@ -6776,9 +6908,10 @@ class handler(BaseHTTPRequestHandler):
             if game['status'] != 'waiting':
                 return self._send_error("Game has already started", 400)
             
-            player_id = sanitize_player_id(body.get('player_id', ''))
-            if not player_id:
-                return self._send_error("Invalid player ID format", 400)
+            # SECURITY: Validate player session token
+            player_id, session_error = self._validate_player_session(body, code)
+            if session_error:
+                return self._send_error(session_error, 403)
             
             player = next((p for p in game['players'] if p['id'] == player_id), None)
             if not player:
@@ -6805,9 +6938,10 @@ class handler(BaseHTTPRequestHandler):
             if game['status'] not in ['word_selection', 'playing']:
                 return self._send_error("Not in word selection phase", 400)
             
-            player_id = sanitize_player_id(body.get('player_id', ''))
-            if not player_id:
-                return self._send_error("Invalid player ID format", 400)
+            # SECURITY: Validate player session token
+            player_id, session_error = self._validate_player_session(body, code)
+            if session_error:
+                return self._send_error(session_error, 403)
             
             secret_word = sanitize_word(body.get('secret_word', ''))
             if not secret_word:
@@ -6850,9 +6984,10 @@ class handler(BaseHTTPRequestHandler):
             if not game:
                 return self._send_error("Game not found", 404)
             
-            player_id = sanitize_player_id(body.get('player_id', ''))
-            if not player_id:
-                return self._send_error("Invalid player ID format", 400)
+            # SECURITY: Validate player session token
+            player_id, session_error = self._validate_player_session(body, code)
+            if session_error:
+                return self._send_error(session_error, 403)
             
             if game['host_id'] != player_id:
                 return self._send_error("Only the host can start", 403)
@@ -6979,9 +7114,10 @@ class handler(BaseHTTPRequestHandler):
             if not game:
                 return self._send_error("Game not found", 404)
             
-            player_id = sanitize_player_id(body.get('player_id', ''))
-            if not player_id:
-                return self._send_error("Invalid player ID format", 400)
+            # SECURITY: Validate player session token
+            player_id, session_error = self._validate_player_session(body, code)
+            if session_error:
+                return self._send_error(session_error, 403)
             
             if game['host_id'] != player_id:
                 return self._send_error("Only the host can begin", 403)
@@ -7120,9 +7256,10 @@ class handler(BaseHTTPRequestHandler):
             if game.get('status') != 'word_selection':
                 return self._send_error("AI can only pick words during word selection", 400)
             
-            player_id = sanitize_player_id(body.get('player_id', ''))
-            if not player_id:
-                return self._send_error("Invalid player ID format", 400)
+            # SECURITY: Validate player session token
+            player_id, session_error = self._validate_player_session(body, code)
+            if session_error:
+                return self._send_error(session_error, 403)
             if game.get('host_id') != player_id:
                 return self._send_error("Only the host can trigger AI word selection", 403)
 
@@ -7188,9 +7325,10 @@ class handler(BaseHTTPRequestHandler):
                 waiting_name = waiting_player['name'] if waiting_player else 'Someone'
                 return self._send_error(f"Waiting for {waiting_name} to change their word", 400)
             
-            player_id = sanitize_player_id(body.get('player_id', ''))
-            if not player_id:
-                return self._send_error("Invalid player ID format", 400)
+            # SECURITY: Validate player session token
+            player_id, session_error = self._validate_player_session(body, code)
+            if session_error:
+                return self._send_error(session_error, 403)
             if game.get('host_id') != player_id:
                 return self._send_error("Only the host can trigger AI turns", 403)
             
@@ -7277,9 +7415,10 @@ class handler(BaseHTTPRequestHandler):
                 waiting_name = waiting_player['name'] if waiting_player else 'Someone'
                 return self._send_error(f"Waiting for {waiting_name} to change their word", 400)
             
-            player_id = sanitize_player_id(body.get('player_id', ''))
-            if not player_id:
-                return self._send_error("Invalid player ID format", 400)
+            # SECURITY: Validate player session token
+            player_id, session_error = self._validate_player_session(body, code)
+            if session_error:
+                return self._send_error(session_error, 403)
             
             word = sanitize_word(body.get('word', ''))
             if not word:
@@ -7444,9 +7583,10 @@ class handler(BaseHTTPRequestHandler):
             if game['status'] != 'playing':
                 return self._send_error("Game not in progress", 400)
             
-            player_id = sanitize_player_id(body.get('player_id', ''))
-            if not player_id:
-                return self._send_error("Invalid player ID format", 400)
+            # SECURITY: Validate player session token
+            player_id, session_error = self._validate_player_session(body, code)
+            if session_error:
+                return self._send_error(session_error, 403)
             
             new_word = sanitize_word(body.get('new_word', ''))
             if not new_word:
@@ -7531,9 +7671,10 @@ class handler(BaseHTTPRequestHandler):
             if game['status'] != 'playing':
                 return self._send_error("Game not in progress", 400)
             
-            player_id = sanitize_player_id(body.get('player_id', ''))
-            if not player_id:
-                return self._send_error("Invalid player ID format", 400)
+            # SECURITY: Validate player session token
+            player_id, session_error = self._validate_player_session(body, code)
+            if session_error:
+                return self._send_error(session_error, 403)
             
             player = None
             for p in game['players']:
@@ -7963,14 +8104,14 @@ class handler(BaseHTTPRequestHandler):
                         log_webhook_event(client_ip, "kofi", False, {"reason": "invalid_token"})
                         print(f"Ko-fi webhook: Invalid verification token from {client_ip}")
                         return self._send_error("Invalid verification token", 403)
-                elif is_production:
-                    # SECURITY: In production, require verification token
+                elif not KOFI_SKIP_VERIFICATION:
+                    # SECURITY: Default to requiring verification - explicit opt-out required
                     log_webhook_event(client_ip, "kofi", False, {"reason": "no_token_configured"})
                     print(f"[SECURITY ERROR] Ko-fi webhook received but KOFI_VERIFICATION_TOKEN not configured")
                     return self._send_error("Webhook verification not configured", 500)
                 else:
-                    # Development: warn but allow
-                    print(f"[SECURITY WARNING] Ko-fi webhook verification skipped (development mode)")
+                    # Explicit skip enabled - warn but allow (development only)
+                    print(f"[SECURITY WARNING] Ko-fi webhook verification explicitly skipped via KOFI_SKIP_VERIFICATION")
                 
                 # Get donor email
                 donor_email = kofi_data.get('email', '').lower().strip()

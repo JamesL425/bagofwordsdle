@@ -147,36 +147,50 @@ export const games = {
      * Leave a game
      * @param {string} code
      * @param {string} playerId
+     * @param {string} sessionToken
      * @returns {Promise<Object>}
      */
-    leave: (code, playerId) => apiCall(`/api/games/${code}/leave`, 'POST', { player_id: playerId }),
+    leave: (code, playerId, sessionToken) => apiCall(`/api/games/${code}/leave`, 'POST', { 
+        player_id: playerId,
+        session_token: sessionToken || gameState.sessionToken,
+    }),
 
     /**
      * Start a game (host only)
      * @param {string} code
      * @param {string} playerId
+     * @param {string} sessionToken
      * @returns {Promise<Object>}
      */
-    start: (code, playerId) => apiCall(`/api/games/${code}/start`, 'POST', { player_id: playerId }),
+    start: (code, playerId, sessionToken) => apiCall(`/api/games/${code}/start`, 'POST', { 
+        player_id: playerId,
+        session_token: sessionToken || gameState.sessionToken,
+    }),
 
     /**
      * Begin game after word selection (host only)
      * @param {string} code
      * @param {string} playerId
+     * @param {string} sessionToken
      * @returns {Promise<Object>}
      */
-    begin: (code, playerId) => apiCall(`/api/games/${code}/begin`, 'POST', { player_id: playerId }),
+    begin: (code, playerId, sessionToken) => apiCall(`/api/games/${code}/begin`, 'POST', { 
+        player_id: playerId,
+        session_token: sessionToken || gameState.sessionToken,
+    }),
 
     /**
      * Set secret word
      * @param {string} code
      * @param {string} playerId
      * @param {string} word
+     * @param {string} sessionToken
      * @returns {Promise<Object>}
      */
-    setWord: (code, playerId, word) => apiCall(`/api/games/${code}/set-word`, 'POST', {
+    setWord: (code, playerId, word, sessionToken) => apiCall(`/api/games/${code}/set-word`, 'POST', {
         player_id: playerId,
         secret_word: word,
+        session_token: sessionToken || gameState.sessionToken,
     }),
 
     /**
@@ -184,11 +198,13 @@ export const games = {
      * @param {string} code
      * @param {string} playerId
      * @param {string} newWord
+     * @param {string} sessionToken
      * @returns {Promise<Object>}
      */
-    changeWord: (code, playerId, newWord) => apiCall(`/api/games/${code}/change-word`, 'POST', {
+    changeWord: (code, playerId, newWord, sessionToken) => apiCall(`/api/games/${code}/change-word`, 'POST', {
         player_id: playerId,
         new_word: newWord,
+        session_token: sessionToken || gameState.sessionToken,
     }),
 
     /**
@@ -196,11 +212,13 @@ export const games = {
      * @param {string} code
      * @param {string} playerId
      * @param {string} word
+     * @param {string} sessionToken
      * @returns {Promise<Object>}
      */
-    guess: (code, playerId, word) => apiCall(`/api/games/${code}/guess`, 'POST', {
+    guess: (code, playerId, word, sessionToken) => apiCall(`/api/games/${code}/guess`, 'POST', {
         player_id: playerId,
         word,
+        session_token: sessionToken || gameState.sessionToken,
     }),
 
     /**
@@ -208,20 +226,50 @@ export const games = {
      * @param {string} code
      * @param {string} playerId
      * @param {string} theme
+     * @param {string} sessionToken
      * @returns {Promise<Object>}
      */
-    vote: (code, playerId, theme) => apiCall(`/api/games/${code}/vote`, 'POST', {
+    vote: (code, playerId, theme, sessionToken) => apiCall(`/api/games/${code}/vote`, 'POST', {
         player_id: playerId,
         theme,
+        session_token: sessionToken || gameState.sessionToken,
+    }),
+
+    /**
+     * Toggle ready status
+     * @param {string} code
+     * @param {string} playerId
+     * @param {string} sessionToken
+     * @returns {Promise<Object>}
+     */
+    ready: (code, playerId, sessionToken) => apiCall(`/api/games/${code}/ready`, 'POST', {
+        player_id: playerId,
+        session_token: sessionToken || gameState.sessionToken,
+    }),
+
+    /**
+     * Skip word change
+     * @param {string} code
+     * @param {string} playerId
+     * @param {string} sessionToken
+     * @returns {Promise<Object>}
+     */
+    skipWordChange: (code, playerId, sessionToken) => apiCall(`/api/games/${code}/skip-word-change`, 'POST', {
+        player_id: playerId,
+        session_token: sessionToken || gameState.sessionToken,
     }),
 
     /**
      * Forfeit and leave game
      * @param {string} code
      * @param {string} playerId
+     * @param {string} sessionToken
      * @returns {Promise<Object>}
      */
-    forfeit: (code, playerId) => apiCall(`/api/games/${code}/forfeit`, 'POST', { player_id: playerId }),
+    forfeit: (code, playerId, sessionToken) => apiCall(`/api/games/${code}/forfeit`, 'POST', { 
+        player_id: playerId,
+        session_token: sessionToken || gameState.sessionToken,
+    }),
 
     /**
      * Record spectator presence
@@ -270,11 +318,13 @@ export const singleplayer = {
      * @param {string} code
      * @param {string} playerId
      * @param {string} difficulty
+     * @param {string} sessionToken
      * @returns {Promise<Object>}
      */
-    addAi: (code, playerId, difficulty) => apiCall(`/api/singleplayer/${code}/add-ai`, 'POST', {
+    addAi: (code, playerId, difficulty, sessionToken) => apiCall(`/api/singleplayer/${code}/add-ai`, 'POST', {
         player_id: playerId,
         difficulty,
+        session_token: sessionToken || gameState.sessionToken,
     }),
 
     /**
@@ -282,44 +332,62 @@ export const singleplayer = {
      * @param {string} code
      * @param {string} playerId
      * @param {string} aiId
+     * @param {string} sessionToken
      * @returns {Promise<Object>}
      */
-    removeAi: (code, playerId, aiId) => apiCall(`/api/singleplayer/${code}/remove-ai`, 'POST', {
+    removeAi: (code, playerId, aiId, sessionToken) => apiCall(`/api/singleplayer/${code}/remove-ai`, 'POST', {
         player_id: playerId,
         ai_id: aiId,
+        session_token: sessionToken || gameState.sessionToken,
     }),
 
     /**
      * Start singleplayer game
      * @param {string} code
      * @param {string} playerId
+     * @param {string} sessionToken
      * @returns {Promise<Object>}
      */
-    start: (code, playerId) => apiCall(`/api/singleplayer/${code}/start`, 'POST', { player_id: playerId }),
+    start: (code, playerId, sessionToken) => apiCall(`/api/singleplayer/${code}/start`, 'POST', { 
+        player_id: playerId,
+        session_token: sessionToken || gameState.sessionToken,
+    }),
 
     /**
      * Process AI turn
      * @param {string} code
      * @param {string} playerId
+     * @param {string} sessionToken
      * @returns {Promise<Object>}
      */
-    aiTurn: (code, playerId) => apiCall(`/api/singleplayer/${code}/ai-turn`, 'POST', { player_id: playerId }),
+    aiTurn: (code, playerId, sessionToken) => apiCall(`/api/singleplayer/${code}/ai-turn`, 'POST', { 
+        player_id: playerId,
+        session_token: sessionToken || gameState.sessionToken,
+    }),
 
     /**
      * Process AI word selection
      * @param {string} code
      * @param {string} playerId
+     * @param {string} sessionToken
      * @returns {Promise<Object>}
      */
-    aiWordPick: (code, playerId) => apiCall(`/api/singleplayer/${code}/ai-word-pick`, 'POST', { player_id: playerId }),
+    aiWordPick: (code, playerId, sessionToken) => apiCall(`/api/singleplayer/${code}/ai-word-pick`, 'POST', { 
+        player_id: playerId,
+        session_token: sessionToken || gameState.sessionToken,
+    }),
 
     /**
      * Process AI word change
      * @param {string} code
      * @param {string} playerId
+     * @param {string} sessionToken
      * @returns {Promise<Object>}
      */
-    aiWordChange: (code, playerId) => apiCall(`/api/singleplayer/${code}/ai-word-change`, 'POST', { player_id: playerId }),
+    aiWordChange: (code, playerId, sessionToken) => apiCall(`/api/singleplayer/${code}/ai-word-change`, 'POST', { 
+        player_id: playerId,
+        session_token: sessionToken || gameState.sessionToken,
+    }),
 };
 
 // Chat API calls
@@ -339,11 +407,13 @@ export const chat = {
      * @param {string} code
      * @param {string} playerId
      * @param {string} message
+     * @param {string} sessionToken
      * @returns {Promise<Object>}
      */
-    send: (code, playerId, message) => apiCall(`/api/games/${code}/chat`, 'POST', {
+    send: (code, playerId, message, sessionToken) => apiCall(`/api/games/${code}/chat`, 'POST', {
         player_id: playerId,
         message,
+        session_token: sessionToken || gameState.sessionToken,
     }),
 };
 

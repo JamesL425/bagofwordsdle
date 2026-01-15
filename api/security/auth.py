@@ -52,7 +52,7 @@ def _get_jwt_secret() -> str:
 
 
 def _get_admin_emails() -> set:
-    """Get admin emails from environment or config."""
+    """Get admin emails from environment. No fallback - require explicit configuration."""
     global _admin_emails
     if _admin_emails is None:
         # Try environment variable first
@@ -60,8 +60,8 @@ def _get_admin_emails() -> set:
         if env_admins:
             _admin_emails = {e.strip().lower() for e in env_admins.split(',') if e.strip()}
         else:
-            # Fallback to hardcoded (for backwards compatibility)
-            _admin_emails = {'jamesleung425@gmail.com'}
+            # SECURITY: No hardcoded fallback - require explicit configuration
+            _admin_emails = set()
     return _admin_emails
 
 
@@ -228,14 +228,14 @@ def revoke_token(jti: str, ttl_seconds: Optional[int] = None) -> bool:
         return False
 
 
-def is_token_revoked(jti: str, fail_closed: bool = False) -> bool:
+def is_token_revoked(jti: str, fail_closed: bool = True) -> bool:
     """
     Check if a token has been revoked.
     
     Args:
         jti: JWT ID to check
-        fail_closed: If True, return True (revoked) when Redis is unavailable.
-                    Use True for security-critical operations.
+        fail_closed: If True (default), return True (revoked) when Redis is unavailable.
+                    This is the secure default for security-critical operations.
     """
     redis = _get_redis()
     if not redis:
