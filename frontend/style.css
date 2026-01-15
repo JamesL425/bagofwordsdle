@@ -5544,6 +5544,33 @@ body.nerd-mode .nerd-sim {
     }
 }
 
+/* Void border - Nemesis AI exclusive - consuming darkness */
+.player-card.border-void {
+    border-color: #0a0012;
+    box-shadow: 
+        0 0 20px rgba(0, 0, 0, 0.9),
+        0 0 40px rgba(20, 0, 40, 0.8),
+        inset 0 0 15px rgba(0, 0, 0, 0.5);
+    animation: void-border 4s ease-in-out infinite;
+}
+
+@keyframes void-border {
+    0%, 100% { 
+        border-color: #0a0012;
+        box-shadow: 
+            0 0 20px rgba(0, 0, 0, 0.9),
+            0 0 40px rgba(20, 0, 40, 0.8),
+            inset 0 0 15px rgba(0, 0, 0, 0.5);
+    }
+    50% { 
+        border-color: #1a0033;
+        box-shadow: 
+            0 0 30px rgba(0, 0, 0, 0.95),
+            0 0 60px rgba(40, 0, 80, 0.7),
+            inset 0 0 20px rgba(20, 0, 40, 0.4);
+    }
+}
+
 /* Chromatic border - shifting rainbow edge (Shop) */
 .player-card.border-chromatic {
     animation: chromatic-border 4s linear infinite;
@@ -5627,6 +5654,25 @@ body.nerd-mode .nerd-sim {
         var(--bg-card);
 }
 
+/* Void background - Nemesis AI exclusive - absolute darkness with faint energy */
+.player-card.bg-void {
+    background: 
+        radial-gradient(ellipse at 50% 50%, rgba(20, 0, 40, 0.95) 0%, rgba(0, 0, 0, 1) 100%),
+        radial-gradient(circle at 30% 70%, rgba(40, 0, 60, 0.3) 0%, transparent 40%),
+        radial-gradient(circle at 70% 30%, rgba(30, 0, 50, 0.3) 0%, transparent 40%),
+        #000000;
+    animation: void-bg-pulse 6s ease-in-out infinite;
+}
+
+@keyframes void-bg-pulse {
+    0%, 100% { 
+        filter: brightness(1);
+    }
+    50% { 
+        filter: brightness(1.1);
+    }
+}
+
 /* Warp Drive background - hyperspace streaks (Shop) */
 .player-card.bg-warp_drive {
     background: 
@@ -5687,6 +5733,24 @@ body.nerd-mode .nerd-sim {
 .player-card .name.name-neon_pink { color: #ff00ff; text-shadow: 0 0 10px rgba(255, 0, 255, 0.7); }
 .player-card .name.name-electric { color: #00ccff; animation: electric-text 0.1s linear infinite; }
 .player-card .name.name-shadow { color: #6600cc; text-shadow: 2px 2px 4px rgba(100, 0, 200, 0.8); }
+
+/* Void name color - Nemesis AI exclusive */
+.player-card .name.name-void { 
+    color: #4a0080; 
+    text-shadow: 0 0 15px rgba(0, 0, 0, 0.9), 0 0 30px rgba(40, 0, 80, 0.8);
+    animation: void-text 4s ease-in-out infinite;
+}
+
+@keyframes void-text {
+    0%, 100% { 
+        color: #4a0080;
+        text-shadow: 0 0 15px rgba(0, 0, 0, 0.9), 0 0 30px rgba(40, 0, 80, 0.8);
+    }
+    50% { 
+        color: #5a0099;
+        text-shadow: 0 0 20px rgba(0, 0, 0, 0.95), 0 0 40px rgba(60, 0, 100, 0.7);
+    }
+}
 
 /* Shop: Crimson name color */
 .player-card .name.name-crimson { color: #dc143c; text-shadow: 0 0 10px rgba(220, 20, 60, 0.6); }
@@ -7818,6 +7882,27 @@ body[data-background="binary_rain"]::after {
     box-shadow: 0 0 15px rgba(0, 204, 51, 0.2);
 }
 
+/* Nemesis button - void/darkness theme */
+.btn-ai-add[data-difficulty="nemesis"] {
+    border-color: #1a0033;
+    background: linear-gradient(135deg, rgba(10, 0, 20, 0.9), rgba(30, 0, 50, 0.8));
+}
+
+.btn-ai-add[data-difficulty="nemesis"]:hover:not(:disabled) {
+    border-color: #4a0080;
+    box-shadow: 0 0 20px rgba(40, 0, 80, 0.6), 0 0 40px rgba(0, 0, 0, 0.8);
+    background: linear-gradient(135deg, rgba(20, 0, 40, 0.95), rgba(50, 0, 80, 0.9));
+}
+
+.btn-ai-add[data-difficulty="nemesis"] .ai-label {
+    color: #6a0099;
+    text-shadow: 0 0 10px rgba(80, 0, 120, 0.5);
+}
+
+.btn-ai-add[data-difficulty="nemesis"] .ai-desc {
+    color: #4a0066;
+}
+
 .btn-ai-add .ai-icon {
     font-size: 1.5rem;
 }
@@ -7890,6 +7975,18 @@ body[data-background="binary_rain"]::after {
 .player-card .ai-difficulty-badge.ghost {
     background: var(--text-secondary);
     color: var(--bg-primary);
+}
+
+.player-card .ai-difficulty-badge.nemesis {
+    background: linear-gradient(135deg, #1a0033, #4a0080);
+    color: #cc99ff;
+    box-shadow: 0 0 10px rgba(40, 0, 80, 0.6);
+    animation: nemesis-badge-pulse 3s ease-in-out infinite;
+}
+
+@keyframes nemesis-badge-pulse {
+    0%, 100% { box-shadow: 0 0 10px rgba(40, 0, 80, 0.6); }
+    50% { box-shadow: 0 0 15px rgba(60, 0, 100, 0.8); }
 }
 
 /* Responsive for singleplayer */

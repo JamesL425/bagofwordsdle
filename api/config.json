@@ -43,6 +43,8 @@
   "ranked": {
     "initial_mmr": 1000,
     "k_factor": 32,
+    "placement_k_factor": 64,
+    "placement_games": 5,
     "tier_thresholds": {
       "bronze": 1100,
       "silver": 1250,

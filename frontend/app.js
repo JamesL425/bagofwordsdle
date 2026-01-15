@@ -1091,9 +1091,9 @@ function updateHomeStatsBar() {
         const mmr = stats?.mmr;
         const rankedGames = stats?.ranked_games || 0;
         
-        if (rankedGames < 10) {
+        if (rankedGames < 5) {
             // Show placement progress
-            rankEl.textContent = `${rankedGames}/10`;
+            rankEl.textContent = `${rankedGames}/5`;
         } else if (mmr && mmr > 1000) {
             rankEl.textContent = mmr;
         } else {
@@ -1118,8 +1118,8 @@ function updateHomeStatsBar() {
         // Show placement progress or MMR
         if (mmrEl) {
             const rankedGames = stats.ranked_games || 0;
-            if (rankedGames < 10) {
-                mmrEl.textContent = `${rankedGames}/10`;
+            if (rankedGames < 5) {
+                mmrEl.textContent = `${rankedGames}/5`;
             } else {
                 mmrEl.textContent = stats.mmr || '—';
             }
@@ -4007,11 +4007,11 @@ function updatePlayersGrid(game) {
         if (isRankedGame && !isAI && player.mmr_display) {
             const mmr = Number(player.mmr_display.mmr || 0);
             const rankedGames = Number(player.mmr_display.ranked_games || 0);
-            const isPlacement = rankedGames < 10;
+            const isPlacement = rankedGames < 5;
             const tier = getRankTier(mmr);
             
             if (isPlacement) {
-                rankedInfoHtml = `<div class="player-ranked-info placement"><span class="placement-badge">PLACEMENT</span><span class="placement-games">${rankedGames}/10</span></div>`;
+                rankedInfoHtml = `<div class="player-ranked-info placement"><span class="placement-badge">PLACEMENT</span><span class="placement-games">${rankedGames}/5</span></div>`;
             } else {
                 rankedInfoHtml = `<div class="player-ranked-info">${renderRankBadge(tier)}<span class="player-mmr">${mmr}</span></div>`;
             }

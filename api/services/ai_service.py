@@ -87,6 +87,28 @@ AI_DIFFICULTY_CONFIG = {
         "candidate_pool": 20,
         "clue_words_per_target": 3,
     },
+    "nemesis": {
+        "name_prefix": "Nemesis",
+        "strategic_chance": 1.0,            # ALWAYS strategic, never random
+        "word_selection": "isolated",        # Semantic isolation strategy
+        "targeting_strength": 0.95,          # Near-perfect targeting
+        "min_target_similarity": 0.35,       # Acts on weaker signals
+        "delay_range": (4, 8),               # Deliberate pacing
+        "badge": "🤖",
+        "self_leak_soft_max": 0.65,          # Very strict leak avoidance
+        "self_leak_hard_max": 0.80,          # Hard cutoff lower
+        "panic_danger": "safe",              # Never panics (always calculated)
+        "panic_aggression_boost": 0.0,       # No emotional response
+        "candidate_pool": 30,                # Evaluates more options
+        "clue_words_per_target": 5,          # Uses more intel
+        "makes_mistakes": False,             # No human-like errors
+        "has_personality": False,            # No personality modifiers
+        "uses_bluffing": False,              # No deception (pure optimization)
+        "word_change_threshold": 0.55,       # Changes word at lower danger
+        "always_change_on_elimination": True,
+        "tracks_opponent_patterns": True,
+        "uses_information_gain": True,
+    },
 }
 
 AI_NAME_SUFFIXES = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Theta"]
@@ -121,6 +143,7 @@ def create_ai_player(difficulty: str, existing_names: List[str]) -> dict:
         "field-agent": {"card_border": "fire", "card_background": "matrix_code", "name_color": "fire"},
         "spymaster": {"card_border": "gold_elite", "card_background": "circuit_board", "name_color": "gold"},
         "ghost": {"card_border": "electric", "card_background": "starfield", "name_color": "shadow"},
+        "nemesis": {"card_border": "void", "card_background": "void", "name_color": "void"},
     }
     selected_cosmetics = ai_cosmetics.get(difficulty, ai_cosmetics["rookie"])
 

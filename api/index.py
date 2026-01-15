@@ -217,6 +217,8 @@ PRESENCE_TTL_SECONDS = int((CONFIG.get("presence", {}) or {}).get("ttl_seconds",
 # Ranked settings (ELO/MMR)
 RANKED_INITIAL_MMR = int((CONFIG.get("ranked", {}) or {}).get("initial_mmr", 1000) or 1000)
 RANKED_K_FACTOR = float((CONFIG.get("ranked", {}) or {}).get("k_factor", 32) or 32)
+RANKED_PLACEMENT_K_FACTOR = float((CONFIG.get("ranked", {}) or {}).get("placement_k_factor", 64) or 64)
+RANKED_PLACEMENT_GAMES = int((CONFIG.get("ranked", {}) or {}).get("placement_games", 5) or 5)
 
 # Time control settings (chess clock model)
 TIME_CONTROLS_CONFIG = CONFIG.get("time_controls", {})
@@ -733,6 +735,28 @@ AI_DIFFICULTY_CONFIG = {
         "candidate_pool": 20,
         "clue_words_per_target": 3,
     },
+    "nemesis": {
+        "name_prefix": "Nemesis",
+        "strategic_chance": 1.0,            # ALWAYS strategic, never random
+        "word_selection": "isolated",        # Semantic isolation strategy
+        "targeting_strength": 0.95,          # Near-perfect targeting
+        "min_target_similarity": 0.35,       # Acts on weaker signals
+        "delay_range": (4, 8),               # Deliberate pacing
+        "badge": "🤖",
+        "self_leak_soft_max": 0.65,          # Very strict leak avoidance
+        "self_leak_hard_max": 0.80,          # Hard cutoff lower
+        "panic_danger": "safe",              # Never panics (always calculated)
+        "panic_aggression_boost": 0.0,       # No emotional response
+        "candidate_pool": 30,                # Evaluates more options
+        "clue_words_per_target": 5,          # Uses more intel
+        "makes_mistakes": False,             # No human-like errors
+        "has_personality": False,            # No personality modifiers
+        "uses_bluffing": False,              # No deception (pure optimization)
+        "word_change_threshold": 0.55,       # Changes word at lower danger
+        "always_change_on_elimination": True,
+        "tracks_opponent_patterns": True,
+        "uses_information_gain": True,
+    },
 }
 
 # AI name suffixes for variety
@@ -763,8 +787,11 @@ def create_ai_player(difficulty: str, existing_names: list) -> dict:
     
     name = f"{config['name_prefix']}-{suffix}"
     
-    # Assign a random personality
-    personality = random.choice(AI_PERSONALITY_TYPES)
+    # Assign a random personality (Nemesis has no personality)
+    if config.get("has_personality") is False or difficulty == "nemesis":
+        personality = None
+    else:
+        personality = random.choice(AI_PERSONALITY_TYPES)
     
     # Give different difficulties distinct "agent" vibes in the UI
     ai_cosmetics_by_difficulty = {
@@ -773,6 +800,7 @@ def create_ai_player(difficulty: str, existing_names: list) -> dict:
         "field-agent": {"card_border": "synthwave", "card_background": "matrix_code", "name_color": "fire"},
         "spymaster": {"card_border": "gold_elite", "card_background": "circuit_board", "name_color": "gold"},
         "ghost": {"card_border": "plasma", "card_background": "nebula", "name_color": "shadow"},
+        "nemesis": {"card_border": "void", "card_background": "void", "name_color": "void"},
     }
     selected_cosmetics = ai_cosmetics_by_difficulty.get(difficulty, ai_cosmetics_by_difficulty["rookie"])
 
@@ -811,6 +839,622 @@ def create_ai_player(difficulty: str, existing_names: list) -> dict:
     }
 
 
+# ============== NEMESIS AI FUNCTIONS ==============
+
+def _ai_select_isolated_word(word_pool: list) -> str:
+    """
+    Nemesis word selection: pick the most semantically isolated word.
+    
+    This finds words that are "semantic islands" - they have low average similarity
+    to other words in the pool, making them hard to triangulate.
+    
+    Score = -avg_similarity - 0.5 * max_similarity (lower is better)
+    """
+    import random
+    
+    if not word_pool or len(word_pool) == 1:
+        return word_pool[0] if word_pool else None
+    
+    try:
+        # Get embeddings for all words in pool
+        embeddings = {}
+        for word in word_pool:
+            try:
+                embeddings[word] = get_embedding(word)
+            except Exception:
+                continue
+        
+        if len(embeddings) < 2:
+            return random.choice(word_pool)
+        
+        # Calculate isolation score for each word
+        isolation_scores = []
+        words_list = list(embeddings.keys())
+        
+        for word in words_list:
+            word_emb = embeddings[word]
+            similarities = []
+            
+            for other_word in words_list:
+                if other_word == word:
+                    continue
+                other_emb = embeddings[other_word]
+                sim = cosine_similarity(word_emb, other_emb)
+                similarities.append(sim)
+            
+            if similarities:
+                avg_sim = sum(similarities) / len(similarities)
+                max_sim = max(similarities)
+                # Lower score = more isolated = better for defense
+                isolation_score = avg_sim + 0.5 * max_sim
+                isolation_scores.append((word, isolation_score))
+        
+        if not isolation_scores:
+            return random.choice(word_pool)
+        
+        # Sort by isolation score (lower = more isolated)
+        isolation_scores.sort(key=lambda x: x[1])
+        
+        # Pick from the top 3 most isolated words (slight randomness to avoid predictability)
+        top_isolated = isolation_scores[:min(3, len(isolation_scores))]
+        return random.choice(top_isolated)[0]
+        
+    except Exception as e:
+        print(f"Error in _ai_select_isolated_word: {e}")
+        return random.choice(word_pool)
+
+
+def _ai_select_counter_intel_word(ai_player: dict, game: dict, word_pool: list) -> str:
+    """
+    Nemesis counter-intelligence word selection for word changes.
+    
+    Picks a new word that is:
+    1. Maximally distant from all previous high-similarity guesses against it
+    2. Semantically isolated (low connectivity to theme)
+    """
+    import random
+    
+    if not word_pool:
+        return None
+    
+    if len(word_pool) == 1:
+        return word_pool[0]
+    
+    try:
+        # Get the high-similarity guesses that opponents have made against us
+        ai_id = ai_player.get("id")
+        dangerous_words = []
+        
+        for entry in game.get("history", []):
+            if entry.get("type") == "word_change":
+                continue
+            sims = entry.get("similarities", {})
+            if ai_id in sims and sims[ai_id] > 0.5:
+                word = entry.get("word")
+                if word:
+                    dangerous_words.append((word, sims[ai_id]))
+        
+        # Get embeddings for pool words
+        pool_embeddings = {}
+        for word in word_pool:
+            try:
+                pool_embeddings[word] = get_embedding(word)
+            except Exception:
+                continue
+        
+        if not pool_embeddings:
+            return random.choice(word_pool)
+        
+        # Get embeddings for dangerous words
+        danger_embeddings = []
+        for dword, dsim in dangerous_words:
+            try:
+                danger_embeddings.append((get_embedding(dword), dsim))
+            except Exception:
+                continue
+        
+        # Score each word in pool
+        word_scores = []
+        for word, word_emb in pool_embeddings.items():
+            # Distance from dangerous words (weighted by how dangerous they were)
+            danger_distance = 0
+            if danger_embeddings:
+                for danger_emb, danger_sim in danger_embeddings:
+                    sim_to_danger = cosine_similarity(word_emb, danger_emb)
+                    # Higher distance from danger = better
+                    # Weight by how close the dangerous guess was
+                    danger_distance += (1 - sim_to_danger) * danger_sim
+                danger_distance /= len(danger_embeddings)
+            else:
+                danger_distance = 0.5  # Neutral if no dangerous guesses
+            
+            # Isolation score (same as _ai_select_isolated_word)
+            isolation_sims = []
+            for other_word, other_emb in pool_embeddings.items():
+                if other_word == word:
+                    continue
+                isolation_sims.append(cosine_similarity(word_emb, other_emb))
+            
+            if isolation_sims:
+                avg_sim = sum(isolation_sims) / len(isolation_sims)
+                max_sim = max(isolation_sims)
+                isolation_score = 1 - (avg_sim + 0.5 * max_sim)  # Higher = more isolated
+            else:
+                isolation_score = 0.5
+            
+            # Combined score: prioritize distance from danger, then isolation
+            total_score = danger_distance * 0.6 + isolation_score * 0.4
+            word_scores.append((word, total_score))
+        
+        if not word_scores:
+            return random.choice(word_pool)
+        
+        # Pick the best word (highest score)
+        word_scores.sort(key=lambda x: x[1], reverse=True)
+        return word_scores[0][0]
+        
+    except Exception as e:
+        print(f"Error in _ai_select_counter_intel_word: {e}")
+        return random.choice(word_pool)
+
+
+def _nemesis_init_beliefs(ai_player: dict, game: dict):
+    """
+    Initialize Bayesian belief tracking for Nemesis.
+    
+    For each opponent, maintain a probability distribution over their possible words.
+    Initially uniform over their word pool (or theme words if pool unknown).
+    """
+    memory = ai_player.get("ai_memory", {})
+    if "nemesis_beliefs" not in memory:
+        memory["nemesis_beliefs"] = {}
+    
+    beliefs = memory["nemesis_beliefs"]
+    theme_words = game.get("theme", {}).get("words", [])
+    
+    for player in game.get("players", []):
+        pid = player.get("id")
+        if pid == ai_player.get("id"):
+            continue
+        if not player.get("is_alive", True):
+            continue
+        if pid not in beliefs:
+            # Initialize uniform distribution over theme words
+            # In practice, we don't know their pool, so use theme words
+            word_count = len(theme_words)
+            if word_count > 0:
+                uniform_prob = 1.0 / word_count
+                beliefs[pid] = {w.lower(): uniform_prob for w in theme_words}
+            else:
+                beliefs[pid] = {}
+    
+    memory["nemesis_beliefs"] = beliefs
+    ai_player["ai_memory"] = memory
+
+
+def _nemesis_update_beliefs(ai_player: dict, game: dict, guess_word: str, similarities: dict):
+    """
+    Update Bayesian beliefs based on observed similarity scores.
+    
+    For each opponent, update P(word | observations) using the similarity
+    between the guess and each possible word.
+    """
+    import math
+    
+    memory = ai_player.get("ai_memory", {})
+    beliefs = memory.get("nemesis_beliefs", {})
+    
+    if not beliefs:
+        _nemesis_init_beliefs(ai_player, game)
+        beliefs = memory.get("nemesis_beliefs", {})
+    
+    try:
+        guess_embedding = get_embedding(guess_word)
+    except Exception:
+        return
+    
+    for player_id, observed_sim in similarities.items():
+        if player_id == ai_player.get("id"):
+            continue
+        if player_id not in beliefs:
+            continue
+        
+        player_beliefs = beliefs[player_id]
+        if not player_beliefs:
+            continue
+        
+        # Bayesian update: P(word | obs) ∝ P(obs | word) * P(word)
+        # P(obs | word) = likelihood that we'd see this similarity if word is their secret
+        # We model this as a Gaussian centered on the expected similarity
+        
+        new_beliefs = {}
+        total_prob = 0.0
+        
+        for word, prior_prob in player_beliefs.items():
+            try:
+                word_embedding = get_embedding(word)
+                expected_sim = cosine_similarity(guess_embedding, word_embedding)
+                
+                # Likelihood: how well does observed similarity match expected?
+                # Use Gaussian likelihood with sigma=0.15
+                sigma = 0.15
+                diff = observed_sim - expected_sim
+                likelihood = math.exp(-(diff ** 2) / (2 * sigma ** 2))
+                
+                posterior = prior_prob * likelihood
+                new_beliefs[word] = posterior
+                total_prob += posterior
+            except Exception:
+                new_beliefs[word] = prior_prob
+                total_prob += prior_prob
+        
+        # Normalize
+        if total_prob > 0:
+            for word in new_beliefs:
+                new_beliefs[word] /= total_prob
+        
+        beliefs[player_id] = new_beliefs
+    
+    memory["nemesis_beliefs"] = beliefs
+    ai_player["ai_memory"] = memory
+
+
+def _nemesis_get_top_candidates(ai_player: dict, player_id: str, k: int = 5) -> list:
+    """
+    Get the top k most likely words for a player based on current beliefs.
+    
+    Returns list of (word, probability) tuples sorted by probability.
+    """
+    memory = ai_player.get("ai_memory", {})
+    beliefs = memory.get("nemesis_beliefs", {})
+    
+    player_beliefs = beliefs.get(player_id, {})
+    if not player_beliefs:
+        return []
+    
+    sorted_beliefs = sorted(player_beliefs.items(), key=lambda x: x[1], reverse=True)
+    return sorted_beliefs[:k]
+
+
+def _nemesis_calculate_entropy(probabilities: dict) -> float:
+    """Calculate Shannon entropy of a probability distribution."""
+    import math
+    
+    entropy = 0.0
+    for prob in probabilities.values():
+        if prob > 0:
+            entropy -= prob * math.log2(prob)
+    return entropy
+
+
+def _nemesis_expected_info_gain(ai_player: dict, game: dict, guess_word: str, 
+                                 available_words: list) -> float:
+    """
+    Calculate expected information gain from making a guess.
+    
+    Information gain = current entropy - expected entropy after observation
+    
+    This measures how much we expect to learn about opponents' words
+    from making this guess.
+    """
+    import math
+    
+    memory = ai_player.get("ai_memory", {})
+    beliefs = memory.get("nemesis_beliefs", {})
+    
+    if not beliefs:
+        return 0.0
+    
+    try:
+        guess_embedding = get_embedding(guess_word)
+    except Exception:
+        return 0.0
+    
+    total_info_gain = 0.0
+    
+    for player in game.get("players", []):
+        pid = player.get("id")
+        if pid == ai_player.get("id"):
+            continue
+        if not player.get("is_alive", True):
+            continue
+        if pid not in beliefs:
+            continue
+        
+        player_beliefs = beliefs[pid]
+        if not player_beliefs:
+            continue
+        
+        # Current entropy for this player
+        current_entropy = _nemesis_calculate_entropy(player_beliefs)
+        
+        # Expected entropy after observing similarity
+        # We need to marginalize over possible observations
+        # For efficiency, discretize similarity into buckets
+        
+        expected_entropy = 0.0
+        sim_buckets = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+        
+        for i in range(len(sim_buckets) - 1):
+            sim_low = sim_buckets[i]
+            sim_high = sim_buckets[i + 1]
+            sim_mid = (sim_low + sim_high) / 2
+            
+            # Probability of observing similarity in this bucket
+            bucket_prob = 0.0
+            posterior_beliefs = {}
+            
+            for word, prior in player_beliefs.items():
+                try:
+                    word_emb = get_embedding(word)
+                    expected_sim = cosine_similarity(guess_embedding, word_emb)
+                    
+                    # Probability this word produces similarity in bucket
+                    if sim_low <= expected_sim < sim_high:
+                        bucket_prob += prior
+                        posterior_beliefs[word] = prior
+                except Exception:
+                    continue
+            
+            if bucket_prob > 0:
+                # Normalize posterior
+                for word in posterior_beliefs:
+                    posterior_beliefs[word] /= bucket_prob
+                
+                # Entropy of posterior
+                posterior_entropy = _nemesis_calculate_entropy(posterior_beliefs)
+                expected_entropy += bucket_prob * posterior_entropy
+        
+        # Information gain for this player
+        info_gain = current_entropy - expected_entropy
+        total_info_gain += max(0, info_gain)
+    
+    return total_info_gain
+
+
+def _nemesis_calculate_elimination_prob(ai_player: dict, game: dict, 
+                                         guess_word: str) -> dict:
+    """
+    Calculate probability that a guess will eliminate each opponent.
+    
+    Returns dict of player_id -> probability of elimination.
+    """
+    memory = ai_player.get("ai_memory", {})
+    beliefs = memory.get("nemesis_beliefs", {})
+    
+    elimination_probs = {}
+    guess_lower = guess_word.lower()
+    
+    for player in game.get("players", []):
+        pid = player.get("id")
+        if pid == ai_player.get("id"):
+            continue
+        if not player.get("is_alive", True):
+            continue
+        
+        player_beliefs = beliefs.get(pid, {})
+        
+        # Probability of elimination = probability that guess IS their word
+        elim_prob = player_beliefs.get(guess_lower, 0.0)
+        elimination_probs[pid] = elim_prob
+    
+    return elimination_probs
+
+
+def _nemesis_score_guess(ai_player: dict, game: dict, guess_word: str,
+                         available_words: list) -> float:
+    """
+    Calculate total score for a guess using Nemesis strategy.
+    
+    Score combines:
+    - Expected information gain (learning about opponents)
+    - Elimination probability (chance of direct kill)
+    - Self-leak penalty (risk of revealing our word)
+    - Threat assessment (priority for dangerous opponents)
+    """
+    config = AI_DIFFICULTY_CONFIG.get("nemesis", {})
+    
+    # Information gain component
+    info_gain = _nemesis_expected_info_gain(ai_player, game, guess_word, available_words)
+    
+    # Elimination probability
+    elim_probs = _nemesis_calculate_elimination_prob(ai_player, game, guess_word)
+    total_elim_prob = sum(elim_probs.values())
+    
+    # Threat-weighted elimination (prioritize eliminating players targeting us)
+    threat_weighted_elim = 0.0
+    for pid, elim_prob in elim_probs.items():
+        threat_level = _nemesis_get_threat_level(ai_player, game, pid)
+        threat_weighted_elim += elim_prob * (1 + threat_level)
+    
+    # Self-leak penalty
+    self_sim = _ai_self_similarity(ai_player, guess_word)
+    if self_sim is None:
+        self_sim = 0.0
+    
+    soft_max = float(config.get("self_leak_soft_max", 0.65))
+    hard_max = float(config.get("self_leak_hard_max", 0.80))
+    
+    if self_sim > hard_max:
+        leak_penalty = 10.0  # Severe penalty
+    elif self_sim > soft_max:
+        leak_penalty = (self_sim - soft_max) * 5.0
+    else:
+        leak_penalty = 0.0
+    
+    # Combined score
+    # Weights tuned for aggressive but safe play
+    score = (
+        info_gain * 0.3 +           # Learning value
+        total_elim_prob * 2.0 +      # Direct elimination value
+        threat_weighted_elim * 1.0 - # Threat-weighted bonus
+        leak_penalty                 # Safety penalty
+    )
+    
+    return score
+
+
+def _nemesis_get_threat_level(ai_player: dict, game: dict, opponent_id: str) -> float:
+    """
+    Calculate threat level of an opponent (how dangerous they are to us).
+    
+    Threat level based on:
+    - How often they target us
+    - Their highest similarity against us
+    - Their elimination count (skill indicator)
+    - Their health (healthy = more dangerous)
+    """
+    ai_id = ai_player.get("id")
+    history = game.get("history", [])
+    
+    # Count how often they've targeted us (high similarity guesses)
+    targeting_count = 0
+    max_sim_against_us = 0.0
+    their_eliminations = 0
+    total_their_guesses = 0
+    
+    for entry in history:
+        if entry.get("type") == "word_change":
+            continue
+        
+        guesser_id = entry.get("guesser_id")
+        sims = entry.get("similarities", {})
+        elims = entry.get("eliminations", [])
+        
+        if guesser_id == opponent_id:
+            total_their_guesses += 1
+            their_eliminations += len(elims)
+            
+            sim_against_us = sims.get(ai_id, 0)
+            if sim_against_us > 0.5:
+                targeting_count += 1
+            max_sim_against_us = max(max_sim_against_us, sim_against_us)
+    
+    # Calculate targeting rate
+    targeting_rate = targeting_count / max(1, total_their_guesses)
+    
+    # Get opponent's vulnerability (inverse of their health)
+    opponent = next((p for p in game.get("players", []) if p.get("id") == opponent_id), None)
+    if opponent:
+        opp_danger = _ai_danger_score(_ai_top_guesses_since_change(game, opponent_id, k=3))
+        health = 1 - opp_danger  # Higher danger = lower health
+    else:
+        health = 0.5
+    
+    # Combined threat level
+    threat = (
+        targeting_rate * 0.4 +
+        max_sim_against_us * 0.3 +
+        min(1.0, their_eliminations * 0.1) * 0.2 +
+        health * 0.1
+    )
+    
+    return threat
+
+
+def _nemesis_choose_guess(ai_player: dict, game: dict) -> str:
+    """
+    Nemesis guess selection using information-theoretic optimization.
+    
+    Evaluates all candidate words and picks the one with highest score.
+    """
+    import random
+    
+    theme_words = game.get("theme", {}).get("words", [])
+    my_secret = (ai_player.get("secret_word") or "").lower().strip()
+    config = AI_DIFFICULTY_CONFIG.get("nemesis", {})
+    
+    # Initialize beliefs if needed
+    _nemesis_init_beliefs(ai_player, game)
+    
+    # Build available words (exclude our own secret)
+    available_words = [w for w in theme_words if w.lower() != my_secret]
+    
+    if not available_words:
+        return None
+    
+    # Get candidate pool size
+    pool_size = int(config.get("candidate_pool", 30))
+    
+    # For efficiency, evaluate a sample of candidates
+    if len(available_words) > pool_size:
+        # Prioritize words that are likely to be opponents' secrets
+        candidates = _nemesis_get_priority_candidates(ai_player, game, available_words, pool_size)
+    else:
+        candidates = available_words
+    
+    # Score each candidate
+    best_word = None
+    best_score = float('-inf')
+    
+    for word in candidates:
+        score = _nemesis_score_guess(ai_player, game, word, available_words)
+        if score > best_score:
+            best_score = score
+            best_word = word
+    
+    return best_word if best_word else random.choice(available_words)
+
+
+def _nemesis_get_priority_candidates(ai_player: dict, game: dict, 
+                                      available_words: list, count: int) -> list:
+    """
+    Get priority candidate words for evaluation.
+    
+    Prioritizes:
+    1. Words with high probability of being opponents' secrets
+    2. Words similar to high-scoring guesses
+    3. Random sample for exploration
+    """
+    import random
+    
+    memory = ai_player.get("ai_memory", {})
+    beliefs = memory.get("nemesis_beliefs", {})
+    
+    priority_words = set()
+    
+    # Add top candidates from beliefs
+    for pid, player_beliefs in beliefs.items():
+        top_words = sorted(player_beliefs.items(), key=lambda x: x[1], reverse=True)[:10]
+        for word, prob in top_words:
+            if word in [w.lower() for w in available_words]:
+                # Find original casing
+                for aw in available_words:
+                    if aw.lower() == word:
+                        priority_words.add(aw)
+                        break
+    
+    # Add words similar to recent high-similarity guesses
+    for player in game.get("players", []):
+        pid = player.get("id")
+        if pid == ai_player.get("id"):
+            continue
+        top_guesses = _ai_top_guesses_since_change(game, pid, k=3)
+        for word, sim in top_guesses:
+            if sim > 0.5:
+                # Find similar words in available
+                try:
+                    word_emb = get_embedding(word)
+                    for aw in available_words[:50]:  # Sample for efficiency
+                        try:
+                            aw_emb = get_embedding(aw)
+                            if cosine_similarity(word_emb, aw_emb) > 0.6:
+                                priority_words.add(aw)
+                        except Exception:
+                            continue
+                except Exception:
+                    continue
+    
+    # Fill remaining with random sample
+    remaining = count - len(priority_words)
+    if remaining > 0:
+        other_words = [w for w in available_words if w not in priority_words]
+        if other_words:
+            priority_words.update(random.sample(other_words, min(remaining, len(other_words))))
+    
+    return list(priority_words)[:count]
+
+
 def ai_select_secret_word(ai_player: dict, word_pool: list) -> str:
     """AI selects a secret word based on difficulty."""
     import random
@@ -842,6 +1486,11 @@ def ai_select_secret_word(ai_player: dict, word_pool: list) -> str:
             obscure_count = max(1, len(words_with_freq)//10)
             obscure_words = words_with_freq[:obscure_count]
             return random.choice(obscure_words)[0]
+        
+        elif selection_mode == "isolated":
+            # Nemesis strategy: pick words that are semantically isolated
+            # (hard to triangulate because similar words don't exist in theme)
+            return _ai_select_isolated_word(word_pool)
         
         return random.choice(word_pool)
     except Exception as e:
@@ -875,6 +1524,11 @@ def ai_update_memory(ai_player: dict, guess_word: str, similarities: dict, game:
             memory["high_similarity_targets"][player_id] = memory["high_similarity_targets"][player_id][:5]
     
     ai_player["ai_memory"] = memory
+    
+    # For Nemesis, also update Bayesian beliefs
+    difficulty = ai_player.get("difficulty", "rookie")
+    if difficulty == "nemesis":
+        _nemesis_update_beliefs(ai_player, game, guess_word, similarities)
 
 
 def ai_find_best_target(ai_player: dict, game: dict) -> Optional[dict]:
@@ -1035,6 +1689,18 @@ def _ai_self_similarity(ai_player: dict, word: str) -> Optional[float]:
 
 def _ai_get_personality_modifiers(ai_player: dict) -> dict:
     """Get personality modifiers for an AI player."""
+    difficulty = ai_player.get("difficulty", "rookie")
+    config = AI_DIFFICULTY_CONFIG.get(difficulty, {})
+    
+    # Nemesis has no personality - return neutral modifiers
+    if config.get("has_personality") is False or difficulty == "nemesis":
+        return {
+            "random_chance_mod": 0.0,
+            "targeting_boost": 0.0,
+            "self_leak_tolerance": 0.0,
+            "think_time_mod": 1.0,
+        }
+    
     personality = ai_player.get("personality", "methodical")
     return AI_PERSONALITY_CONFIG.get(personality, AI_PERSONALITY_CONFIG["methodical"])
 
@@ -1085,6 +1751,15 @@ def _ai_should_make_mistake(ai_player: dict, mistake_type: str, is_panicking: bo
     import random
     
     difficulty = ai_player.get("difficulty", "rookie")
+    
+    # Nemesis never makes mistakes
+    if difficulty == "nemesis":
+        return False
+    
+    config = AI_DIFFICULTY_CONFIG.get(difficulty, {})
+    if config.get("makes_mistakes") is False:
+        return False
+    
     mistakes = AI_MISTAKE_CONFIG.get(difficulty, AI_MISTAKE_CONFIG["rookie"])
     
     base_chance = mistakes.get(mistake_type, 0.0)
@@ -1205,6 +1880,12 @@ def _ai_maybe_bluff(ai_player: dict, game: dict, available_words: list) -> Optio
     import random
     
     difficulty = ai_player.get("difficulty", "rookie")
+    config = AI_DIFFICULTY_CONFIG.get(difficulty, {})
+    
+    # Nemesis never bluffs - pure optimization only
+    if config.get("uses_bluffing") is False or difficulty == "nemesis":
+        return None
+    
     personality_mods = _ai_get_personality_modifiers(ai_player)
     
     # Only higher difficulties bluff, and only certain personalities
@@ -1343,12 +2024,19 @@ def ai_choose_guess(ai_player: dict, game: dict) -> Optional[str]:
     - Bluffing behavior
     - Grudge-based targeting
     - Confidence and streak effects
+    
+    For Nemesis difficulty, uses information-theoretic optimization instead.
     """
     import random
     
     difficulty = ai_player.get("difficulty", "rookie")
     default_cfg = AI_DIFFICULTY_CONFIG.get("rookie") or {}
     config = AI_DIFFICULTY_CONFIG.get(difficulty, default_cfg)
+    
+    # Nemesis uses completely different strategy - no randomness, no mistakes
+    if difficulty == "nemesis":
+        return _nemesis_choose_guess(ai_player, game)
+    
     personality_mods = _ai_get_personality_modifiers(ai_player)
     
     theme_words = game.get("theme", {}).get("words", [])
@@ -1761,6 +2449,51 @@ def process_ai_word_change(game: dict, ai_player: dict) -> bool:
     
     difficulty = ai_player.get("difficulty", "rookie")
     config = AI_DIFFICULTY_CONFIG.get(difficulty, AI_DIFFICULTY_CONFIG.get("rookie", {}))
+
+    # Nemesis ALWAYS changes word and uses counter-intelligence strategy
+    if difficulty == "nemesis":
+        # Get available words
+        word_pool = ai_player.get("word_pool", [])
+        current_secrets = set()
+        ai_id = ai_player.get("id")
+        for p in game.get("players", []):
+            if p.get("id") != ai_id and p.get("secret_word"):
+                current_secrets.add(p["secret_word"].lower())
+        
+        available_words = [w for w in word_pool if w.lower() not in current_secrets]
+        
+        # If pool exhausted, regenerate from theme
+        if not available_words:
+            all_theme_words = (game.get("theme", {}) or {}).get("words", [])
+            available_words = [w for w in all_theme_words if w.lower() not in current_secrets]
+            if len(available_words) > WORDS_PER_PLAYER:
+                new_pool = random.sample(available_words, WORDS_PER_PLAYER)
+                ai_player["word_pool"] = sorted(new_pool)
+                available_words = new_pool
+        
+        if available_words:
+            # Use counter-intelligence word selection
+            new_word = _ai_select_counter_intel_word(ai_player, game, available_words)
+            if new_word:
+                try:
+                    embedding = get_embedding(new_word)
+                    ai_player["secret_word"] = new_word.lower()
+                    ai_player["secret_embedding"] = embedding
+                    
+                    # Record word change in history
+                    game["history"].append({
+                        "type": "word_change",
+                        "player_id": ai_player["id"],
+                        "player_name": ai_player["name"],
+                    })
+                    
+                    # Reset beliefs about us since we changed word
+                    # (opponents' intel is now stale)
+                except Exception as e:
+                    print(f"Nemesis word change error: {e}")
+        
+        ai_player["can_change_word"] = False
+        return True
 
     # Strategic word change: if we're in danger, strongly prefer changing to reset opponents' intel.
     my_top = _ai_top_guesses_since_change(game, ai_player.get("id"), k=3)
@@ -3550,6 +4283,7 @@ def apply_ranked_mmr_updates(game: dict):
     # Load users and current ratings
     user_map = {}
     rating = {}
+    pre_game_ranked_games = {}  # Track ranked_games BEFORE this match for placement K-factor
     for p in participants:
         uid = p.get('auth_user_id')
         user = get_user_by_id(uid)
@@ -3562,6 +4296,11 @@ def apply_ranked_mmr_updates(game: dict):
             mmr = RANKED_INITIAL_MMR
         user_map[uid] = user
         rating[uid] = float(mmr)
+        # Store ranked_games count before this match (used for placement K-factor)
+        try:
+            pre_game_ranked_games[uid] = int(stats.get('ranked_games', 0) or 0)
+        except Exception:
+            pre_game_ranked_games[uid] = 0
 
     # If we couldn't load at least 2 users, skip
     if len(rating) < 2:
@@ -3606,15 +4345,21 @@ def apply_ranked_mmr_updates(game: dict):
             deltas[ui] += (si - ei)
             deltas[uj] += (sj - ej)
 
-    scale = float(RANKED_K_FACTOR) / float(max(1, n - 1))
-
     # Apply updates + persist
     # Also record per-game deltas so the frontend can show MMR change on the game-over screen.
+    # Use per-player K-factor: higher for placement players (< RANKED_PLACEMENT_GAMES)
     mmr_result_by_pid = {}
     for uid in uids:
         user = user_map.get(uid)
         if not user:
             continue
+        
+        # Determine K-factor based on placement status (before this match)
+        games_before = pre_game_ranked_games.get(uid, 0)
+        is_placement = games_before < RANKED_PLACEMENT_GAMES
+        k_factor = RANKED_PLACEMENT_K_FACTOR if is_placement else RANKED_K_FACTOR
+        scale = float(k_factor) / float(max(1, n - 1))
+        
         old = rating[uid]
         new = old + (scale * deltas.get(uid, 0.0))
         try:
@@ -4655,6 +5400,12 @@ class handler(BaseHTTPRequestHandler):
                 if not user:
                     continue
                 stats = get_user_stats(user)
+                
+                # Filter out unplaced players (must complete placement games to appear on leaderboard)
+                ranked_games = int(stats.get('ranked_games', 0) or 0)
+                if ranked_games < RANKED_PLACEMENT_GAMES:
+                    continue
+                
                 players.append({
                     "rank": rank,
                     "id": user.get('id'),
@@ -4662,7 +5413,7 @@ class handler(BaseHTTPRequestHandler):
                     "avatar": user.get('avatar', ''),
                     "mmr": int(stats.get('mmr', mmr) or mmr),
                     "peak_mmr": int(stats.get('peak_mmr', mmr) or mmr),
-                    "ranked_games": int(stats.get('ranked_games', 0) or 0),
+                    "ranked_games": ranked_games,
                     "ranked_wins": int(stats.get('ranked_wins', 0) or 0),
                     "ranked_losses": int(stats.get('ranked_losses', 0) or 0),
                 })
