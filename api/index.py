@@ -229,6 +229,15 @@ CASUAL_TIME_PRESETS = TIME_CONTROLS_CONFIG.get("casual_presets", {
     "none": {"initial_time": 0, "increment": 0},
 })
 
+# Word selection time limits
+WORD_SELECTION_TIME_CONFIG = TIME_CONTROLS_CONFIG.get("word_selection_time", {"ranked": 30, "casual": 60})
+WORD_SELECTION_TIME_RANKED = int(WORD_SELECTION_TIME_CONFIG.get("ranked", 30))
+WORD_SELECTION_TIME_CASUAL = int(WORD_SELECTION_TIME_CONFIG.get("casual", 60))
+
+def get_word_selection_time(is_ranked: bool) -> int:
+    """Get word selection time limit in seconds."""
+    return WORD_SELECTION_TIME_RANKED if is_ranked else WORD_SELECTION_TIME_CASUAL
+
 def get_time_control(is_ranked: bool, preset: str = "rapid") -> dict:
     """Get time control settings for a game (chess clock model)."""
     if is_ranked:
@@ -3346,6 +3355,14 @@ class handler(BaseHTTPRequestHandler):
                     elapsed = time.time() - turn_started_at
                     current_player_time = max(0, stored_time - elapsed)
             
+            # Calculate word selection time remaining
+            word_selection_time_remaining = None
+            word_selection_started_at = game.get('word_selection_started_at')
+            word_selection_time = game.get('word_selection_time', 0)
+            if game['status'] == 'word_selection' and word_selection_started_at and word_selection_time > 0:
+                elapsed = time.time() - word_selection_started_at
+                word_selection_time_remaining = max(0, word_selection_time - elapsed)
+            
             response = {
                 "code": game['code'],
                 "host_id": game['host_id'],
@@ -3374,6 +3391,8 @@ class handler(BaseHTTPRequestHandler):
                 },
                 "current_player_time": current_player_time,
                 "turn_started_at": turn_started_at,
+                "word_selection_time": word_selection_time,
+                "word_selection_time_remaining": word_selection_time_remaining,
             }
 
             ranked_mmr = game.get('ranked_mmr') if isinstance(game.get('ranked_mmr'), dict) else None
@@ -4166,6 +4185,14 @@ class handler(BaseHTTPRequestHandler):
                         elapsed = time.time() - turn_started_at
                         current_player_time = max(0, stored_time - elapsed)
                 
+                # Calculate word selection time remaining
+                word_selection_time_remaining = None
+                word_selection_started_at = game.get('word_selection_started_at')
+                word_selection_time = game.get('word_selection_time', 0)
+                if game['status'] == 'word_selection' and word_selection_started_at and word_selection_time > 0:
+                    elapsed = time.time() - word_selection_started_at
+                    word_selection_time_remaining = max(0, word_selection_time - elapsed)
+                
                 response = {
                     "code": game['code'],
                     "host_id": game.get('host_id', ''),
@@ -4195,6 +4222,8 @@ class handler(BaseHTTPRequestHandler):
                     },
                     "current_player_time": current_player_time,
                     "turn_started_at": turn_started_at,
+                    "word_selection_time": word_selection_time,
+                    "word_selection_time_remaining": word_selection_time_remaining,
                 }
                 
                 for p in game.get('players', []):
@@ -4479,6 +4508,14 @@ class handler(BaseHTTPRequestHandler):
                         elapsed = time.time() - turn_started_at
                         current_player_time = max(0, stored_time - elapsed)
                 
+                # Calculate word selection time remaining
+                word_selection_time_remaining = None
+                word_selection_started_at = game.get('word_selection_started_at')
+                word_selection_time = game.get('word_selection_time', 0)
+                if game['status'] == 'word_selection' and word_selection_started_at and word_selection_time > 0:
+                    elapsed = time.time() - word_selection_started_at
+                    word_selection_time_remaining = max(0, word_selection_time - elapsed)
+                
                 # Build response with hidden words
                 response = {
                     "code": game['code'],
@@ -4508,6 +4545,8 @@ class handler(BaseHTTPRequestHandler):
                     },
                     "current_player_time": current_player_time,
                     "turn_started_at": turn_started_at,
+                    "word_selection_time": word_selection_time,
+                    "word_selection_time_remaining": word_selection_time_remaining,
                 }
 
                 # Ranked: include per-game MMR results on finished games (so clients can display deltas).
@@ -5703,6 +5742,8 @@ class handler(BaseHTTPRequestHandler):
             # Move to word selection phase (not playing yet)
             game['status'] = 'word_selection'
             game['current_turn'] = 0
+            game['word_selection_started_at'] = time.time()  # Start word selection timer
+            game['word_selection_time'] = get_word_selection_time(bool(game.get('is_ranked', False)))
             save_game(code, game)
             return self._send_json({"status": "word_selection", "theme": game['theme']['name']})
 
@@ -5768,6 +5809,81 @@ class handler(BaseHTTPRequestHandler):
             game['turn_started_at'] = time.time()  # Start the turn timer
             save_game(code, game)
             return self._send_json({"status": "playing"})
+
+        # POST /api/games/{code}/word-selection-timeout - Auto-assign random words when time expires
+        if '/word-selection-timeout' in path and path.startswith('/api/games/'):
+            code = sanitize_game_code(path.split('/')[3])
+            if not code:
+                return self._send_error("Invalid game code format", 400)
+            
+            game = load_game(code)
+            
+            if not game:
+                return self._send_error("Game not found", 404)
+            if game['status'] != 'word_selection':
+                return self._send_error("Game not in word selection phase", 400)
+            
+            # Verify the word selection time has actually expired (server-authoritative)
+            word_selection_started_at = game.get('word_selection_started_at')
+            word_selection_time = game.get('word_selection_time', 0)
+            
+            if not word_selection_started_at or word_selection_time <= 0:
+                return self._send_error("No word selection timer for this game", 400)
+            
+            elapsed = time.time() - word_selection_started_at
+            # Allow 2 second grace period for network latency
+            if elapsed < word_selection_time - 2:
+                return self._send_json({
+                    "timeout": False,
+                    "time_remaining": word_selection_time - elapsed,
+                    "message": "Word selection time has not expired yet",
+                })
+            
+            import random
+            
+            # Auto-assign random words to players who haven't picked
+            auto_assigned = []
+            for p in game['players']:
+                if p.get('secret_word'):
+                    continue  # Already has a word
+                
+                # For AI players, use their AI selection logic
+                if p.get('is_ai'):
+                    pool = p.get('word_pool', []) or game.get('theme', {}).get('words', [])
+                    if pool:
+                        selected_word = ai_select_secret_word(p, pool)
+                        if selected_word:
+                            try:
+                                embedding = get_embedding(selected_word)
+                                p['secret_word'] = selected_word.lower()
+                                p['secret_embedding'] = embedding
+                                auto_assigned.append({"id": p['id'], "name": p['name'], "is_ai": True})
+                            except Exception as e:
+                                print(f"AI word selection error (timeout): {e}")
+                    continue
+                
+                # For human players, pick a random word from their pool
+                pool = p.get('word_pool', [])
+                if pool:
+                    selected_word = random.choice(pool)
+                    try:
+                        embedding = get_embedding(selected_word)
+                        p['secret_word'] = selected_word.lower()
+                        p['secret_embedding'] = embedding
+                        auto_assigned.append({"id": p['id'], "name": p['name'], "is_ai": False})
+                    except Exception as e:
+                        print(f"Auto-assign word error (timeout): {e}")
+            
+            save_game(code, game)
+            
+            # Check if all players now have words
+            all_ready = all(p.get('secret_word') for p in game['players'])
+            
+            return self._send_json({
+                "timeout": True,
+                "auto_assigned": auto_assigned,
+                "all_ready": all_ready,
+            })
 
         # POST /api/games/{code}/ai-pick-words - Singleplayer: have AIs pick their secret words
         if '/ai-pick-words' in path and path.startswith('/api/games/'):

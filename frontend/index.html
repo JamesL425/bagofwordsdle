@@ -670,8 +670,10 @@
                 <h2>// SELECT_CODEWORD</h2>
                 <p class="theme-label">DATABASE: <span id="wordselect-theme-name">-</span></p>
                 
+                <div id="word-selection-timer" class="word-selection-timer hidden">⏱ 0:00</div>
+                
                 <div class="word-select-status">
-                    <p>Locked in: <span id="locked-count">0</span>/<span id="total-count">0</span></p>
+                    <p id="word-select-status-text">Locked in: <span id="locked-count">0</span>/<span id="total-count">0</span></p>
                     <div id="player-status-list" class="player-status-list">
                         <!-- Player status will be shown here -->
                     </div>
@@ -688,7 +690,7 @@
                 
                 <div id="word-locked-notice" class="word-locked-notice hidden">
                     <p>✓ CODEWORD LOCKED: <span id="locked-word-display">-</span></p>
-                    <p class="waiting-text">Waiting for other operatives...</p>
+                    <p id="waiting-text" class="waiting-text">Waiting for other operatives...</p>
                 </div>
                 
                 <div id="host-begin-controls" class="host-begin-controls hidden">
@@ -860,7 +862,6 @@
                     <div class="share-buttons">
                         <button id="copy-results-btn" class="btn btn-secondary btn-small">📋 COPY</button>
                         <button id="share-twitter-btn" class="btn btn-secondary btn-small">𝕏 SHARE</button>
-                        <button id="challenge-friend-btn" class="btn btn-primary btn-small hidden">⚔️ CHALLENGE</button>
                     </div>
                     <div class="share-buttons" style="margin-top: 0.75rem;">
                         <button id="watch-replay-btn" class="btn btn-secondary btn-small">🎬 WATCH REPLAY</button>

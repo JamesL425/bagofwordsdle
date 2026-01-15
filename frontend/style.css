@@ -3986,6 +3986,41 @@ body.nerd-mode .nerd-sim {
     margin-bottom: 1rem;
 }
 
+/* Word Selection Timer */
+.word-selection-timer {
+    font-family: 'JetBrains Mono', 'Courier Prime', monospace;
+    font-size: 1.5rem;
+    font-weight: 700;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius);
+    background: var(--surface-hover);
+    border: 1px solid var(--border);
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.word-selection-timer.hidden {
+    display: none;
+}
+
+.word-selection-timer.normal {
+    color: var(--text-primary);
+}
+
+.word-selection-timer.warning {
+    color: var(--warning);
+    border-color: var(--warning);
+    background: rgba(255, 193, 7, 0.1);
+    animation: timer-pulse 1s ease-in-out infinite;
+}
+
+.word-selection-timer.critical {
+    color: var(--danger);
+    border-color: var(--danger);
+    background: rgba(244, 67, 54, 0.15);
+    animation: timer-shake 0.3s ease-in-out infinite;
+}
+
 .word-select-status {
     background: var(--bg-secondary);
     padding: 1rem;

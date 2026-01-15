@@ -180,6 +180,11 @@ let gameState = {
     turnStartedAt: null,      // When current turn started (client timestamp)
     timeControl: null,        // {initial_time, increment}
     game: null,               // Current game state for reference
+    // Word selection timer state
+    wordSelectionTimerInterval: null,
+    wordSelectionTime: null,
+    wordSelectionTimeRemaining: null,
+    wordSelectionStartedAt: null,
 };
 
 // ============ OPTIONS ============
@@ -616,6 +621,8 @@ function clearGameSession() {
     localStorage.removeItem('embeddle_session');
     // Clear turn timer
     hideTimer();
+    // Clear word selection timer
+    stopWordSelectionTimer();
     // Reset URL to home
     if (window.location.pathname !== '/') {
         history.pushState({}, '', '/');
@@ -709,14 +716,15 @@ async function renderRecentGames() {
     container.innerHTML = rows.map(({ entry, status, playerCount, isSingleplayer }) => {
         const label = status === 'expired' ? 'EXPIRED' : String(status || '').toUpperCase();
         const mode = isSingleplayer ? 'SOLO' : 'MULTI';
+        const buttonText = status === 'expired' ? 'REMOVE' : (status === 'finished' ? 'REPLAY' : 'OPEN');
         return `
             <div class="lobby-item" data-code="${escapeHtml(entry.code)}">
                 <div class="lobby-info-row">
                     <span class="lobby-code">${escapeHtml(entry.code)}</span>
                     <span class="lobby-players">${escapeHtml(mode)} • ${escapeHtml(label)} • ${escapeHtml(playerCount)} players</span>
                 </div>
-                <button class="btn btn-small btn-secondary rejoin-game-btn" data-code="${escapeHtml(entry.code)}">
-                    ${status === 'expired' ? 'REMOVE' : 'OPEN'}
+                <button class="btn btn-small btn-secondary rejoin-game-btn" data-code="${escapeHtml(entry.code)}" data-status="${escapeHtml(status)}">
+                    ${buttonText}
                 </button>
             </div>
         `;
@@ -725,10 +733,32 @@ async function renderRecentGames() {
     container.querySelectorAll('.rejoin-game-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
             const code = btn.dataset.code;
+            const status = btn.dataset.status;
             if (btn.textContent.trim() === 'REMOVE') {
                 const next = getRecentGames().filter(x => x.code !== code);
                 localStorage.setItem('embeddle_recent_games', JSON.stringify(next));
                 renderRecentGames();
+                return;
+            }
+            if (status === 'finished') {
+                // Load replay for finished games
+                btn.disabled = true;
+                btn.textContent = 'LOADING...';
+                try {
+                    const response = await fetch(`${API_BASE}/api/games/${code}/replay`);
+                    if (!response.ok) {
+                        throw new Error('Failed to load replay');
+                    }
+                    const data = await response.json();
+                    const replayCode = await encodeReplayData(data);
+                    history.pushState({}, '', `/replay/${replayCode}`);
+                    await loadAndShowReplay(replayCode);
+                } catch (e) {
+                    console.error('Failed to load replay:', e);
+                    showError('Failed to load replay');
+                    btn.textContent = 'REPLAY';
+                    btn.disabled = false;
+                }
                 return;
             }
             history.pushState({ gameCode: code }, '', `/game/${code}`);
@@ -3028,6 +3058,11 @@ function showWordSelectionScreen(data) {
     const myPlayer = data.players.find(p => p.id === gameState.playerId);
     gameState.wordPool = myPlayer?.word_pool || [];
     
+    // Store word selection timer info
+    gameState.wordSelectionTime = data.word_selection_time || 0;
+    gameState.wordSelectionTimeRemaining = data.word_selection_time_remaining;
+    gameState.wordSelectionStartedAt = Date.now();
+    
     // Set theme name
     document.getElementById('wordselect-theme-name').textContent = data.theme?.name || '-';
     
@@ -3056,6 +3091,11 @@ function showWordSelectionScreen(data) {
     
     showScreen('wordselect');
     startWordSelectPolling();
+    
+    // Start word selection timer if there's a time limit
+    if (gameState.wordSelectionTime > 0) {
+        startWordSelectionTimer();
+    }
 }
 
 function startWordSelectPolling() {
@@ -3070,13 +3110,54 @@ async function updateWordSelectScreen() {
     try {
         const data = await apiCall(`/api/games/${gameState.code}?player_id=${gameState.playerId}`);
 
+        // Store game state for reference
+        gameState.game = data;
+
         // In singleplayer, trigger AI word selection in the background while you choose yours
         maybeTriggerSingleplayerAiWordPick(data);
         
+        // Sync word selection timer with server
+        if (data.word_selection_time_remaining !== undefined && data.word_selection_time_remaining !== null) {
+            gameState.wordSelectionTimeRemaining = data.word_selection_time_remaining;
+            gameState.wordSelectionStartedAt = Date.now();
+            gameState.wordSelectionTime = data.word_selection_time || 0;
+            
+            // Start timer if not already running
+            if (!gameState.wordSelectionTimerInterval && gameState.wordSelectionTime > 0) {
+                startWordSelectionTimer();
+            }
+        }
+        
         // Update player status
         const lockedCount = data.players.filter(p => p.has_word).length;
+        const totalCount = data.players.length;
+        const myPlayer = data.players.find(p => p.id === gameState.playerId);
+        const iHaveLocked = myPlayer?.has_word;
+        const allLocked = lockedCount === totalCount;
+        
         document.getElementById('locked-count').textContent = lockedCount;
-        document.getElementById('total-count').textContent = data.players.length;
+        document.getElementById('total-count').textContent = totalCount;
+        
+        // Update waiting text based on status
+        const waitingTextEl = document.getElementById('waiting-text');
+        if (waitingTextEl && iHaveLocked) {
+            if (allLocked) {
+                if (gameState.isHost) {
+                    waitingTextEl.textContent = 'All operatives ready! Click BEGIN below.';
+                } else {
+                    waitingTextEl.textContent = 'All operatives ready! Waiting for host to begin...';
+                }
+            } else {
+                // Show who we're waiting for
+                const notLocked = data.players.filter(p => !p.has_word && p.id !== gameState.playerId);
+                if (notLocked.length > 0) {
+                    const names = notLocked.map(p => p.name).join(', ');
+                    waitingTextEl.textContent = `Waiting for: ${names}`;
+                } else {
+                    waitingTextEl.textContent = 'Waiting for other operatives...';
+                }
+            }
+        }
         
         const statusList = document.getElementById('player-status-list');
         statusList.innerHTML = data.players.map(p => {
@@ -3100,20 +3181,115 @@ async function updateWordSelectScreen() {
         });
         
         // Show host controls if all locked
-        const myPlayer = data.players.find(p => p.id === gameState.playerId);
         if (gameState.isHost) {
             document.getElementById('host-begin-controls').classList.remove('hidden');
-            document.getElementById('begin-game-btn').disabled = lockedCount < data.players.length;
+            document.getElementById('begin-game-btn').disabled = !allLocked;
         }
         
         // Check if game started
         if (data.status === 'playing') {
             clearInterval(gameState.pollingInterval);
+            stopWordSelectionTimer();
             showScreen('game');
             startGamePolling();
         }
     } catch (error) {
         // Silently ignore
+    }
+}
+
+// ============ WORD SELECTION TIMER ============
+
+function startWordSelectionTimer() {
+    // Clear any existing timer
+    if (gameState.wordSelectionTimerInterval) {
+        clearInterval(gameState.wordSelectionTimerInterval);
+    }
+    
+    // Update timer immediately
+    updateWordSelectionTimerDisplay();
+    
+    // Update every 100ms for smooth countdown
+    gameState.wordSelectionTimerInterval = setInterval(() => {
+        updateWordSelectionTimerDisplay();
+    }, 100);
+}
+
+function updateWordSelectionTimerDisplay() {
+    const timerEl = document.getElementById('word-selection-timer');
+    if (!timerEl) return;
+    
+    const totalTime = gameState.wordSelectionTime || 0;
+    if (totalTime <= 0) {
+        timerEl.classList.add('hidden');
+        return;
+    }
+    
+    // Calculate remaining time
+    let remaining = gameState.wordSelectionTimeRemaining || 0;
+    if (gameState.wordSelectionStartedAt) {
+        const elapsed = (Date.now() - gameState.wordSelectionStartedAt) / 1000;
+        remaining = Math.max(0, remaining - elapsed);
+    }
+    
+    // Format and display
+    const timeStr = formatChessClockTime(remaining);
+    timerEl.textContent = `⏱ ${timeStr}`;
+    timerEl.classList.remove('hidden');
+    
+    // Update urgency class
+    timerEl.classList.remove('normal', 'warning', 'critical');
+    if (remaining <= 5) {
+        timerEl.classList.add('critical');
+    } else if (remaining <= 15) {
+        timerEl.classList.add('warning');
+    } else {
+        timerEl.classList.add('normal');
+    }
+    
+    // Check for timeout
+    if (remaining <= 0) {
+        handleWordSelectionTimeout();
+    }
+}
+
+async function handleWordSelectionTimeout() {
+    // Stop the timer
+    if (gameState.wordSelectionTimerInterval) {
+        clearInterval(gameState.wordSelectionTimerInterval);
+        gameState.wordSelectionTimerInterval = null;
+    }
+    
+    // Check if we already have a word locked
+    const myPlayer = gameState.game?.players?.find(p => p.id === gameState.playerId);
+    if (myPlayer?.has_word) {
+        return; // Already locked in, nothing to do
+    }
+    
+    try {
+        const result = await apiCall(`/api/games/${gameState.code}/word-selection-timeout`, 'POST', {
+            player_id: gameState.playerId,
+        });
+        
+        if (result.timeout) {
+            // Check if we were auto-assigned a word
+            const wasAutoAssigned = result.auto_assigned?.some(p => p.id === gameState.playerId);
+            if (wasAutoAssigned) {
+                showError('Time expired! A random word was assigned to you.');
+            }
+            
+            // Refresh the screen
+            updateWordSelectScreen();
+        }
+    } catch (error) {
+        console.error('Word selection timeout error:', error);
+    }
+}
+
+function stopWordSelectionTimer() {
+    if (gameState.wordSelectionTimerInterval) {
+        clearInterval(gameState.wordSelectionTimerInterval);
+        gameState.wordSelectionTimerInterval = null;
     }
 }
 
@@ -4591,17 +4767,6 @@ function showGameOver(game) {
     setTimeout(() => {
         spotlight.classList.remove('visible');
     }, 3500);
-    
-    // Show/hide challenge button based on game type (only for multiplayer)
-    const challengeBtn = document.getElementById('challenge-friend-btn');
-    if (challengeBtn) {
-        const isSingleplayer = game.is_singleplayer || game.players.every(p => p.is_ai || p.id === gameState.playerId);
-        if (isSingleplayer) {
-            challengeBtn.classList.add('hidden');
-        } else {
-            challengeBtn.classList.remove('hidden');
-        }
-    }
     
     // Pre-generate replay code for sharing (so clipboard write is synchronous on click)
     gameState.cachedReplayCode = null;

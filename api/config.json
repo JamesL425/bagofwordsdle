@@ -52,6 +52,10 @@
     }
   },
   "time_controls": {
+    "word_selection_time": {
+      "ranked": 30,
+      "casual": 60
+    },
     "ranked": {
       "initial_time": 180,
       "increment": 20
