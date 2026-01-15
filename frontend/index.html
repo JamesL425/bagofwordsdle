@@ -334,6 +334,15 @@
                         <button id="create-public-btn" class="btn btn-primary btn-large btn-block home-action">&gt; CREATE_PUBLIC</button>
                         <button id="singleplayer-btn" class="btn btn-primary btn-large btn-block home-action">&gt; SOLO_MISSION</button>
                     </div>
+                    <div class="time-control-selector">
+                        <label for="time-control-select">TIME LIMIT:</label>
+                        <select id="time-control-select" class="time-control-select">
+                            <option value="default">Standard (60s + 15s)</option>
+                            <option value="relaxed">Relaxed (90s + 20s)</option>
+                            <option value="blitz">Blitz (20s + 5s)</option>
+                            <option value="none">No Limit</option>
+                        </select>
+                    </div>
                     <div class="home-join-row">
                         <input type="text" id="join-code-input" maxlength="6" placeholder="SERVER_ID">
                         <button id="join-code-btn" class="btn btn-small btn-secondary">JOIN</button>
@@ -524,6 +533,7 @@
                     <span id="lobby-code" class="code">------</span>
                     <button id="copy-code-btn" class="btn btn-small">COPY</button>
                     <span id="lobby-mode-badge" class="mode-badge casual">CASUAL</span>
+                    <span id="lobby-time-badge" class="time-badge hidden">60s</span>
                 </div>
                 
                 <!-- Theme Voting Section -->
@@ -725,6 +735,7 @@
 
                     <div class="turn-indicator" id="turn-indicator">
                         <span id="turn-text">STANDBY...</span>
+                        <span id="turn-timer" class="turn-timer hidden">--</span>
                     </div>
 
                     <div class="guess-section" id="guess-section">

@@ -218,6 +218,31 @@ PRESENCE_TTL_SECONDS = int((CONFIG.get("presence", {}) or {}).get("ttl_seconds",
 RANKED_INITIAL_MMR = int((CONFIG.get("ranked", {}) or {}).get("initial_mmr", 1000) or 1000)
 RANKED_K_FACTOR = float((CONFIG.get("ranked", {}) or {}).get("k_factor", 32) or 32)
 
+# Time control settings
+TIME_CONTROLS_CONFIG = CONFIG.get("time_controls", {})
+RANKED_TIME_CONTROL = TIME_CONTROLS_CONFIG.get("ranked", {"turn_time": 30, "increment": 10, "timeout_penalty": "eliminate"})
+CASUAL_TIME_PRESETS = TIME_CONTROLS_CONFIG.get("casual_presets", {
+    "default": {"turn_time": 60, "increment": 15, "timeout_penalty": "skip"},
+    "relaxed": {"turn_time": 90, "increment": 20, "timeout_penalty": "skip"},
+    "blitz": {"turn_time": 20, "increment": 5, "timeout_penalty": "skip"},
+    "none": {"turn_time": 0, "increment": 0, "timeout_penalty": "none"},
+})
+
+def get_time_control(is_ranked: bool, preset: str = "default") -> dict:
+    """Get time control settings for a game."""
+    if is_ranked:
+        return {
+            "turn_time": int(RANKED_TIME_CONTROL.get("turn_time", 30)),
+            "increment": int(RANKED_TIME_CONTROL.get("increment", 10)),
+            "timeout_penalty": "eliminate",
+        }
+    preset_config = CASUAL_TIME_PRESETS.get(preset, CASUAL_TIME_PRESETS.get("default", {}))
+    return {
+        "turn_time": int(preset_config.get("turn_time", 60)),
+        "increment": int(preset_config.get("increment", 15)),
+        "timeout_penalty": str(preset_config.get("timeout_penalty", "skip")),
+    }
+
 # Embedding settings
 EMBEDDING_MODEL = CONFIG.get("embedding", {}).get("model", "text-embedding-3-small")
 EMBEDDING_CACHE_SECONDS = CONFIG.get("embedding", {}).get("cache_expiry_seconds", 86400)
@@ -3301,6 +3326,18 @@ class handler(BaseHTTPRequestHandler):
             ready_count = sum(1 for p in game['players'] if p.get('is_ready', False))
             spectator_count = get_spectator_count(code)
             
+            # Calculate time remaining for current turn
+            time_control = game.get('time_control', {})
+            turn_time = int(time_control.get('turn_time', 0) or 0)
+            increment = int(time_control.get('increment', 0) or 0)
+            timeout_penalty = str(time_control.get('timeout_penalty', 'skip') or 'skip')
+            
+            turn_time_remaining = None
+            turn_started_at = game.get('turn_started_at')
+            if turn_time > 0 and turn_started_at and game['status'] == 'playing' and not game.get('waiting_for_word_change'):
+                elapsed = time.time() - turn_started_at
+                turn_time_remaining = max(0, turn_time - elapsed)
+            
             response = {
                 "code": game['code'],
                 "host_id": game['host_id'],
@@ -3323,6 +3360,13 @@ class handler(BaseHTTPRequestHandler):
                 "all_words_set": all_words_set,
                 "ready_count": ready_count,
                 "is_singleplayer": game.get('is_singleplayer', False),
+                "time_control": {
+                    "turn_time": turn_time,
+                    "increment": increment,
+                    "timeout_penalty": timeout_penalty,
+                },
+                "turn_time_remaining": turn_time_remaining,
+                "turn_started_at": turn_started_at,
             }
 
             ranked_mmr = game.get('ranked_mmr') if isinstance(game.get('ranked_mmr'), dict) else None
@@ -4093,6 +4137,18 @@ class handler(BaseHTTPRequestHandler):
                             voters.append({"id": vid, "name": voter['name']})
                     theme_votes_with_names[theme] = voters
                 
+                # Calculate time remaining for spectators too
+                time_control = game.get('time_control', {})
+                turn_time = int(time_control.get('turn_time', 0) or 0)
+                increment = int(time_control.get('increment', 0) or 0)
+                timeout_penalty = str(time_control.get('timeout_penalty', 'skip') or 'skip')
+                
+                turn_time_remaining = None
+                turn_started_at = game.get('turn_started_at')
+                if turn_time > 0 and turn_started_at and game['status'] == 'playing' and not game.get('waiting_for_word_change'):
+                    elapsed = time.time() - turn_started_at
+                    turn_time_remaining = max(0, turn_time - elapsed)
+                
                 response = {
                     "code": game['code'],
                     "host_id": game.get('host_id', ''),
@@ -4116,6 +4172,13 @@ class handler(BaseHTTPRequestHandler):
                     "ready_count": sum(1 for p in game.get('players', []) if p.get('is_ready', False)),
                     "is_singleplayer": game.get('is_singleplayer', False),
                     "is_spectator": True,
+                    "time_control": {
+                        "turn_time": turn_time,
+                        "increment": increment,
+                        "timeout_penalty": timeout_penalty,
+                    },
+                    "turn_time_remaining": turn_time_remaining,
+                    "turn_started_at": turn_started_at,
                 }
                 
                 for p in game.get('players', []):
@@ -4542,6 +4605,11 @@ class handler(BaseHTTPRequestHandler):
             # Lobby metadata (defaults tuned for friend-code flow)
             requested_visibility = sanitize_visibility(body.get('visibility', 'private'), default='private')
             requested_ranked = parse_bool(body.get('is_ranked', False), default=False)
+            
+            # Time control preset for casual games (ignored for ranked)
+            time_control_preset = str(body.get('time_control', 'default') or 'default').lower()
+            if time_control_preset not in CASUAL_TIME_PRESETS:
+                time_control_preset = 'default'
 
             # Ranked requires Google auth; also force public visibility
             auth_user_id = self._get_auth_user_id()
@@ -4559,6 +4627,9 @@ class handler(BaseHTTPRequestHandler):
             # Pick 3 random theme categories for voting
             theme_options = random.sample(THEME_CATEGORIES, min(3, len(THEME_CATEGORIES)))
             
+            # Get time control settings
+            time_control = get_time_control(requested_ranked, time_control_preset)
+            
             # Create lobby with theme voting
             game = {
                 "code": code,
@@ -4575,6 +4646,8 @@ class handler(BaseHTTPRequestHandler):
                 "visibility": requested_visibility,
                 "is_ranked": bool(requested_ranked),
                 "created_by_user_id": auth_user_id if requested_ranked else (auth_user_id or None),
+                "time_control": time_control,
+                "turn_started_at": None,  # Set when game starts playing
             }
             save_game(code, game)
             return self._send_json({
@@ -4582,6 +4655,7 @@ class handler(BaseHTTPRequestHandler):
                 "theme_options": theme_options,
                 "visibility": requested_visibility,
                 "is_ranked": bool(requested_ranked),
+                "time_control": time_control,
             })
 
         # POST /api/challenge/create - Create a challenge link with pre-configured settings
@@ -4696,6 +4770,8 @@ class handler(BaseHTTPRequestHandler):
                 "is_ranked": False,
                 "challenge_id": challenge_id,
                 "challenger_name": challenge.get('challenger_name'),
+                "time_control": get_time_control(False, "default"),
+                "turn_started_at": None,
             }
             save_game(code, game)
             
@@ -4738,6 +4814,8 @@ class handler(BaseHTTPRequestHandler):
                 "is_singleplayer": True,  # Mark as singleplayer game
                 "visibility": "private",
                 "is_ranked": False,
+                "time_control": get_time_control(False, "none"),  # No time limit in singleplayer
+                "turn_started_at": None,
             }
             save_game(code, game)
             return self._send_json({
@@ -5629,6 +5707,7 @@ class handler(BaseHTTPRequestHandler):
                 game['current_turn'] = 0
 
             game['status'] = 'playing'
+            game['turn_started_at'] = time.time()  # Start the turn timer
             save_game(code, game)
             return self._send_json({"status": "playing"})
 
@@ -5755,6 +5834,8 @@ class handler(BaseHTTPRequestHandler):
                 while not game['players'][next_turn].get('is_alive'):
                     next_turn = (next_turn + 1) % num_players
                 game['current_turn'] = next_turn
+                # Reset turn timer for new player (AI turns don't have time limits but still reset for human)
+                game['turn_started_at'] = time.time()
             
             save_game(code, game)
             
@@ -5891,6 +5972,9 @@ class handler(BaseHTTPRequestHandler):
                 while not game['players'][next_turn]['is_alive']:
                     next_turn = (next_turn + 1) % num_players
                 game['current_turn'] = next_turn
+                # Reset turn timer for new player (unless waiting for word change)
+                if not game.get('waiting_for_word_change'):
+                    game['turn_started_at'] = time.time()
             
             save_game(code, game)
             
@@ -5978,6 +6062,8 @@ class handler(BaseHTTPRequestHandler):
             
             # Clear the waiting state - game can continue
             game['waiting_for_word_change'] = None
+            # Reset turn timer since the game was paused for word change
+            game['turn_started_at'] = time.time()
             
             # Add a history entry noting the word change
             history_entry = {
@@ -6035,6 +6121,8 @@ class handler(BaseHTTPRequestHandler):
             player['can_change_word'] = False
             game['waiting_for_word_change'] = None
             player.pop('word_change_options', None)
+            # Reset turn timer since the game was paused for word change
+            game['turn_started_at'] = time.time()
 
             # Record a word-change event even if the player keeps the same word, so it behaves like a re-encryption
             game['history'].append({
@@ -6050,6 +6138,116 @@ class handler(BaseHTTPRequestHandler):
             if game_response:
                 return self._send_json(game_response)
             return self._send_json({"status": "skipped"})
+
+        # POST /api/games/{code}/timeout - Handle turn timeout
+        if '/timeout' in path and path.startswith('/api/games/'):
+            code = sanitize_game_code(path.split('/')[3])
+            if not code:
+                return self._send_error("Invalid game code format", 400)
+            
+            game = load_game(code)
+            
+            if not game:
+                return self._send_error("Game not found", 404)
+            if game['status'] != 'playing':
+                return self._send_error("Game not in progress", 400)
+            if game.get('waiting_for_word_change'):
+                return self._send_error("Game paused for word change", 400)
+            
+            # Check time control settings
+            time_control = game.get('time_control', {})
+            turn_time = int(time_control.get('turn_time', 0) or 0)
+            timeout_penalty = str(time_control.get('timeout_penalty', 'none') or 'none')
+            
+            if turn_time <= 0 or timeout_penalty == 'none':
+                return self._send_error("No time limit for this game", 400)
+            
+            # Validate that the turn has actually expired (server-authoritative)
+            turn_started_at = game.get('turn_started_at')
+            if not turn_started_at:
+                return self._send_error("Turn timer not started", 400)
+            
+            elapsed = time.time() - turn_started_at
+            # Allow 2 second grace period for network latency
+            if elapsed < turn_time - 2:
+                return self._send_json({
+                    "timeout": False,
+                    "time_remaining": turn_time - elapsed,
+                    "message": "Turn has not expired yet",
+                })
+            
+            # Get the current player who timed out
+            current_turn_idx = game.get('current_turn', 0)
+            if current_turn_idx >= len(game['players']):
+                return self._send_error("Invalid turn index", 400)
+            
+            timed_out_player = game['players'][current_turn_idx]
+            if not timed_out_player.get('is_alive'):
+                return self._send_error("Current player is not alive", 400)
+            
+            # Record timeout in history
+            history_entry = {
+                "type": "timeout",
+                "player_id": timed_out_player['id'],
+                "player_name": timed_out_player['name'],
+                "penalty": timeout_penalty,
+            }
+            game['history'].append(history_entry)
+            
+            game_over = False
+            
+            if timeout_penalty == 'eliminate':
+                # Eliminate the player (ranked mode)
+                timed_out_player['is_alive'] = False
+                
+                # Check for game over
+                alive_players = [p for p in game['players'] if p.get('is_alive')]
+                if len(alive_players) <= 1:
+                    game['status'] = 'finished'
+                    game_over = True
+                    if alive_players:
+                        game['winner'] = alive_players[0]['id']
+                    update_game_stats(game)
+                else:
+                    # Advance to next alive player
+                    num_players = len(game['players'])
+                    next_turn = (current_turn_idx + 1) % num_players
+                    while not game['players'][next_turn].get('is_alive'):
+                        next_turn = (next_turn + 1) % num_players
+                    game['current_turn'] = next_turn
+                    game['turn_started_at'] = time.time()
+            else:
+                # Skip turn (casual mode)
+                num_players = len(game['players'])
+                next_turn = (current_turn_idx + 1) % num_players
+                while not game['players'][next_turn].get('is_alive'):
+                    next_turn = (next_turn + 1) % num_players
+                game['current_turn'] = next_turn
+                game['turn_started_at'] = time.time()
+            
+            save_game(code, game)
+            
+            # Return full game state
+            player_id = sanitize_player_id(body.get('player_id', ''))
+            game_response = self._build_game_response(game, player_id or timed_out_player['id'], code)
+            if game_response:
+                game_response['timeout'] = True
+                game_response['timed_out_player'] = {
+                    "id": timed_out_player['id'],
+                    "name": timed_out_player['name'],
+                }
+                game_response['penalty'] = timeout_penalty
+                return self._send_json(game_response)
+            
+            return self._send_json({
+                "timeout": True,
+                "timed_out_player": {
+                    "id": timed_out_player['id'],
+                    "name": timed_out_player['name'],
+                },
+                "penalty": timeout_penalty,
+                "game_over": game_over,
+            })
 
         # POST /api/user/daily/claim - Claim a completed daily or weekly quest for credits
         if path == '/api/user/daily/claim':

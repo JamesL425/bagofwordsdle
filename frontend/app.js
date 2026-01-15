@@ -174,6 +174,11 @@ let gameState = {
     authUser: null,   // Authenticated user data
     isSpectator: false,
     spectatorId: null,
+    // Timer state
+    turnTimerInterval: null,
+    turnTimeRemaining: null,
+    turnStartedAt: null,
+    timeControl: null,
 };
 
 // ============ OPTIONS ============
@@ -608,6 +613,8 @@ function clearGameSession() {
     const existing = getSavedSession();
     if (existing) upsertRecentGame(existing);
     localStorage.removeItem('embeddle_session');
+    // Clear turn timer
+    hideTimer();
     // Reset URL to home
     if (window.location.pathname !== '/') {
         history.pushState({}, '', '/');
@@ -1977,9 +1984,14 @@ async function createLobby({ visibility = 'private', isRanked = false } = {}) {
         return;
     }
     try {
+        // Get time control selection (only for casual games)
+        const timeControlSelect = document.getElementById('time-control-select');
+        const timeControl = isRanked ? 'default' : (timeControlSelect?.value || 'default');
+        
         const data = await apiCall('/api/games', 'POST', {
             visibility,
             is_ranked: Boolean(isRanked),
+            time_control: timeControl,
         });
         gameState.code = data.code;
         await joinLobby(data.code, gameState.playerName);
@@ -2014,7 +2026,17 @@ async function quickPlay({ ranked = false } = {}) {
         }
 
         // No suitable lobby: create a fresh public one
-        await createLobby({ visibility: 'public', isRanked: ranked });
+        // For quickplay, use the selected time control (or default for ranked)
+        const timeControlSelect = document.getElementById('time-control-select');
+        const timeControl = ranked ? 'default' : (timeControlSelect?.value || 'default');
+        
+        const createData = await apiCall('/api/games', 'POST', {
+            visibility: 'public',
+            is_ranked: Boolean(ranked),
+            time_control: timeControl,
+        });
+        gameState.code = createData.code;
+        await joinLobby(createData.code, gameState.playerName);
     } catch (error) {
         showError(error.message);
     }
@@ -2880,6 +2902,23 @@ async function updateLobby() {
             const isRanked = Boolean(data.is_ranked);
             modeBadge.textContent = isRanked ? 'RANKED' : 'CASUAL';
             modeBadge.className = `mode-badge ${isRanked ? 'ranked' : 'casual'}`;
+        }
+        
+        // Update time control badge
+        const timeBadge = document.getElementById('lobby-time-badge');
+        if (timeBadge) {
+            const timeControl = data.time_control;
+            const turnTime = timeControl?.turn_time || 0;
+            const increment = timeControl?.increment || 0;
+            
+            if (turnTime > 0) {
+                timeBadge.textContent = `⏱ ${turnTime}s +${increment}s`;
+                timeBadge.classList.remove('hidden', 'no-limit');
+            } else {
+                timeBadge.textContent = '⏱ No Limit';
+                timeBadge.classList.remove('hidden');
+                timeBadge.classList.add('no-limit');
+            }
         }
         
         // Update players list
@@ -3768,10 +3807,12 @@ function getSimilarityClass(sim) {
 function updateTurnIndicator(game) {
     const indicator = document.getElementById('turn-indicator');
     const turnText = document.getElementById('turn-text');
+    const timerEl = document.getElementById('turn-timer');
     
     if (game.status === 'finished') {
         indicator.classList.remove('your-turn');
         turnText.textContent = 'Game Over!';
+        hideTimer();
         return;
     }
     
@@ -3785,6 +3826,166 @@ function updateTurnIndicator(game) {
         indicator.classList.remove('your-turn');
         const aiIndicator = currentPlayer?.is_ai ? ' 🤖' : '';
         turnText.textContent = `Waiting for ${currentPlayer?.name || '...'}${aiIndicator} to guess...`;
+    }
+    
+    // Update timer state from server response
+    updateTimerFromGame(game);
+}
+
+// ============ TURN TIMER ============
+
+function updateTimerFromGame(game) {
+    const timeControl = game.time_control;
+    const turnTime = timeControl?.turn_time || 0;
+    
+    // Store time control for later use
+    gameState.timeControl = timeControl;
+    
+    // No timer if no time limit or game is paused
+    if (turnTime <= 0 || game.waiting_for_word_change || game.status !== 'playing' || !game.all_words_set) {
+        hideTimer();
+        return;
+    }
+    
+    // Sync with server time
+    if (game.turn_time_remaining !== null && game.turn_time_remaining !== undefined) {
+        gameState.turnTimeRemaining = game.turn_time_remaining;
+        gameState.turnStartedAt = Date.now() - ((turnTime - game.turn_time_remaining) * 1000);
+    }
+    
+    // Start or continue the timer
+    startTurnTimer(turnTime);
+}
+
+function startTurnTimer(turnTime) {
+    // Clear any existing timer
+    if (gameState.turnTimerInterval) {
+        clearInterval(gameState.turnTimerInterval);
+    }
+    
+    const timerEl = document.getElementById('turn-timer');
+    if (!timerEl) return;
+    
+    timerEl.classList.remove('hidden');
+    
+    // Update timer immediately
+    updateTimerDisplay();
+    
+    // Update every 100ms for smooth countdown
+    gameState.turnTimerInterval = setInterval(() => {
+        updateTimerDisplay();
+    }, 100);
+}
+
+function updateTimerDisplay() {
+    const timerEl = document.getElementById('turn-timer');
+    if (!timerEl) return;
+    
+    const timeControl = gameState.timeControl;
+    const turnTime = timeControl?.turn_time || 0;
+    
+    if (turnTime <= 0) {
+        hideTimer();
+        return;
+    }
+    
+    // Calculate remaining time
+    let remaining = gameState.turnTimeRemaining;
+    if (gameState.turnStartedAt) {
+        const elapsed = (Date.now() - gameState.turnStartedAt) / 1000;
+        remaining = Math.max(0, turnTime - elapsed);
+    }
+    
+    // Format time
+    const seconds = Math.ceil(remaining);
+    timerEl.textContent = formatTimerDisplay(seconds);
+    
+    // Update urgency class
+    timerEl.classList.remove('normal', 'warning', 'critical');
+    if (seconds <= 5) {
+        timerEl.classList.add('critical');
+    } else if (seconds <= 15) {
+        timerEl.classList.add('warning');
+    } else {
+        timerEl.classList.add('normal');
+    }
+    
+    // Check for timeout
+    if (remaining <= 0) {
+        handleTurnTimeout();
+    }
+}
+
+function formatTimerDisplay(seconds) {
+    if (seconds >= 60) {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${seconds}s`;
+}
+
+function hideTimer() {
+    const timerEl = document.getElementById('turn-timer');
+    if (timerEl) {
+        timerEl.classList.add('hidden');
+    }
+    if (gameState.turnTimerInterval) {
+        clearInterval(gameState.turnTimerInterval);
+        gameState.turnTimerInterval = null;
+    }
+}
+
+async function handleTurnTimeout() {
+    // Stop the timer to prevent multiple calls
+    if (gameState.turnTimerInterval) {
+        clearInterval(gameState.turnTimerInterval);
+        gameState.turnTimerInterval = null;
+    }
+    
+    // Only trigger timeout if we're in the game (not spectating)
+    if (gameState.isSpectator || !gameState.code) {
+        return;
+    }
+    
+    try {
+        const result = await apiCall(`/api/games/${gameState.code}/timeout`, 'POST', {
+            player_id: gameState.playerId,
+        });
+        
+        if (result.timeout) {
+            // Show notification about the timeout
+            const timedOutPlayer = result.timed_out_player;
+            const penalty = result.penalty;
+            const isMe = timedOutPlayer?.id === gameState.playerId;
+            
+            if (penalty === 'eliminate') {
+                if (isMe) {
+                    showError('Time expired! You have been eliminated.');
+                } else {
+                    showSuccess(`${timedOutPlayer?.name || 'Player'} ran out of time and was eliminated!`);
+                }
+                // Play elimination effect
+                if (timedOutPlayer?.id && typeof playEliminationEffect === 'function') {
+                    playEliminationEffect(timedOutPlayer.id, 'classic');
+                }
+                playEliminationSfx();
+            } else {
+                if (isMe) {
+                    showError('Time expired! Your turn was skipped.');
+                } else {
+                    showSuccess(`${timedOutPlayer?.name || 'Player'} ran out of time. Turn skipped.`);
+                }
+            }
+            
+            // Update game state with response
+            if (result.status) {
+                updateGame(result);
+            }
+        }
+    } catch (error) {
+        console.error('Timeout error:', error);
+        // Timer will resync on next poll
     }
 }
 
@@ -3828,6 +4029,33 @@ function updateHistory(game) {
 
             // Play elimination feedback for new forfeits
             if (originalIdx >= prevHistoryLength) {
+                playEliminationSfx();
+                const pid = entry.player_id;
+                if (pid && typeof playEliminationEffect === 'function') {
+                    setTimeout(() => playEliminationEffect(pid, 'classic'), 100);
+                }
+            }
+            return;
+        }
+        
+        // Handle timeout entries
+        if (entry.type === 'timeout') {
+            div.className = 'history-entry word-change-entry';
+            const penalty = entry.penalty || 'skip';
+            const icon = penalty === 'eliminate' ? '⏱️💀' : '⏱️';
+            const message = penalty === 'eliminate' 
+                ? `<strong>${escapeHtml(entry.player_name || 'Operative')}</strong> ran out of time and was eliminated!`
+                : `<strong>${escapeHtml(entry.player_name || 'Operative')}</strong> ran out of time. Turn skipped.`;
+            div.innerHTML = `
+                <div class="word-change-notice">
+                    <span class="change-icon">${icon}</span>
+                    <span>${message}</span>
+                </div>
+            `;
+            historyLog.appendChild(div);
+
+            // Play elimination feedback for new timeouts that eliminate
+            if (originalIdx >= prevHistoryLength && penalty === 'eliminate') {
                 playEliminationSfx();
                 const pid = entry.player_id;
                 if (pid && typeof playEliminationEffect === 'function') {

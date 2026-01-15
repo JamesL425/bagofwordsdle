@@ -583,6 +583,54 @@ header h1 {
     }
 }
 
+/* Time Control Selector */
+.time-control-selector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    margin-top: 0.5rem;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+}
+
+.time-control-selector label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.time-control-select {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.5rem 0.75rem;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.85rem;
+    cursor: pointer;
+    min-width: 160px;
+}
+
+.time-control-select:hover {
+    border-color: var(--accent-primary);
+}
+
+.time-control-select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.2);
+}
+
+.time-control-select option {
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+
 .home-join-row {
     display: flex;
     justify-content: center;
@@ -822,6 +870,42 @@ header h1 {
     font-weight: 700;
     color: var(--accent-primary);
     letter-spacing: 0.1em;
+}
+
+/* Mode and Time Badges */
+.mode-badge, .time-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.mode-badge.casual {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}
+
+.mode-badge.ranked {
+    background: linear-gradient(135deg, #ffd700, #ff8c00);
+    color: #1a1a1a;
+}
+
+.time-badge {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.time-badge.hidden {
+    display: none;
+}
+
+.time-badge.no-limit {
+    color: var(--text-muted);
 }
 
 .players-list {
@@ -1492,6 +1576,11 @@ header h1 {
     background: var(--bg-card);
     border-radius: var(--radius);
     border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
 }
 
 .turn-indicator #turn-text {
@@ -1507,6 +1596,52 @@ header h1 {
 .turn-indicator.your-turn #turn-text {
     color: var(--accent-primary);
     font-weight: 700;
+}
+
+/* Turn Timer */
+.turn-timer {
+    font-family: 'JetBrains Mono', 'Courier Prime', monospace;
+    font-size: 1.3rem;
+    font-weight: 700;
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--radius);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    min-width: 4rem;
+    text-align: center;
+}
+
+.turn-timer.hidden {
+    display: none;
+}
+
+.turn-timer.normal {
+    color: var(--text-primary);
+}
+
+.turn-timer.warning {
+    color: var(--warning);
+    border-color: var(--warning);
+    background: rgba(255, 193, 7, 0.1);
+    animation: timer-pulse 1s ease-in-out infinite;
+}
+
+.turn-timer.critical {
+    color: var(--danger);
+    border-color: var(--danger);
+    background: rgba(244, 67, 54, 0.15);
+    animation: timer-shake 0.3s ease-in-out infinite;
+}
+
+@keyframes timer-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.85; }
+}
+
+@keyframes timer-shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    75% { transform: translateX(2px); }
 }
 
 .waiting-for-words {
