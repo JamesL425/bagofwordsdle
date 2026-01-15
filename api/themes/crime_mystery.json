@@ -1,0 +1,19 @@
+{
+  "name": "Crime & Mystery",
+  "words": [
+    "accusation", "accomplice", "affidavit", "alibi", "alley", "appeal", "arrest", "attorney", "autopsy", "badge",
+    "bail", "bailiff", "bank", "blackmail", "bribe", "burglary", "case", "casefile", "cell", "chain",
+    "chase", "chief", "clue", "confession", "conspiracy", "convict", "conviction", "court", "crime", "criminal",
+    "crossexam", "culprit", "custody", "deadlock", "deception", "defendant", "detective", "dispatch", "dossier", "eavesdrop",
+    "escape", "evasion", "evidence", "exhibit", "eyewitness", "felony", "file", "fingerprint", "footprint", "forensic",
+    "fraud", "gavel", "getaway", "grudge", "guilt", "handcuff", "hearing", "hideout", "homicide",
+    "identity", "informant", "inquiry", "inspector", "interrogate", "interview", "investigate", "jail", "judge", "jury",
+    "justice", "key", "kidnap", "lab", "lawyer", "lead", "license", "lineup", "lock", "motive",
+    "mugshot", "murder", "mystery", "notebook", "objection", "officer", "parole", "patrol", "penalty", "police",
+    "prison", "probation", "profile", "prosecutor", "pursuit", "question", "ransom", "record", "report",
+    "robbery", "scene", "search", "sentence", "sheriff", "snapshot", "stakeout", "statement", "stolen", "suspect",
+    "suspicion", "surveillance", "testimony", "thief", "trace", "trial", "truth", "verdict", "victim", "warrant",
+    "witness", "wiretap"
+  ]
+}
+

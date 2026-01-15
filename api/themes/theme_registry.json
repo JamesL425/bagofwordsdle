@@ -1,0 +1,36 @@
+{
+  "themes": [
+    {"name": "Crime & Mystery", "file": "crime_mystery.json"},
+    {"name": "Fantasy & Magic", "file": "fantasy_magic.json"},
+    {"name": "Halloween & Spooky", "file": "halloween_spooky.json"},
+    {"name": "Internet & Memes", "file": "internet_memes.json"},
+    {"name": "Kitchen Chaos", "file": "kitchen_chaos.json"},
+    {"name": "Monsters & Creatures", "file": "monsters_creatures.json"},
+    {"name": "Music & Concerts", "file": "music_concerts.json"},
+    {"name": "Mythology & Legends", "file": "mythology_legends.json"},
+    {"name": "Pirates & Treasure", "file": "pirates_treasure.json"},
+    {"name": "Space Adventure", "file": "space_adventure.json"},
+    {"name": "Spycraft & Espionage", "file": "spycraft_espionage.json"},
+    {"name": "Superheroes & Comics", "file": "superheroes_comics.json"},
+    {"name": "Video Games", "file": "video_games.json"},
+    {"name": "Dinosaurs & Prehistory", "file": "dinosaurs_prehistory.json"},
+    {"name": "Heist & Casino", "file": "heist_casino.json"},
+    {"name": "Survival Horror", "file": "survival_horror.json"},
+    {"name": "Wild West", "file": "wild_west.json"},
+    {"name": "Anime & Manga", "file": "anime_manga.json"},
+    {"name": "Cryptids & Conspiracies", "file": "cryptids_conspiracies.json"},
+    {"name": "Reality TV & Drama", "file": "reality_tv_drama.json"},
+    {"name": "Pro Wrestling", "file": "pro_wrestling.json"},
+    {"name": "Retro Arcade", "file": "retro_arcade.json"},
+    {"name": "Zombies & Apocalypse", "file": "zombies_apocalypse.json"},
+    {"name": "Time Travel", "file": "time_travel.json"},
+    {"name": "Ninja & Samurai", "file": "ninja_samurai.json"},
+    {"name": "Mad Science", "file": "mad_science.json"},
+    {"name": "Kaiju & Giant Monsters", "file": "kaiju_giant_monsters.json"},
+    {"name": "Fairy Tales & Fables", "file": "fairy_tales_fables.json"},
+    {"name": "Extreme Sports", "file": "extreme_sports.json"},
+    {"name": "Haunted House", "file": "haunted_house.json"}
+  ],
+  "themes_per_day": 12
+}
+

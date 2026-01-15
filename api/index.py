@@ -269,16 +269,91 @@ def get_time_control(is_ranked: bool, preset: str = "rapid") -> dict:
 EMBEDDING_MODEL = CONFIG.get("embedding", {}).get("model", "text-embedding-3-small")
 EMBEDDING_CACHE_SECONDS = CONFIG.get("embedding", {}).get("cache_expiry_seconds", 86400)
 
-# Load pre-generated themes from JSON file
+# Load pre-generated themes from individual JSON files in api/themes/ directory
 def load_themes():
-    themes_path = Path(__file__).parent / "themes.json"
-    if themes_path.exists():
-        with open(themes_path) as f:
-            return json.load(f)
-    return {}
+    """Load all themes from api/themes/ directory."""
+    themes_dir = Path(__file__).parent / "themes"
+    registry_path = themes_dir / "theme_registry.json"
+    
+    themes = {}
+    
+    # Load from registry if it exists
+    if registry_path.exists():
+        try:
+            with open(registry_path) as f:
+                registry = json.load(f)
+            for entry in registry.get("themes", []):
+                theme_file = themes_dir / entry.get("file", "")
+                if theme_file.exists():
+                    try:
+                        with open(theme_file) as f:
+                            theme_data = json.load(f)
+                        theme_name = theme_data.get("name", entry.get("name", ""))
+                        if theme_name and theme_data.get("words"):
+                            themes[theme_name] = theme_data["words"]
+                    except Exception as e:
+                        print(f"Error loading theme file {theme_file}: {e}")
+        except Exception as e:
+            print(f"Error loading theme registry: {e}")
+    
+    # Fallback: load from legacy themes.json if themes/ directory is empty
+    if not themes:
+        legacy_path = Path(__file__).parent / "themes.json"
+        if legacy_path.exists():
+            try:
+                with open(legacy_path) as f:
+                    themes = json.load(f)
+            except Exception as e:
+                print(f"Error loading legacy themes.json: {e}")
+    
+    return themes
+
+
+def load_theme_registry():
+    """Load the theme registry for rotation metadata."""
+    registry_path = Path(__file__).parent / "themes" / "theme_registry.json"
+    if registry_path.exists():
+        try:
+            with open(registry_path) as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"themes": [], "themes_per_day": 12}
+
+
+def get_themes_for_today() -> list:
+    """
+    Return the list of theme names available for today based on UTC date.
+    Uses deterministic rotation to ensure all players see the same themes.
+    """
+    import random
+    from datetime import datetime
+    
+    registry = load_theme_registry()
+    all_theme_names = [t["name"] for t in registry.get("themes", [])]
+    themes_per_day = registry.get("themes_per_day", 12)
+    
+    # Fallback if registry is empty
+    if not all_theme_names:
+        all_theme_names = list(PREGENERATED_THEMES.keys())
+    
+    # If we have fewer themes than themes_per_day, return all
+    if len(all_theme_names) <= themes_per_day:
+        return all_theme_names
+    
+    # Use UTC date as seed for deterministic daily rotation
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    rng = random.Random(f"theme_rotation:{today}")
+    
+    # Shuffle and select themes_per_day themes
+    shuffled = all_theme_names.copy()
+    rng.shuffle(shuffled)
+    return shuffled[:themes_per_day]
+
 
 PREGENERATED_THEMES = load_themes()
-THEME_CATEGORIES = list(PREGENERATED_THEMES.keys()) if PREGENERATED_THEMES else CONFIG.get("theme_categories", [])
+# THEME_CATEGORIES now uses daily rotation instead of all themes
+THEME_CATEGORIES = get_themes_for_today() if PREGENERATED_THEMES else CONFIG.get("theme_categories", [])
 
 # Backwards-compatible theme aliases:
 # Old lobbies can have theme names persisted in Redis that no longer exist in api/themes.json.
@@ -1360,8 +1435,24 @@ def _nemesis_choose_guess(ai_player: dict, game: dict) -> str:
     # Initialize beliefs if needed
     _nemesis_init_beliefs(ai_player, game)
     
-    # Build available words (exclude our own secret)
-    available_words = [w for w in theme_words if w.lower() != my_secret]
+    # Get stale guessed words (guessed but no word_change since)
+    stale_guessed = _get_stale_guessed_words(game)
+    
+    # Build available words - prefer words that haven't been guessed or are reguessable
+    available_words = []
+    deprioritized_words = []
+    for w in theme_words:
+        wl = w.lower()
+        if wl == my_secret:
+            continue
+        if wl in stale_guessed:
+            deprioritized_words.append(w)
+        else:
+            available_words.append(w)
+    
+    # If all words have been guessed (rare), fall back to deprioritized
+    if not available_words:
+        available_words = deprioritized_words
     
     if not available_words:
         return None
@@ -1563,12 +1654,26 @@ def ai_find_similar_words(target_word: str, theme_words: list, guessed_words: li
     
     Note: guessed_words parameter is kept for API compatibility but no longer used for filtering.
     Bots should be able to re-guess words because players may have changed their words.
+    
+    Uses pre-computed similarity matrix for O(1) lookups when available.
     """
     try:
-        # Use cached embeddings if available
+        target_lower = target_word.lower()
+        
+        # Fast path: use pre-computed similarity matrix
+        matrix = game.get('theme_similarity_matrix') if game else None
+        if matrix and target_lower in matrix:
+            candidates = []
+            for word in theme_words:
+                word_lower = word.lower()
+                sim = matrix[target_lower].get(word_lower, 0)
+                candidates.append((word, sim))
+            candidates.sort(key=lambda x: x[1], reverse=True)
+            return [c[0] for c in candidates[:count]]
+        
+        # Fallback: use cached embeddings (shouldn't happen often if matrix is pre-computed)
         theme_embeddings = get_theme_embeddings(game) if game else {}
         
-        target_lower = target_word.lower()
         target_embedding = theme_embeddings.get(target_lower)
         if not target_embedding:
             target_embedding = get_embedding(target_word, game)
@@ -1605,6 +1710,58 @@ def _ai_last_word_change_index(game: dict, player_id: str) -> int:
         return idx_after
     except Exception:
         return 0
+
+
+def _get_reguessable_words(game: dict) -> set:
+    """
+    Return set of previously-guessed words that are worth re-guessing.
+    A word is reguessable if any player changed their word since that word was last guessed.
+    """
+    history = game.get('history', []) or []
+    
+    # Find last guess index for each word
+    last_guessed_at = {}
+    for idx, entry in enumerate(history):
+        if entry.get('type') != 'word_change':
+            word = (entry.get('word') or '').lower()
+            if word:
+                last_guessed_at[word] = idx
+    
+    # Find word change indices
+    word_change_indices = [
+        idx for idx, entry in enumerate(history)
+        if entry.get('type') == 'word_change'
+    ]
+    
+    # A word is reguessable if any word_change happened after it was guessed
+    reguessable = set()
+    for word, guess_idx in last_guessed_at.items():
+        if any(wc_idx > guess_idx for wc_idx in word_change_indices):
+            reguessable.add(word)
+    
+    return reguessable
+
+
+def _get_stale_guessed_words(game: dict) -> set:
+    """
+    Return set of previously-guessed words that should be deprioritized.
+    These are words that were guessed but no word_change has happened since.
+    """
+    history = game.get('history', []) or []
+    
+    # Find all guessed words
+    all_guessed = set()
+    for entry in history:
+        if entry.get('type') != 'word_change':
+            word = (entry.get('word') or '').lower()
+            if word:
+                all_guessed.add(word)
+    
+    # Get reguessable words
+    reguessable = _get_reguessable_words(game)
+    
+    # Stale = guessed but not reguessable
+    return all_guessed - reguessable
 
 
 def _ai_top_guesses_since_change(game: dict, target_player_id: str, k: int = 3) -> list:
@@ -1675,6 +1832,18 @@ def _ai_is_panic(danger_level: str, panic_threshold: str) -> bool:
 def _ai_self_similarity(ai_player: dict, word: str, game: dict = None) -> Optional[float]:
     """Cosine similarity between a candidate guess and the AI's own secret embedding."""
     try:
+        my_secret = (ai_player.get("secret_word") or "").lower().strip()
+        word_lower = word.lower()
+        
+        # Fast path: use pre-computed similarity matrix
+        if game and my_secret:
+            matrix = game.get('theme_similarity_matrix')
+            if matrix and my_secret in matrix:
+                sim = matrix[my_secret].get(word_lower)
+                if sim is not None:
+                    return float(sim)
+        
+        # Fallback: compute similarity from embeddings
         secret_emb = ai_player.get("secret_embedding")
         if not secret_emb:
             return None
@@ -1682,7 +1851,7 @@ def _ai_self_similarity(ai_player: dict, word: str, game: dict = None) -> Option
         # Try cached embedding first
         if game:
             theme_embeddings = get_theme_embeddings(game)
-            emb = theme_embeddings.get(word.lower())
+            emb = theme_embeddings.get(word_lower)
             if emb:
                 return float(cosine_similarity(emb, secret_emb))
         
@@ -2056,16 +2225,25 @@ def ai_choose_guess(ai_player: dict, game: dict) -> Optional[str]:
     guessed_words = memory.get("guessed_words", [])
     my_secret = (ai_player.get("secret_word") or "").lower().strip()
     
-    # Build available words - allow re-guessing words that were guessed before
-    # because players may have changed their words or new players might be vulnerable
-    # Only exclude our own secret word
+    # Get stale guessed words (guessed but no word_change since - should be deprioritized)
+    stale_guessed = _get_stale_guessed_words(game)
+    
+    # Build available words - prefer words that haven't been guessed or are reguessable
     available_words = []
+    deprioritized_words = []  # Words that were guessed but no word_change since
     for w in theme_words:
         wl = str(w).lower()
         # Never guess your own secret word (huge self-leak)
         if my_secret and wl == my_secret:
             continue
-        available_words.append(w)
+        if wl in stale_guessed:
+            deprioritized_words.append(w)
+        else:
+            available_words.append(w)
+    
+    # If all words have been guessed (rare), fall back to deprioritized
+    if not available_words:
+        available_words = deprioritized_words
     
     if not available_words:
         return None
@@ -4097,20 +4275,26 @@ def get_embedding(word: str, game: dict = None) -> list:
     return embedding
 
 
-def batch_get_embeddings(words: list) -> dict:
+def batch_get_embeddings(words: list, max_retries: int = 2) -> dict:
     """
     Get embeddings for multiple words efficiently using batch API.
     Returns dict mapping lowercase words to their embeddings.
+    
+    Includes retry logic for robustness and verification that all words are fetched.
     """
     result = {}
     to_fetch = []
     redis = get_redis()
     
-    # Check cache for each word
+    # Normalize all words
+    normalized_words = set()
     for word in words:
         word_lower = word.lower().strip()
-        if not word_lower:
-            continue
+        if word_lower:
+            normalized_words.add(word_lower)
+    
+    # Check cache for each word
+    for word_lower in normalized_words:
         cache_key = f"emb:{word_lower}"
         try:
             cached = redis.get(cache_key)
@@ -4119,31 +4303,50 @@ def batch_get_embeddings(words: list) -> dict:
                 continue
         except Exception:
             pass
-        if word_lower not in [w for w in to_fetch]:  # Dedupe
-            to_fetch.append(word_lower)
+        to_fetch.append(word_lower)
     
-    # Batch fetch remaining from API
+    # Batch fetch remaining from API with retry logic
     if to_fetch:
-        try:
-            client = get_openai_client()
-            response = client.embeddings.create(
-                model=EMBEDDING_MODEL,
-                input=to_fetch,
-            )
-            
-            for i, embedding_data in enumerate(response.data):
-                word = to_fetch[i]
-                embedding = embedding_data.embedding
-                result[word] = embedding
+        retries = 0
+        while to_fetch and retries <= max_retries:
+            try:
+                client = get_openai_client()
+                # OpenAI batch limit is typically 2048 inputs, but chunk for safety
+                batch_size = 100
+                for i in range(0, len(to_fetch), batch_size):
+                    batch = to_fetch[i:i + batch_size]
+                    response = client.embeddings.create(
+                        model=EMBEDDING_MODEL,
+                        input=batch,
+                    )
+                    
+                    for j, embedding_data in enumerate(response.data):
+                        word = batch[j]
+                        embedding = embedding_data.embedding
+                        result[word] = embedding
+                        
+                        # Cache in Redis
+                        try:
+                            cache_key = f"emb:{word}"
+                            redis.setex(cache_key, EMBEDDING_CACHE_SECONDS, json.dumps(embedding))
+                        except Exception:
+                            pass
                 
-                # Cache in Redis
-                try:
-                    cache_key = f"emb:{word}"
-                    redis.setex(cache_key, EMBEDDING_CACHE_SECONDS, json.dumps(embedding))
-                except Exception:
-                    pass
-        except Exception as e:
-            print(f"Batch embedding error: {e}")
+                # Verify all words were fetched
+                to_fetch = [w for w in to_fetch if w not in result]
+                if not to_fetch:
+                    break
+                    
+            except Exception as e:
+                print(f"Batch embedding error (attempt {retries + 1}): {e}")
+                retries += 1
+                if retries <= max_retries:
+                    import time
+                    time.sleep(0.5 * retries)  # Exponential backoff
+        
+        # Log if some words still missing after retries
+        if to_fetch:
+            print(f"Warning: Failed to fetch embeddings for {len(to_fetch)} words after {max_retries + 1} attempts")
     
     return result
 
@@ -4152,7 +4355,12 @@ def get_theme_embeddings(game: dict) -> dict:
     """
     Get all theme word embeddings from Redis cache.
     Returns dict mapping lowercase words to their embeddings.
+    Falls back to game['theme_embeddings'] if available.
     """
+    # Fast path: use in-memory embeddings stored in game state
+    if game.get('theme_embeddings'):
+        return game['theme_embeddings']
+    
     theme_words = game.get('theme', {}).get('words', [])
     if not theme_words:
         return {}
@@ -4173,6 +4381,24 @@ def get_theme_embeddings(game: dict) -> dict:
             pass
     
     return result
+
+
+def precompute_theme_similarities(game: dict, theme_embeddings: dict) -> dict:
+    """
+    Pre-compute similarity matrix for all theme words.
+    Returns dict mapping word -> {word: similarity} for O(1) lookups.
+    """
+    words = list(theme_embeddings.keys())
+    matrix = {}
+    
+    for w1 in words:
+        matrix[w1] = {}
+        emb1 = theme_embeddings[w1]
+        for w2 in words:
+            emb2 = theme_embeddings[w2]
+            matrix[w1][w2] = round(cosine_similarity(emb1, emb2), 4)
+    
+    return matrix
 
 
 def cosine_similarity(embedding1, embedding2) -> float:
@@ -5099,6 +5325,14 @@ class handler(BaseHTTPRequestHandler):
                     # Placeholder for future asset-based SFX (frontend currently uses WebAudio tones).
                     "sfx": sfx_cfg,
                 }
+            })
+
+        # GET /api/themes/today - Get today's available themes (for rotation display)
+        if path == '/api/themes/today':
+            themes_today = get_themes_for_today()
+            return self._send_json({
+                "themes": themes_today,
+                "count": len(themes_today),
             })
 
         # ============== DEBUG (ADMIN ONLY) ==============
@@ -7332,7 +7566,14 @@ class handler(BaseHTTPRequestHandler):
             theme_words = game.get('theme', {}).get('words', [])
             if theme_words:
                 try:
-                    batch_get_embeddings(theme_words)  # Just warm the cache
+                    theme_embeddings = batch_get_embeddings(theme_words)  # Warm the cache and get embeddings
+                    
+                    # Store embeddings in game state for fast access (avoids Redis lookups per turn)
+                    game['theme_embeddings'] = theme_embeddings
+                    
+                    # Pre-compute similarity matrix for O(1) lookups during AI turns
+                    if theme_embeddings:
+                        game['theme_similarity_matrix'] = precompute_theme_similarities(game, theme_embeddings)
                 except Exception as e:
                     print(f"Theme embedding pre-cache error: {e}")
 

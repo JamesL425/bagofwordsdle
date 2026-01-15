@@ -1,0 +1,18 @@
+{
+  "name": "Spycraft & Espionage",
+  "words": [
+    "agent", "alibi", "alias", "ambush", "analysis", "antenna", "asset", "backup", "badge", "bait",
+    "briefing", "bypass", "camera", "camouflage", "caper", "capture", "casefile", "cash", "chase", "checkpoint",
+    "cipher", "clue", "code", "codebook", "codename", "contact", "control", "cover", "covert", "crack",
+    "courier", "decoy", "decode", "decrypt", "deception", "defuse", "deliver", "detective", "device", "disguise",
+    "dossier", "drop", "eavesdrop", "encrypt", "encryption", "escape", "evasion", "evidence", "extract", "facade",
+    "fallback", "fingerprint", "flashdrive", "forgery", "gadget", "glove", "handoff", "handler", "headset", "hideout",
+    "identity", "infiltrate", "informant", "intercept", "interrogate", "intel", "investigate", "keycard", "keypad", "lockpick",
+    "mask", "microfilm", "microphone", "mission", "motive", "network", "notebook", "observe", "operation", "override",
+    "passport", "password", "pattern", "pinpoint", "plan", "pocket", "profile", "protocol", "pursuit", "radio",
+    "rendezvous", "report", "safehouse", "satellite", "scanner", "secret", "security", "shadow", "signal", "sneak",
+    "spy", "stakeout", "stealth", "surveillance", "suspect", "tail", "tap", "target", "tracker", "tradecraft",
+    "transmit", "tunnel", "undercover", "unlock", "vault", "verify", "watch", "wire", "wiretap", "witness"
+  ]
+}
+

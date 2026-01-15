@@ -1,0 +1,18 @@
+{
+  "name": "Space Adventure",
+  "words": [
+    "airlock", "alien", "android", "antenna", "asteroid", "astronaut", "atmosphere", "aurora", "beacon", "blackhole",
+    "blaster", "capsule", "captain", "cargo", "colony", "command", "comet", "constellation", "control", "crater",
+    "cryo", "cyborg", "darkmatter", "debris", "descent", "docking", "drone", "earth", "eclipse", "engine",
+    "engineer", "escape", "explorer", "fuel", "galaxy", "generator", "gravity", "habitat", "helmet", "horizon",
+    "hyperdrive", "hyperspace", "inertia", "lander", "landing", "laser", "launch", "launchpad", "lifeline", "liftoff",
+    "lunar", "magnet", "mars", "meteor", "meteorite", "mission", "module", "moon", "navigator", "nebula",
+    "nebulae", "network", "orbit", "outpost", "oxygen", "particle", "payload", "photon", "pilot", "planet",
+    "plasma", "pod", "portal", "probe", "radar", "radiation", "radiowave", "reactor", "reentry", "refuel",
+    "relay", "rescue", "robot", "rocket", "rover", "satellite", "scanner", "shuttle", "signal", "singularity",
+    "solar", "space", "spaceship", "spacesuit", "spectrum", "star", "starbase", "starfield", "stardust", "starlight",
+    "starship", "station", "supernova", "survival", "telescope", "telemetry", "terraform", "thruster", "trajectory", "transmitter",
+    "transport", "universe", "uplink", "vacuum", "vector", "viewport", "vortex", "warp", "wormhole", "zenith"
+  ]
+}
+

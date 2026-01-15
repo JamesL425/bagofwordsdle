@@ -1,0 +1,18 @@
+{
+  "name": "Video Games",
+  "words": [
+    "achievement", "adventure", "aim", "ammo", "armor", "arcade", "arena", "attack", "avatar", "battle",
+    "boss", "build", "buff", "campaign", "character", "checkpoint", "cheat", "chest", "class", "clan",
+    "combo", "console", "controller", "cooldown", "craft", "crafting", "crosshair", "crouch", "damage", "debuff",
+    "defeat", "defend", "difficulty", "dodge", "dungeon", "duel", "emote", "enemy", "engine", "exploit",
+    "experience", "fight", "fps", "glitch", "grind", "guild", "hardcore", "healer", "health", "hitbox",
+    "inventory", "joystick", "jump", "keyboard", "lag", "leaderboard", "level", "lobby", "loot", "mage",
+    "mana", "map", "match", "melee", "mission", "mode", "mod", "modding", "monster", "mount",
+    "multiplayer", "npc", "objective", "online", "party", "patch", "perk", "ping", "player", "potion",
+    "powerup", "practice", "prestige", "progress", "puzzle", "quest", "racing", "raid", "rank", "replay",
+    "respawn", "run", "save", "score", "screen", "season", "server", "shield", "shop", "skill",
+    "skin", "spawn", "speedrun", "sprint", "stage", "stats", "stealth", "strategy", "stun", "summon",
+    "survival", "teammate", "tournament", "training", "tutorial", "unlock", "update", "upgrade", "victory", "weapon"
+  ]
+}
+

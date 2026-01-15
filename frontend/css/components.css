@@ -324,3 +324,47 @@ input:disabled {
     border: 1px solid var(--warning);
 }
 
+/* ============ TODAY'S THEMES ============ */
+
+.todays-themes {
+    margin: var(--space-lg) 0;
+    padding: var(--space-md) var(--space-lg);
+    background: rgba(0, 212, 255, 0.05);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    border-radius: var(--radius-sm);
+}
+
+.todays-themes-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.themes-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--accent-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+.themes-list {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.themes-list .theme-tag {
+    display: inline-block;
+    background: rgba(0, 255, 65, 0.1);
+    border: 1px solid rgba(0, 255, 65, 0.3);
+    color: var(--accent-primary);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    margin: 2px;
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
