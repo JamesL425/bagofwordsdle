@@ -2020,7 +2020,6 @@ function startLobbyRefresh() {
     stopLobbyRefresh();
     loadLobbies();
     loadMiniLeaderboard(); // Load mini-leaderboard on home screen
-    loadTodaysThemes(); // Load today's available themes
     lobbyRefreshInterval = setInterval(loadLobbies, 3000);  // Refresh every 3 seconds
 }
 
@@ -2614,29 +2613,6 @@ document.getElementById('lb-tab-casual')?.addEventListener('click', () => setLea
 document.getElementById('lb-tab-ranked')?.addEventListener('click', () => setLeaderboardMode('ranked'));
 document.getElementById('lb-casual-alltime')?.addEventListener('click', () => setCasualLeaderboardType('alltime'));
 document.getElementById('lb-casual-weekly')?.addEventListener('click', () => setCasualLeaderboardType('weekly'));
-
-// Today's themes display on home screen
-async function loadTodaysThemes() {
-    const container = document.getElementById('themes-list');
-    if (!container) return;
-    
-    try {
-        const data = await apiCall('/api/themes/today');
-        const themes = data?.themes || [];
-        
-        if (themes.length === 0) {
-            container.textContent = 'No themes available';
-            return;
-        }
-        
-        // Display themes as tags
-        container.innerHTML = themes.map(theme => 
-            `<span class="theme-tag">${escapeHtml(theme)}</span>`
-        ).join('');
-    } catch (error) {
-        container.textContent = 'Failed to load themes';
-    }
-}
 
 // Mini-leaderboard on home screen
 async function loadMiniLeaderboard() {
