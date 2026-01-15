@@ -756,6 +756,46 @@
                 <div class="trophy-icon" id="trophy-icon">◈</div>
                 <h2 id="gameover-title">MISSION COMPLETE</h2>
                 <p id="gameover-message"></p>
+                
+                <!-- MMR Change Display (Ranked Games Only) -->
+                <div id="mmr-change-widget" class="mmr-change-widget hidden">
+                    <div class="mmr-change-header">
+                        <span class="mmr-label">RANK PROGRESS</span>
+                        <span id="mmr-tier-badge" class="mmr-tier-badge"></span>
+                    </div>
+                    <div class="mmr-bar-container">
+                        <div class="mmr-bar-track">
+                            <div class="mmr-bar-tiers">
+                                <div class="mmr-tier-segment bronze" data-tier="Bronze"></div>
+                                <div class="mmr-tier-segment silver" data-tier="Silver"></div>
+                                <div class="mmr-tier-segment gold" data-tier="Gold"></div>
+                                <div class="mmr-tier-segment platinum" data-tier="Platinum"></div>
+                                <div class="mmr-tier-segment diamond" data-tier="Diamond"></div>
+                                <div class="mmr-tier-segment master" data-tier="Master"></div>
+                            </div>
+                            <div id="mmr-bar-fill" class="mmr-bar-fill"></div>
+                            <div id="mmr-bar-marker" class="mmr-bar-marker"></div>
+                        </div>
+                        <div class="mmr-bar-labels">
+                            <span>0</span>
+                            <span>500</span>
+                            <span>1000</span>
+                            <span>1500</span>
+                            <span>2000</span>
+                            <span>2500</span>
+                            <span>3000+</span>
+                        </div>
+                    </div>
+                    <div class="mmr-value-display">
+                        <span id="mmr-value-current" class="mmr-value-current">1000</span>
+                        <span id="mmr-delta-float" class="mmr-delta-float"></span>
+                    </div>
+                    <div id="rank-up-banner" class="rank-up-banner hidden">
+                        <span class="rank-up-text">RANK UP!</span>
+                        <span id="rank-up-tier" class="rank-up-tier"></span>
+                    </div>
+                </div>
+                
                 <div class="revealed-words" id="revealed-words">
                     <!-- All secret words revealed -->
                 </div>

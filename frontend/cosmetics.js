@@ -672,16 +672,85 @@ function getProfileAccentColor(cosmetics) {
 
 // ============ EFFECTS ============
 
+// Enhanced elimination effect with anticipation and screen shake
 function playEliminationEffect(playerId, effectId) {
     const card = document.querySelector(`.player-card[data-player-id="${playerId}"]`);
     if (!card) return;
     
     const effect = effectId || 'classic';
-    card.classList.add(`elim-${effect}`);
     
+    // Phase 1: Anticipation - brief danger flash before main animation
+    card.classList.add('elim-anticipation');
+    
+    // Phase 2: Screen shake (subtle)
+    const gameScreen = document.getElementById('game-screen');
+    if (gameScreen) {
+        setTimeout(() => {
+            gameScreen.classList.add('screen-shake');
+            setTimeout(() => gameScreen.classList.remove('screen-shake'), 400);
+        }, 200);
+    }
+    
+    // Phase 3: Main elimination effect after anticipation
     setTimeout(() => {
-        card.classList.remove(`elim-${effect}`);
-    }, 1500);
+        card.classList.remove('elim-anticipation');
+        card.classList.add(`elim-${effect}`);
+        
+        // Phase 4: Particle burst
+        createEliminationParticles(card);
+        
+        // Cleanup
+        setTimeout(() => {
+            card.classList.remove(`elim-${effect}`);
+        }, 1500);
+    }, 300);
+}
+
+// Create particle burst effect on elimination
+function createEliminationParticles(card) {
+    const rect = card.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    
+    // Create particle container
+    const container = document.createElement('div');
+    container.className = 'elim-particles';
+    container.style.position = 'fixed';
+    container.style.left = '0';
+    container.style.top = '0';
+    container.style.width = '100%';
+    container.style.height = '100%';
+    container.style.pointerEvents = 'none';
+    container.style.zIndex = '9999';
+    document.body.appendChild(container);
+    
+    // Create particles
+    const particleCount = 12;
+    const colors = ['#ff4444', '#ff6666', '#ff8888', '#ffaaaa', '#ff2222'];
+    
+    for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'elim-particle';
+        
+        // Random direction
+        const angle = (i / particleCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+        const distance = 60 + Math.random() * 80;
+        const tx = Math.cos(angle) * distance;
+        const ty = Math.sin(angle) * distance;
+        
+        particle.style.left = centerX + 'px';
+        particle.style.top = centerY + 'px';
+        particle.style.setProperty('--tx', tx + 'px');
+        particle.style.setProperty('--ty', ty + 'px');
+        particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+        particle.style.width = (6 + Math.random() * 6) + 'px';
+        particle.style.height = particle.style.width;
+        
+        container.appendChild(particle);
+    }
+    
+    // Cleanup
+    setTimeout(() => container.remove(), 800);
 }
 
 function playGuessEffect(effectId, targetEl = null) {

@@ -11,7 +11,7 @@ import { gameState } from '../state/gameState.js';
 // Uses sigmoid-like function: t(s) = s^n / (s^n + (c*(1-s))^n) where c = m/(1-m)
 const SIMILARITY_TRANSFORM = {
     n: 3,      // Exponent - controls curve steepness
-    m: 0.37    // Midpoint - raw value that maps to 50% transformed
+    m: 0.36    // Midpoint - raw value that maps to 50% transformed
 };
 
 /**

@@ -107,6 +107,93 @@ export function playEliminationSfx(enabled) {
 }
 
 /**
+ * Play victory sound effect - triumphant ascending tones
+ */
+export function playVictorySfx() {
+    resumeSfxContext();
+    // Ascending triumphant chord
+    const notes = [523, 659, 784, 1047]; // C5, E5, G5, C6
+    notes.forEach((freq, i) => {
+        setTimeout(() => {
+            playTone({ freq, durationMs: 200, type: 'sine', volume: 0.06 });
+        }, i * 80);
+    });
+    // Final flourish
+    setTimeout(() => {
+        playTone({ freq: 1047, durationMs: 400, type: 'sine', volume: 0.08 });
+        playTone({ freq: 1319, durationMs: 400, type: 'sine', volume: 0.05 }); // E6
+    }, 400);
+}
+
+/**
+ * Play quest complete sound effect - satisfying ding
+ */
+export function playQuestCompleteSfx() {
+    resumeSfxContext();
+    // Two-tone satisfying ding
+    playTone({ freq: 880, durationMs: 80, type: 'sine', volume: 0.05 });
+    setTimeout(() => {
+        playTone({ freq: 1320, durationMs: 150, type: 'sine', volume: 0.06 });
+    }, 60);
+}
+
+/**
+ * Play rank up sound effect - fanfare-like sequence
+ */
+export function playRankUpSfx() {
+    resumeSfxContext();
+    // Dramatic ascending fanfare
+    const fanfare = [
+        { freq: 392, delay: 0 },     // G4
+        { freq: 494, delay: 100 },   // B4
+        { freq: 587, delay: 200 },   // D5
+        { freq: 784, delay: 300 },   // G5
+        { freq: 988, delay: 450 },   // B5
+        { freq: 1175, delay: 600 },  // D6
+    ];
+    
+    fanfare.forEach(({ freq, delay }) => {
+        setTimeout(() => {
+            playTone({ freq, durationMs: 180, type: 'sine', volume: 0.06 });
+        }, delay);
+    });
+    
+    // Final chord
+    setTimeout(() => {
+        playTone({ freq: 784, durationMs: 500, type: 'sine', volume: 0.07 });
+        playTone({ freq: 988, durationMs: 500, type: 'sine', volume: 0.05 });
+        playTone({ freq: 1175, durationMs: 500, type: 'sine', volume: 0.04 });
+    }, 750);
+}
+
+/**
+ * Play MMR change sound effect
+ * @param {boolean} isGain - Whether MMR increased (true) or decreased (false)
+ */
+export function playMMRChangeSfx(isGain) {
+    resumeSfxContext();
+    if (isGain) {
+        // Ascending positive tone
+        playTone({ freq: 440, durationMs: 100, type: 'sine', volume: 0.04 });
+        setTimeout(() => {
+            playTone({ freq: 554, durationMs: 100, type: 'sine', volume: 0.04 });
+        }, 80);
+        setTimeout(() => {
+            playTone({ freq: 659, durationMs: 150, type: 'sine', volume: 0.05 });
+        }, 160);
+    } else {
+        // Descending negative tone
+        playTone({ freq: 440, durationMs: 100, type: 'sine', volume: 0.04 });
+        setTimeout(() => {
+            playTone({ freq: 370, durationMs: 100, type: 'sine', volume: 0.04 });
+        }, 80);
+        setTimeout(() => {
+            playTone({ freq: 311, durationMs: 150, type: 'sine', volume: 0.05 });
+        }, 160);
+    }
+}
+
+/**
  * Set BGM configuration
  * @param {Object} config - BGM config from server
  */

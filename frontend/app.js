@@ -23,7 +23,7 @@ function escapeHtml(text) {
 // Uses sigmoid-like function: t(s) = s^n / (s^n + (c*(1-s))^n) where c = m/(1-m)
 const SIMILARITY_TRANSFORM = {
     n: 3,      // Exponent - controls curve steepness
-    m: 0.37    // Midpoint - raw value that maps to 50% transformed
+    m: 0.36    // Midpoint - raw value that maps to 50% transformed
 };
 
 /**
@@ -288,6 +288,88 @@ function playEliminationSfx() {
     // Two quick tones for a "hit" feel
     playTone({ freq: 140, durationMs: 90, type: 'sawtooth', volume: 0.05 });
     setTimeout(() => playTone({ freq: 90, durationMs: 110, type: 'sawtooth', volume: 0.04 }), 60);
+}
+
+// Victory sound effect - triumphant ascending tones
+function playVictorySfx() {
+    if (!optionsState.eliminationSfxEnabled) return; // Use same toggle as elimination
+    resumeSfxContext();
+    // Ascending triumphant chord
+    const notes = [523, 659, 784, 1047]; // C5, E5, G5, C6
+    notes.forEach((freq, i) => {
+        setTimeout(() => {
+            playTone({ freq, durationMs: 200, type: 'sine', volume: 0.06 });
+        }, i * 80);
+    });
+    // Final flourish
+    setTimeout(() => {
+        playTone({ freq: 1047, durationMs: 400, type: 'sine', volume: 0.08 });
+        playTone({ freq: 1319, durationMs: 400, type: 'sine', volume: 0.05 }); // E6
+    }, 400);
+}
+
+// Quest complete sound effect - satisfying ding
+function playQuestCompleteSfx() {
+    if (!optionsState.clickSfxEnabled) return;
+    resumeSfxContext();
+    // Two-tone satisfying ding
+    playTone({ freq: 880, durationMs: 80, type: 'sine', volume: 0.05 });
+    setTimeout(() => {
+        playTone({ freq: 1320, durationMs: 150, type: 'sine', volume: 0.06 });
+    }, 60);
+}
+
+// Rank up sound effect - fanfare-like sequence
+function playRankUpSfx() {
+    if (!optionsState.eliminationSfxEnabled) return;
+    resumeSfxContext();
+    // Dramatic ascending fanfare
+    const fanfare = [
+        { freq: 392, delay: 0 },     // G4
+        { freq: 494, delay: 100 },   // B4
+        { freq: 587, delay: 200 },   // D5
+        { freq: 784, delay: 300 },   // G5
+        { freq: 988, delay: 450 },   // B5
+        { freq: 1175, delay: 600 },  // D6
+    ];
+    
+    fanfare.forEach(({ freq, delay }) => {
+        setTimeout(() => {
+            playTone({ freq, durationMs: 180, type: 'sine', volume: 0.06 });
+        }, delay);
+    });
+    
+    // Final chord
+    setTimeout(() => {
+        playTone({ freq: 784, durationMs: 500, type: 'sine', volume: 0.07 });
+        playTone({ freq: 988, durationMs: 500, type: 'sine', volume: 0.05 });
+        playTone({ freq: 1175, durationMs: 500, type: 'sine', volume: 0.04 });
+    }, 750);
+}
+
+// MMR change sound effect
+function playMMRChangeSfx(isGain) {
+    if (!optionsState.clickSfxEnabled) return;
+    resumeSfxContext();
+    if (isGain) {
+        // Ascending positive tone
+        playTone({ freq: 440, durationMs: 100, type: 'sine', volume: 0.04 });
+        setTimeout(() => {
+            playTone({ freq: 554, durationMs: 100, type: 'sine', volume: 0.04 });
+        }, 80);
+        setTimeout(() => {
+            playTone({ freq: 659, durationMs: 150, type: 'sine', volume: 0.05 });
+        }, 160);
+    } else {
+        // Descending negative tone
+        playTone({ freq: 440, durationMs: 100, type: 'sine', volume: 0.04 });
+        setTimeout(() => {
+            playTone({ freq: 370, durationMs: 100, type: 'sine', volume: 0.04 });
+        }, 80);
+        setTimeout(() => {
+            playTone({ freq: 311, durationMs: 150, type: 'sine', volume: 0.05 });
+        }, 160);
+    }
 }
 
 // ============ TEXT CHAT ============
@@ -1954,6 +2036,240 @@ function renderRankBadge(tier) {
     const key = String(tier.key || 'unranked').toLowerCase();
     const name = String(tier.name || 'UNRANKED');
     return `<span class="rank-badge rank-${escapeHtml(key)}">${escapeHtml(name)}</span>`;
+}
+
+// ============ MMR ANIMATION SYSTEM ============
+
+// Tier boundaries for MMR bar visualization
+const MMR_TIER_BOUNDARIES = {
+    bronze: { min: 1100, max: 1250 },
+    silver: { min: 1250, max: 1400 },
+    gold: { min: 1400, max: 1550 },
+    platinum: { min: 1550, max: 1700 },
+    diamond: { min: 1700, max: 2000 },
+    master: { min: 2000, max: 3000 }
+};
+
+// Convert MMR to percentage position on the bar (0-100)
+function mmrToBarPosition(mmr) {
+    const minMMR = 0;
+    const maxMMR = 3000;
+    const clamped = Math.max(minMMR, Math.min(maxMMR, mmr));
+    return (clamped / maxMMR) * 100;
+}
+
+// Animate MMR change with counting effect and visual feedback
+function animateMMRChange(oldMMR, newMMR, delta) {
+    const widget = document.getElementById('mmr-change-widget');
+    const barFill = document.getElementById('mmr-bar-fill');
+    const barMarker = document.getElementById('mmr-bar-marker');
+    const valueDisplay = document.getElementById('mmr-value-current');
+    const deltaFloat = document.getElementById('mmr-delta-float');
+    const tierBadge = document.getElementById('mmr-tier-badge');
+    const rankUpBanner = document.getElementById('rank-up-banner');
+    const rankUpTier = document.getElementById('rank-up-tier');
+    
+    if (!widget || !barFill || !barMarker || !valueDisplay) return;
+    
+    // Show widget with animation
+    widget.classList.remove('hidden');
+    setTimeout(() => widget.classList.add('visible'), 50);
+    
+    // Get tier info
+    const oldTier = getRankTier(oldMMR);
+    const newTier = getRankTier(newMMR);
+    const tierChanged = oldTier.key !== newTier.key;
+    const isGain = delta > 0;
+    
+    // Set initial state
+    const startPos = mmrToBarPosition(oldMMR);
+    const endPos = mmrToBarPosition(newMMR);
+    
+    barFill.style.transition = 'none';
+    barFill.style.width = startPos + '%';
+    barMarker.style.transition = 'none';
+    barMarker.style.left = startPos + '%';
+    valueDisplay.textContent = oldMMR;
+    
+    // Set tier badge
+    tierBadge.className = `mmr-tier-badge tier-${oldTier.key}`;
+    tierBadge.textContent = oldTier.name;
+    
+    // Force reflow
+    void barFill.offsetWidth;
+    
+    // Add gain/loss class
+    barFill.classList.remove('gain', 'loss');
+    barFill.classList.add(isGain ? 'gain' : 'loss');
+    
+    // Start animation after brief anticipation pause
+    setTimeout(() => {
+        // Animate bar
+        barFill.style.transition = 'width 1.5s cubic-bezier(0.4, 0, 0.2, 1)';
+        barMarker.style.transition = 'left 1.5s cubic-bezier(0.4, 0, 0.2, 1)';
+        barFill.style.width = endPos + '%';
+        barMarker.style.left = endPos + '%';
+        
+        // Animate number counting
+        animateNumberCount(valueDisplay, oldMMR, newMMR, 1500);
+        
+        // Show delta float
+        deltaFloat.textContent = (isGain ? '+' : '') + delta;
+        deltaFloat.className = `mmr-delta-float visible ${isGain ? 'gain' : 'loss'}`;
+        
+        // Play sound effect
+        if (typeof playMMRChangeSfx === 'function') {
+            playMMRChangeSfx(isGain);
+        }
+        
+        // Handle tier change (rank up/down)
+        if (tierChanged) {
+            setTimeout(() => {
+                // Flash tier badge
+                tierBadge.className = `mmr-tier-badge tier-${newTier.key} flash`;
+                tierBadge.textContent = newTier.name;
+                
+                // If rank UP, show celebration
+                if (isGain && newTier.key !== 'unranked') {
+                    showRankUpCelebration(newTier, rankUpBanner, rankUpTier);
+                }
+            }, 1200);
+        }
+    }, 400); // Anticipation pause
+}
+
+// Animate a number counting up/down
+function animateNumberCount(element, from, to, duration) {
+    const startTime = performance.now();
+    const diff = to - from;
+    
+    function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Ease out cubic
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const current = Math.round(from + diff * eased);
+        
+        element.textContent = current;
+        
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        }
+    }
+    
+    requestAnimationFrame(update);
+}
+
+// Show rank up celebration
+function showRankUpCelebration(tier, banner, tierEl) {
+    if (!banner || !tierEl) return;
+    
+    tierEl.textContent = tier.name;
+    tierEl.className = `rank-up-tier tier-${tier.key}`;
+    tierEl.style.color = getTierColor(tier.key);
+    
+    banner.classList.remove('hidden');
+    banner.classList.add('visible');
+    
+    // Play rank up sound
+    if (typeof playRankUpSfx === 'function') {
+        playRankUpSfx();
+    }
+    
+    // Create rank-up particle burst
+    createRankUpParticles(tier.key);
+    
+    // Hide after delay
+    setTimeout(() => {
+        banner.classList.remove('visible');
+        setTimeout(() => banner.classList.add('hidden'), 500);
+    }, 3000);
+}
+
+// Create particle burst for rank up celebration
+function createRankUpParticles(tierKey) {
+    const container = document.createElement('div');
+    container.className = 'rank-up-particles';
+    container.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;overflow:hidden;';
+    document.body.appendChild(container);
+    
+    const tierColors = {
+        bronze: ['#cd7f32', '#8b4513', '#daa520'],
+        silver: ['#c0c0c0', '#808080', '#e8e8e8'],
+        gold: ['#ffd700', '#daa520', '#ffed4a'],
+        platinum: ['#00d4ff', '#0099cc', '#66e0ff'],
+        diamond: ['#b9f2ff', '#4fc3f7', '#e0f7fa'],
+        master: ['#9c27b0', '#e91e63', '#ff5722']
+    };
+    
+    const colors = tierColors[tierKey] || tierColors.gold;
+    const particleCount = 40;
+    
+    for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('div');
+        const size = 8 + Math.random() * 12;
+        const angle = (i / particleCount) * Math.PI * 2;
+        const velocity = 150 + Math.random() * 200;
+        const tx = Math.cos(angle) * velocity;
+        const ty = Math.sin(angle) * velocity - 100; // Bias upward
+        
+        particle.style.cssText = `
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: ${size}px;
+            height: ${size}px;
+            background: ${colors[Math.floor(Math.random() * colors.length)]};
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: rankUpParticleBurst 1s ease-out forwards;
+            --tx: ${tx}px;
+            --ty: ${ty}px;
+        `;
+        container.appendChild(particle);
+    }
+    
+    // Add some star shapes
+    for (let i = 0; i < 10; i++) {
+        const star = document.createElement('div');
+        const angle = Math.random() * Math.PI * 2;
+        const velocity = 100 + Math.random() * 150;
+        const tx = Math.cos(angle) * velocity;
+        const ty = Math.sin(angle) * velocity - 80;
+        
+        star.textContent = '✦';
+        star.style.cssText = `
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            font-size: ${16 + Math.random() * 16}px;
+            color: ${colors[0]};
+            transform: translate(-50%, -50%);
+            animation: rankUpParticleBurst 1.2s ease-out forwards;
+            --tx: ${tx}px;
+            --ty: ${ty}px;
+            text-shadow: 0 0 10px ${colors[0]};
+        `;
+        container.appendChild(star);
+    }
+    
+    // Cleanup
+    setTimeout(() => container.remove(), 1500);
+}
+
+// Get tier color for styling
+function getTierColor(tierKey) {
+    const colors = {
+        bronze: '#cd7f32',
+        silver: '#c0c0c0',
+        gold: '#ffd700',
+        platinum: '#00d4ff',
+        diamond: '#b9f2ff',
+        master: '#e91e63',
+        unranked: '#888888'
+    };
+    return colors[tierKey] || colors.unranked;
 }
 
 function setLeaderboardMode(mode) {
@@ -3774,7 +4090,7 @@ async function submitWordChange() {
     }
 }
 
-// Screen: Game Over
+// Screen: Game Over - Cinematic Victory Sequence
 function showGameOver(game) {
     showScreen('gameover');
     
@@ -3787,57 +4103,55 @@ function showGameOver(game) {
     const isWinner = game.winner === gameState.playerId;
     const isRanked = Boolean(game.is_ranked);
     
-    // Show trophy animation for winner
+    // Get elements for cinematic sequence
+    const gameoverCard = document.querySelector('.gameover-card');
     const trophyIcon = document.getElementById('trophy-icon');
+    const titleEl = document.getElementById('gameover-title');
+    const msgEl = document.getElementById('gameover-message');
+    const revealedWords = document.getElementById('revealed-words');
+    const mmrWidget = document.getElementById('mmr-change-widget');
+    
+    // Reset elements for animation
     if (trophyIcon) {
         trophyIcon.textContent = isWinner ? '🏆' : '🎮';
+        trophyIcon.classList.remove('animate');
+    }
+    if (titleEl) {
+        titleEl.textContent = isWinner ? 'Victory!' : 'Game Over!';
+        titleEl.classList.remove('animate');
+        titleEl.style.opacity = '0';
+    }
+    if (msgEl) {
+        const baseMsg = winner ? `${winner.name} is the last one standing!` : 'The game has ended.';
+        msgEl.textContent = baseMsg;
+        msgEl.classList.remove('animate');
+        msgEl.style.opacity = '0';
     }
     
-    document.getElementById('gameover-title').textContent = isWinner ? 'Victory!' : 'Game Over!';
-    const msgEl = document.getElementById('gameover-message');
-    const baseMsg = winner ? `${winner.name} is the last one standing!` : 'The game has ended.';
-
-    // Ranked: show your MMR + delta (if available)
-    let rankedLine = '';
-    if (isRanked) {
-        const me = game.players.find(p => p.id === gameState.playerId);
-        const mmr = Number(me?.mmr);
-        const delta = Number(me?.mmr_delta);
-        if (Number.isFinite(mmr) && Number.isFinite(delta)) {
-            const sign = delta > 0 ? '+' : '';
-            rankedLine = `\nMMR: ${mmr} (${sign}${delta})`;
-        } else if (Number.isFinite(mmr)) {
-            rankedLine = `\nMMR: ${mmr}`;
-        }
-    }
-    if (msgEl) msgEl.textContent = baseMsg + rankedLine;
-    
-    // Create victory effect based on winner's cosmetics
-    if (isWinner) {
-        const victoryEffect = cosmeticsState?.userCosmetics?.victory_effect || 'classic';
-        if (typeof playVictoryEffect === 'function') {
-            playVictoryEffect(victoryEffect);
-        } else {
-            createConfetti();
-        }
-    } else if (winner && winner.cosmetics && winner.cosmetics.victory_effect) {
-        // Show winner's victory effect for other players
-        if (typeof playVictoryEffect === 'function') {
-            playVictoryEffect(winner.cosmetics.victory_effect);
-        } else {
-            createConfetti();
-        }
+    // Hide MMR widget initially
+    if (mmrWidget) {
+        mmrWidget.classList.add('hidden');
+        mmrWidget.classList.remove('visible');
     }
     
-    // Show all players' secret words
-    const revealedWords = document.getElementById('revealed-words');
+    // Create spotlight overlay for dramatic effect
+    let spotlight = document.querySelector('.victory-spotlight');
+    if (!spotlight) {
+        spotlight = document.createElement('div');
+        spotlight.className = 'victory-spotlight';
+        document.body.appendChild(spotlight);
+    }
+    
+    // Build revealed words HTML but keep hidden initially
     revealedWords.innerHTML = '<h3>Secret Words Revealed</h3>';
+    const wordItems = [];
     
-    game.players.forEach(player => {
+    game.players.forEach((player, index) => {
         const isWinnerPlayer = player.id === game.winner;
         const isAI = player.is_ai;
         const div = document.createElement('div');
         div.className = `revealed-word-item${isWinnerPlayer ? ' winner' : ''}${!player.is_alive ? ' eliminated' : ''}`;
+        div.style.transitionDelay = `${index * 150}ms`;
 
         let mmrHtml = '';
         if (isRanked && Number.isFinite(Number(player?.mmr))) {
@@ -3868,7 +4182,88 @@ function showGameOver(game) {
         }
         
         revealedWords.appendChild(div);
+        wordItems.push(div);
     });
+    
+    // ============ CINEMATIC SEQUENCE ============
+    
+    // Phase 1: Spotlight dims in (100ms)
+    setTimeout(() => {
+        spotlight.classList.add('visible');
+    }, 100);
+    
+    // Phase 2: Trophy bounces in (300ms)
+    setTimeout(() => {
+        if (trophyIcon) {
+            trophyIcon.classList.add('animate');
+        }
+    }, 300);
+    
+    // Phase 3: Title reveals (700ms)
+    setTimeout(() => {
+        if (titleEl) {
+            titleEl.style.opacity = '1';
+            titleEl.classList.add('animate');
+        }
+    }, 700);
+    
+    // Phase 4: Message reveals (1000ms)
+    setTimeout(() => {
+        if (msgEl) {
+            msgEl.style.opacity = '1';
+            msgEl.classList.add('animate');
+        }
+    }, 1000);
+    
+    // Phase 5: MMR animation for ranked games (1400ms)
+    if (isRanked && mmrWidget) {
+        const me = game.players.find(p => p.id === gameState.playerId);
+        const mmr = Number(me?.mmr);
+        const delta = Number(me?.mmr_delta);
+        
+        if (Number.isFinite(mmr) && Number.isFinite(delta)) {
+            const oldMMR = mmr - delta;
+            setTimeout(() => {
+                animateMMRChange(oldMMR, mmr, delta);
+            }, 1400);
+        }
+    }
+    
+    // Phase 6: Victory effect plays (1600ms)
+    setTimeout(() => {
+        if (isWinner) {
+            const victoryEffect = cosmeticsState?.userCosmetics?.victory_effect || 'classic';
+            if (typeof playVictoryEffect === 'function') {
+                playVictoryEffect(victoryEffect);
+            } else {
+                createConfetti();
+            }
+            // Play victory sound
+            if (typeof playVictorySfx === 'function') {
+                playVictorySfx();
+            }
+        } else if (winner && winner.cosmetics && winner.cosmetics.victory_effect) {
+            if (typeof playVictoryEffect === 'function') {
+                playVictoryEffect(winner.cosmetics.victory_effect);
+            } else {
+                createConfetti();
+            }
+        }
+    }, 1600);
+    
+    // Phase 7: Secret words reveal one-by-one with stagger (2000ms)
+    setTimeout(() => {
+        wordItems.forEach((item, index) => {
+            setTimeout(() => {
+                item.classList.add('revealed');
+            }, index * 150);
+        });
+    }, 2000);
+    
+    // Phase 8: Fade out spotlight (3500ms)
+    setTimeout(() => {
+        spotlight.classList.remove('visible');
+    }, 3500);
     
     // Show/hide challenge button based on game type (only for multiplayer)
     const challengeBtn = document.getElementById('challenge-friend-btn');

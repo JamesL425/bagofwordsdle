@@ -1057,7 +1057,7 @@ def process_ai_turn(game: dict, ai_player: dict) -> Optional[dict]:
     for p in game["players"]:
         if p.get("secret_embedding"):
             sim = cosine_similarity(guess_embedding, p["secret_embedding"])
-            similarities[p["id"]] = round(sim, 2)
+            similarities[p["id"]] = round(sim, 4)
     
     # Check for eliminations
     eliminations = []
@@ -5833,7 +5833,7 @@ class handler(BaseHTTPRequestHandler):
             similarities = {}
             for p in game['players']:
                 sim = cosine_similarity(guess_embedding, p['secret_embedding'])
-                similarities[p['id']] = round(sim, 2)
+                similarities[p['id']] = round(sim, 4)
             
             # Eliminate players whose exact word was guessed
             eliminations = []

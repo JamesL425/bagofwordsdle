@@ -52,6 +52,9 @@ function closeDailyPanel() {
 
 // ============ LOAD DAILY DATA ============
 
+// Track previous quest states for completion detection
+let previousQuestStates = {};
+
 async function loadDaily() {
     if (typeof gameState === 'undefined' || !gameState.authToken) {
         renderDailyNoAuth();
@@ -71,6 +74,18 @@ async function loadDaily() {
         }
         
         const data = await response.json();
+        
+        // Store previous quest states before updating
+        const oldQuests = [...(dailyState.quests || []), ...(dailyState.weeklyQuests || [])];
+        oldQuests.forEach(q => {
+            previousQuestStates[q.id] = {
+                progress: q.progress || 0,
+                target: q.target || 1,
+                completed: (q.progress || 0) >= (q.target || 1),
+                claimed: q.claimed || false
+            };
+        });
+        
         dailyState.wallet = data.wallet || { credits: 0 };
         dailyState.quests = data.quests || [];
         dailyState.weeklyQuests = data.weekly_quests || [];
@@ -95,7 +110,27 @@ async function loadDaily() {
             next_milestone_bonus: 0,
         };
         
+        // Check for newly completed quests (for animation)
+        const newlyCompletedQuests = [];
+        const allQuests = [...dailyState.quests, ...dailyState.weeklyQuests];
+        allQuests.forEach(q => {
+            const prev = previousQuestStates[q.id];
+            const nowCompleted = (q.progress || 0) >= (q.target || 1);
+            const wasCompleted = prev?.completed || false;
+            
+            if (nowCompleted && !wasCompleted && !q.claimed) {
+                newlyCompletedQuests.push(q.id);
+            }
+        });
+        
         renderDailyPanel();
+        
+        // Trigger completion animations for newly completed quests
+        if (newlyCompletedQuests.length > 0) {
+            setTimeout(() => {
+                triggerQuestCompletionAnimations(newlyCompletedQuests);
+            }, 100);
+        }
         
         // Update home stats bar
         if (typeof updateHomeStatsBar === 'function') {
@@ -120,12 +155,84 @@ async function loadDaily() {
     }
 }
 
+// Trigger animations for newly completed quests
+function triggerQuestCompletionAnimations(questIds) {
+    questIds.forEach((questId, index) => {
+        setTimeout(() => {
+            const questCard = document.querySelector(`.daily-quest .quest-claim-btn[data-quest-id="${questId}"]`)?.closest('.daily-quest');
+            if (questCard) {
+                // Add pulse animation
+                questCard.classList.add('just-completed');
+                
+                // Add bounce to status text
+                const statusText = questCard.querySelector('.quest-status-text');
+                if (statusText) {
+                    statusText.classList.add('bounce-in');
+                }
+                
+                // Create mini confetti on the quest card
+                createQuestConfetti(questCard);
+                
+                // Play sound
+                if (typeof playQuestCompleteSfx === 'function') {
+                    playQuestCompleteSfx();
+                }
+                
+                // Remove animation classes after they complete
+                setTimeout(() => {
+                    questCard.classList.remove('just-completed');
+                    if (statusText) statusText.classList.remove('bounce-in');
+                }, 800);
+            }
+        }, index * 200); // Stagger animations
+    });
+}
+
+// Create mini confetti effect on quest card
+function createQuestConfetti(questCard) {
+    const rect = questCard.getBoundingClientRect();
+    const container = document.createElement('div');
+    container.className = 'quest-confetti';
+    container.style.position = 'fixed';
+    container.style.left = rect.left + 'px';
+    container.style.top = rect.top + 'px';
+    container.style.width = rect.width + 'px';
+    container.style.height = rect.height + 'px';
+    container.style.pointerEvents = 'none';
+    container.style.zIndex = '9999';
+    
+    const colors = ['#00ff41', '#ffd700', '#00d4ff', '#ff6b6b', '#a855f7'];
+    
+    for (let i = 0; i < 15; i++) {
+        const piece = document.createElement('div');
+        piece.className = 'quest-confetti-piece';
+        piece.style.left = (Math.random() * 100) + '%';
+        piece.style.top = '50%';
+        piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+        piece.style.animationDelay = (Math.random() * 0.3) + 's';
+        container.appendChild(piece);
+    }
+    
+    document.body.appendChild(container);
+    setTimeout(() => container.remove(), 1200);
+}
+
 // ============ CLAIM QUEST ============
 
 async function claimQuest(questId, questType = 'daily') {
     if (typeof gameState === 'undefined' || !gameState.authToken) {
         showError('Please sign in with Google to claim quests');
         return;
+    }
+    
+    // Find the button and quest card for animation
+    const btn = document.querySelector(`.quest-claim-btn[data-quest-id="${questId}"]`);
+    const questCard = btn?.closest('.daily-quest');
+    
+    // Add claiming animation to button
+    if (btn) {
+        btn.classList.add('claiming');
+        btn.textContent = '...';
     }
     
     try {
@@ -141,10 +248,15 @@ async function claimQuest(questId, questType = 'daily') {
         if (!response.ok) {
             const err = await response.json();
             showError(err.detail || 'Failed to claim quest');
+            if (btn) {
+                btn.classList.remove('claiming');
+                btn.textContent = 'CLAIM';
+            }
             return;
         }
         
         const data = await response.json();
+        const rewardCredits = data.reward_credits || 0;
         dailyState.wallet = data.wallet || dailyState.wallet;
         
         // Update the quest in local state
@@ -154,12 +266,63 @@ async function claimQuest(questId, questType = 'daily') {
             quest.claimed = true;
         }
         
-        renderDailyPanel();
-        showSuccess(`+${data.reward_credits || 0} credits!`);
+        // ============ CLAIM SUCCESS ANIMATION ============
+        
+        // Show success state on button
+        if (btn) {
+            btn.classList.remove('claiming');
+            btn.classList.add('claimed-success');
+            btn.textContent = '✓';
+            
+            // Create floating credits animation
+            createFloatingCredits(btn, rewardCredits);
+        }
+        
+        // Play quest complete sound
+        if (typeof playQuestCompleteSfx === 'function') {
+            playQuestCompleteSfx();
+        }
+        
+        // Add claim complete animation to card
+        if (questCard) {
+            setTimeout(() => {
+                questCard.classList.add('claim-complete');
+            }, 300);
+        }
+        
+        // Re-render panel after animation completes
+        setTimeout(() => {
+            renderDailyPanel();
+        }, 800);
+        
+        showSuccess(`+${rewardCredits} credits!`);
     } catch (e) {
         console.error('Failed to claim quest:', e);
         showError('Failed to claim quest');
+        if (btn) {
+            btn.classList.remove('claiming');
+            btn.textContent = 'CLAIM';
+        }
     }
+}
+
+// Create floating credits animation
+function createFloatingCredits(sourceEl, amount) {
+    if (!sourceEl) return;
+    
+    const rect = sourceEl.getBoundingClientRect();
+    const floater = document.createElement('div');
+    floater.className = 'credits-float';
+    floater.textContent = `+${amount}`;
+    floater.style.position = 'fixed';
+    floater.style.left = (rect.left + rect.width / 2) + 'px';
+    floater.style.top = rect.top + 'px';
+    floater.style.transform = 'translateX(-50%)';
+    
+    document.body.appendChild(floater);
+    
+    // Remove after animation
+    setTimeout(() => floater.remove(), 1500);
 }
 
 // ============ PURCHASE COSMETIC ============
