@@ -3267,6 +3267,68 @@ body.nerd-mode .nerd-sim {
     color: var(--accent);
 }
 
+.mini-lb-wins {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.mini-lb-mmr {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+/* MMR tier colors for mini leaderboard */
+.mini-lb-mmr.rank-diamond { color: #b9f2ff; }
+.mini-lb-mmr.rank-platinum { color: #e5e4e2; }
+.mini-lb-mmr.rank-gold { color: #ffd700; }
+.mini-lb-mmr.rank-silver { color: #c0c0c0; }
+.mini-lb-mmr.rank-bronze { color: #cd7f32; }
+.mini-lb-mmr.rank-unranked { color: var(--text-muted); }
+
+/* Mini leaderboard sections */
+.mini-lb-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.mini-lb-section + .mini-lb-section {
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--border);
+}
+
+.mini-lb-section-header {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: var(--space-xs);
+}
+
+/* Top 3 styling for ranked section entries */
+.mini-lb-section .mini-lb-entry.top-3:nth-child(2) {
+    border-color: #ffd700;
+    background: rgba(255, 215, 0, 0.08);
+}
+
+.mini-lb-section .mini-lb-entry.top-3:nth-child(3) {
+    border-color: #c0c0c0;
+    background: rgba(192, 192, 192, 0.05);
+}
+
+.mini-lb-section .mini-lb-entry.top-3:nth-child(4) {
+    border-color: #cd7f32;
+    background: rgba(205, 127, 50, 0.05);
+}
+
+.mini-lb-section .mini-lb-entry.top-3:nth-child(2) .mini-lb-rank { color: #ffd700; }
+.mini-lb-section .mini-lb-entry.top-3:nth-child(3) .mini-lb-rank { color: #c0c0c0; }
+.mini-lb-section .mini-lb-entry.top-3:nth-child(4) .mini-lb-rank { color: #cd7f32; }
+
 /* ============ YOUR STATS CARD ============ */
 
 .your-stats-card.hidden {

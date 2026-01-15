@@ -223,31 +223,63 @@ export async function loadRanked() {
 
 /**
  * Load mini leaderboard for home screen
+ * Shows ranked (by ELO) first, then casual (by wins) below
  */
 export async function loadMini() {
     const container = document.getElementById('mini-leaderboard');
     if (!container) return;
     
     try {
-        const data = await leaderboardApi.casual('alltime');
-        const players = Array.isArray(data?.players) ? data.players.slice(0, 5) : [];
+        // Fetch both ranked and casual leaderboards in parallel
+        const [rankedData, casualData] = await Promise.all([
+            leaderboardApi.ranked().catch(() => ({ players: [] })),
+            leaderboardApi.casual('alltime').catch(() => ({ players: [] }))
+        ]);
         
-        if (players.length === 0) {
+        const rankedPlayers = Array.isArray(rankedData?.players) ? rankedData.players.slice(0, 5) : [];
+        const casualPlayers = Array.isArray(casualData?.players) ? casualData.players.slice(0, 5) : [];
+        
+        if (rankedPlayers.length === 0 && casualPlayers.length === 0) {
             container.innerHTML = '<p class="loading-lobbies">No data yet.</p>';
             return;
         }
         
         let html = '';
-        players.forEach((p, idx) => {
-            const wins = Number(p?.wins || 0);
-            const isTop3 = idx < 3;
-            const playerName = p?.name || 'Unknown';
-            html += `<div class="mini-lb-entry ${isTop3 ? 'top-3' : ''} clickable-profile" data-player-name="${escapeHtml(playerName)}">
-                <span class="mini-lb-rank">#${idx + 1}</span>
-                <span class="mini-lb-name">${escapeHtml(playerName)}</span>
-                <span class="mini-lb-wins">${wins} wins</span>
-            </div>`;
-        });
+        
+        // Ranked section (by ELO/MMR)
+        if (rankedPlayers.length > 0) {
+            html += '<div class="mini-lb-section">';
+            html += '<div class="mini-lb-section-header">RANKED</div>';
+            rankedPlayers.forEach((p, idx) => {
+                const mmr = Number(p?.mmr || 0);
+                const isTop3 = idx < 3;
+                const playerName = p?.name || 'Unknown';
+                const tier = getRankTier(mmr);
+                html += `<div class="mini-lb-entry mini-lb-ranked ${isTop3 ? 'top-3' : ''} clickable-profile" data-player-name="${escapeHtml(playerName)}">
+                    <span class="mini-lb-rank">#${idx + 1}</span>
+                    <span class="mini-lb-name">${escapeHtml(playerName)}</span>
+                    <span class="mini-lb-mmr rank-${tier.key}">${mmr}</span>
+                </div>`;
+            });
+            html += '</div>';
+        }
+        
+        // Casual section (by wins)
+        if (casualPlayers.length > 0) {
+            html += '<div class="mini-lb-section">';
+            html += '<div class="mini-lb-section-header">CASUAL</div>';
+            casualPlayers.forEach((p, idx) => {
+                const wins = Number(p?.wins || 0);
+                const isTop3 = idx < 3;
+                const playerName = p?.name || 'Unknown';
+                html += `<div class="mini-lb-entry mini-lb-casual ${isTop3 ? 'top-3' : ''} clickable-profile" data-player-name="${escapeHtml(playerName)}">
+                    <span class="mini-lb-rank">#${idx + 1}</span>
+                    <span class="mini-lb-name">${escapeHtml(playerName)}</span>
+                    <span class="mini-lb-wins">${wins} wins</span>
+                </div>`;
+            });
+            html += '</div>';
+        }
         
         container.innerHTML = html;
         attachProfileHandlers(container);
