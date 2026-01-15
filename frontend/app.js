@@ -1025,6 +1025,9 @@ function setLoggedInWithAuth(user) {
     document.getElementById('logged-in-box').classList.remove('hidden');
     document.getElementById('logged-in-name').textContent = user.name.toUpperCase();
     
+    // Update topbar toggle username for mobile collapsed state
+    updateTopbarState();
+    
     // Show avatar if available
     const avatarEl = document.getElementById('user-avatar');
     if (avatarEl && user.avatar) {
@@ -1144,6 +1147,10 @@ function setLoggedIn(name) {
     document.getElementById('login-box').classList.add('hidden');
     document.getElementById('logged-in-box').classList.remove('hidden');
     document.getElementById('logged-in-name').textContent = sanitizedName.toUpperCase();
+    
+    // Update topbar toggle username for mobile collapsed state
+    updateTopbarState();
+    
     updateRankedUi();
 }
 
@@ -1235,6 +1242,55 @@ function closeOptionsPanel() {
 
 document.getElementById('options-btn')?.addEventListener('click', toggleOptionsPanel);
 document.getElementById('close-options-btn')?.addEventListener('click', closeOptionsPanel);
+
+// Topbar toggle (mobile minimizable)
+let topbarCollapsed = false;
+
+function initTopbarToggle() {
+    const toggle = document.getElementById('topbar-toggle');
+    const loggedInBox = document.getElementById('logged-in-box');
+    
+    if (!toggle || !loggedInBox) return;
+    
+    // Load saved state (default to collapsed on mobile)
+    try {
+        const saved = localStorage.getItem('embeddle_topbar_collapsed');
+        topbarCollapsed = saved !== null ? JSON.parse(saved) : true;
+    } catch (e) {
+        topbarCollapsed = true;
+    }
+    
+    // Apply initial state
+    updateTopbarState();
+    
+    // Add click handler
+    toggle.addEventListener('click', () => {
+        topbarCollapsed = !topbarCollapsed;
+        try {
+            localStorage.setItem('embeddle_topbar_collapsed', JSON.stringify(topbarCollapsed));
+        } catch (e) { /* ignore */ }
+        updateTopbarState();
+    });
+}
+
+function updateTopbarState() {
+    const loggedInBox = document.getElementById('logged-in-box');
+    const toggle = document.getElementById('topbar-toggle');
+    const nameEl = document.getElementById('logged-in-name');
+    
+    if (!loggedInBox || !toggle) return;
+    
+    loggedInBox.classList.toggle('collapsed', topbarCollapsed);
+    toggle.setAttribute('aria-expanded', String(!topbarCollapsed));
+    
+    // Update toggle to show username when collapsed
+    if (nameEl) {
+        toggle.setAttribute('data-username', nameEl.textContent || 'OPERATIVE');
+    }
+}
+
+// Initialize topbar toggle
+initTopbarToggle();
 
 // Chat panel
 let chatPanelOpen = false;

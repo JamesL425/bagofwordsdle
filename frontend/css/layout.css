@@ -122,6 +122,37 @@ header h1 {
     padding: var(--space-sm) var(--space-md);
     border: 1px solid var(--border);
     border-radius: var(--radius);
+    flex-direction: row;
+}
+
+.topbar-content {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.topbar-toggle {
+    display: none;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: var(--space-xs);
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+}
+
+.topbar-toggle:hover {
+    color: var(--accent-primary);
+}
+
+.topbar-toggle-icon {
+    display: inline-block;
+    transition: transform 0.2s ease;
+}
+
+.logged-in-box.collapsed .topbar-toggle-icon {
+    transform: rotate(-90deg);
 }
 
 .user-avatar {
@@ -195,6 +226,46 @@ header h1 {
     .logged-in-box {
         top: var(--space-sm);
         right: var(--space-sm);
+    }
+    
+    /* Minimizable top bar on mobile */
+    .logged-in-box {
+        flex-direction: column;
+        align-items: flex-end;
+        padding: var(--space-xs) var(--space-sm);
+    }
+    
+    .topbar-toggle {
+        display: flex;
+        align-items: center;
+        gap: var(--space-xs);
+    }
+    
+    .topbar-content {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: var(--space-xs);
+        overflow: hidden;
+        max-height: 200px;
+        opacity: 1;
+        transition: max-height 0.3s ease, opacity 0.2s ease, padding 0.2s ease;
+        padding-top: var(--space-sm);
+    }
+    
+    .logged-in-box.collapsed .topbar-content {
+        max-height: 0;
+        opacity: 0;
+        padding-top: 0;
+    }
+    
+    /* Show username inline with toggle when collapsed */
+    .logged-in-box .topbar-toggle::before {
+        content: attr(data-username);
+        color: var(--accent-primary);
+        font-weight: 600;
+        font-size: 0.8rem;
+        margin-right: var(--space-xs);
     }
     
     .drawer-panel {

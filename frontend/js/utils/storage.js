@@ -233,3 +233,31 @@ export function removeSavedName() {
     localStorage.removeItem('embeddle_name');
 }
 
+/**
+ * Generic save to localStorage with error handling
+ * @param {string} key - Storage key (will be prefixed with embeddle_)
+ * @param {*} value - Value to store (will be JSON stringified)
+ */
+export function saveToStorage(key, value) {
+    try {
+        localStorage.setItem(`embeddle_${key}`, JSON.stringify(value));
+    } catch (e) {
+        console.warn('[Storage] Failed to save:', key, e);
+    }
+}
+
+/**
+ * Generic load from localStorage with error handling
+ * @param {string} key - Storage key (will be prefixed with embeddle_)
+ * @returns {*} Parsed value or null
+ */
+export function loadFromStorage(key) {
+    try {
+        const raw = localStorage.getItem(`embeddle_${key}`);
+        return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+        console.warn('[Storage] Failed to load:', key, e);
+        return null;
+    }
+}
+

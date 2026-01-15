@@ -42,12 +42,17 @@
         </button>
     </div>
     <div id="logged-in-box" class="logged-in-box hidden">
-        <img id="user-avatar" class="user-avatar hidden" src="" alt="">
-        <span id="logged-in-name">OPERATIVE</span>
-        <button id="daily-btn" class="btn btn-ghost btn-tiny" title="Daily Ops">🎯</button>
-        <button id="cosmetics-btn" class="btn btn-ghost btn-tiny" title="Cosmetics">🎨</button>
-        <button id="chat-btn" class="btn btn-ghost btn-tiny" title="Chat">💬<span id="chat-unread-dot" class="unread-dot hidden"></span></button>
-        <button id="options-btn" class="btn btn-ghost btn-tiny" title="Options">⚙️</button>
+        <button id="topbar-toggle" class="topbar-toggle" title="Toggle menu" aria-label="Toggle menu" aria-expanded="false">
+            <span class="topbar-toggle-icon">▼</span>
+        </button>
+        <div class="topbar-content">
+            <img id="user-avatar" class="user-avatar hidden" src="" alt="">
+            <span id="logged-in-name">OPERATIVE</span>
+            <button id="daily-btn" class="btn btn-ghost btn-tiny" title="Daily Ops">🎯</button>
+            <button id="cosmetics-btn" class="btn btn-ghost btn-tiny" title="Cosmetics">🎨</button>
+            <button id="chat-btn" class="btn btn-ghost btn-tiny" title="Chat">💬<span id="chat-unread-dot" class="unread-dot hidden"></span></button>
+            <button id="options-btn" class="btn btn-ghost btn-tiny" title="Options">⚙️</button>
+        </div>
     </div>
 
     <!-- Cosmetics Panel -->

@@ -1,20 +1,24 @@
 /**
  * Panels UI Component
- * Manages side panels (options, cosmetics, daily)
+ * Manages side panels (options, cosmetics, daily) and top bar
  */
 
 import { optionsState, getOptions } from '../state/optionsState.js';
-import { saveOptions } from '../utils/storage.js';
+import { saveOptions, loadFromStorage, saveToStorage } from '../utils/storage.js';
 import { applyMusicPreference } from '../utils/audio.js';
 import * as chat from './chat.js';
 
 // Panel states
 let optionsPanelOpen = false;
+let topbarCollapsed = false;
 
 /**
  * Initialize panels
  */
 export function init() {
+    // Top bar toggle (mobile)
+    initTopbarToggle();
+    
     // Options panel
     document.getElementById('options-btn')?.addEventListener('click', toggleOptions);
     document.getElementById('close-options-btn')?.addEventListener('click', closeOptions);
@@ -60,6 +64,64 @@ export function init() {
         const modal = document.getElementById('ml-info-modal');
         if (modal) modal.classList.remove('show');
     });
+}
+
+/**
+ * Initialize top bar toggle for mobile
+ */
+function initTopbarToggle() {
+    const toggle = document.getElementById('topbar-toggle');
+    const loggedInBox = document.getElementById('logged-in-box');
+    
+    if (!toggle || !loggedInBox) return;
+    
+    // Load saved state (default to collapsed on mobile)
+    const savedState = loadFromStorage('topbar_collapsed');
+    topbarCollapsed = savedState !== null ? savedState : true;
+    
+    // Apply initial state
+    updateTopbarState();
+    
+    // Add click handler
+    toggle.addEventListener('click', () => {
+        topbarCollapsed = !topbarCollapsed;
+        saveToStorage('topbar_collapsed', topbarCollapsed);
+        updateTopbarState();
+    });
+}
+
+/**
+ * Update top bar collapsed/expanded state
+ */
+function updateTopbarState() {
+    const loggedInBox = document.getElementById('logged-in-box');
+    const toggle = document.getElementById('topbar-toggle');
+    const nameEl = document.getElementById('logged-in-name');
+    
+    if (!loggedInBox || !toggle) return;
+    
+    loggedInBox.classList.toggle('collapsed', topbarCollapsed);
+    toggle.setAttribute('aria-expanded', String(!topbarCollapsed));
+    
+    // Update toggle to show username when collapsed
+    if (nameEl) {
+        toggle.setAttribute('data-username', nameEl.textContent || 'OPERATIVE');
+    }
+}
+
+/**
+ * Update the username displayed in the toggle (call when name changes)
+ */
+export function updateTopbarUsername(name) {
+    const toggle = document.getElementById('topbar-toggle');
+    const nameEl = document.getElementById('logged-in-name');
+    
+    if (nameEl) {
+        nameEl.textContent = name;
+    }
+    if (toggle) {
+        toggle.setAttribute('data-username', name);
+    }
 }
 
 /**
@@ -127,5 +189,6 @@ export default {
     closeOptions,
     applyOptionsToUI,
     applyOptions,
+    updateTopbarUsername,
 };
 
