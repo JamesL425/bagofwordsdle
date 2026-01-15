@@ -2918,6 +2918,7 @@ async function updateLobby() {
             const timeControl = data.time_control;
             const turnTime = timeControl?.turn_time || 0;
             const increment = timeControl?.increment || 0;
+            console.log('[updateLobby] time_control:', timeControl, 'turnTime:', turnTime, 'increment:', increment);
             
             if (turnTime > 0) {
                 timeBadge.textContent = `⏱ ${turnTime}s +${increment}s`;
