@@ -1379,6 +1379,59 @@ async function openProfileModal(playerName) {
             badgeEl.textContent = '';
         }
         
+        // Apply cosmetics (banner, accent, title)
+        const profileModal = modal.querySelector('.profile-modal');
+        const bannerEl = modal.querySelector('.profile-banner');
+        const joinedEl = document.getElementById('profile-joined');
+        
+        // Reset previous cosmetics
+        if (profileModal) {
+            profileModal.style.removeProperty('--profile-accent');
+            profileModal.removeAttribute('data-banner');
+        }
+        if (bannerEl) {
+            bannerEl.removeAttribute('data-banner');
+        }
+        
+        if (data.cosmetics) {
+            // Apply profile accent color
+            if (data.cosmetics.profile_accent && data.cosmetics.profile_accent !== 'default') {
+                const accentColor = typeof getProfileAccentColor === 'function' ? getProfileAccentColor(data.cosmetics) : null;
+                if (accentColor && profileModal) {
+                    profileModal.style.setProperty('--profile-accent', accentColor);
+                }
+            }
+            
+            // Apply banner
+            if (data.cosmetics.profile_banner && data.cosmetics.profile_banner !== 'none') {
+                if (bannerEl) {
+                    bannerEl.setAttribute('data-banner', data.cosmetics.profile_banner);
+                }
+            }
+            
+            // Apply title (display under name)
+            if (data.cosmetics.profile_title && data.cosmetics.profile_title !== 'none') {
+                const titleHtml = typeof getTitleHtml === 'function' ? getTitleHtml(data.cosmetics) : '';
+                if (titleHtml && joinedEl) {
+                    // Insert title before joined date
+                    const existingTitle = modal.querySelector('.profile-player-title');
+                    if (existingTitle) existingTitle.remove();
+                    const titleEl = document.createElement('span');
+                    titleEl.className = 'profile-player-title player-title';
+                    titleEl.innerHTML = titleHtml.replace(/<\/?span[^>]*>/g, ''); // Extract just the text
+                    joinedEl.parentNode.insertBefore(titleEl, joinedEl);
+                }
+            } else {
+                // Remove existing title if no title cosmetic
+                const existingTitle = modal.querySelector('.profile-player-title');
+                if (existingTitle) existingTitle.remove();
+            }
+        } else {
+            // No cosmetics - remove any existing title
+            const existingTitle = modal.querySelector('.profile-player-title');
+            if (existingTitle) existingTitle.remove();
+        }
+        
         // Update avatar
         const avatarEl = document.getElementById('profile-avatar');
         const placeholderEl = document.getElementById('profile-avatar-placeholder');
@@ -1392,7 +1445,6 @@ async function openProfileModal(playerName) {
         }
         
         // Update joined date
-        const joinedEl = document.getElementById('profile-joined');
         if (data.created_at) {
             const joinDate = new Date(data.created_at * 1000);
             const now = new Date();
