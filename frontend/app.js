@@ -2818,7 +2818,12 @@ async function updateSingleplayerLobby() {
             btn.disabled = !canAddMore;
         });
         
-        // Enable start button if we have at least 2 players (1 human + 1 AI)
+        // Check if player has voted for a theme
+        const opts = data.theme_options || [];
+        const votes = data.theme_votes || {};
+        const hasVoted = opts.some(t => (votes[t] || []).some(v => v.id === gameState.playerId));
+        
+        // Enable start button if we have at least 2 players (1 human + 1 AI) AND a theme is selected
         const aiCount = data.players.filter(p => p.is_ai).length;
         const startBtn = document.getElementById('sp-start-game-btn');
         const minPlayersNote = document.getElementById('sp-min-players');
@@ -2827,6 +2832,9 @@ async function updateSingleplayerLobby() {
             if (aiCount < 1) {
                 minPlayersNote.textContent = 'Add at least 1 AI opponent';
                 minPlayersNote.style.display = '';
+            } else if (!hasVoted) {
+                minPlayersNote.textContent = 'Select a database above';
+                minPlayersNote.style.display = '';
             } else {
                 minPlayersNote.textContent = 'Ready to start';
                 minPlayersNote.style.display = 'none';
@@ -2834,7 +2842,7 @@ async function updateSingleplayerLobby() {
         }
 
         if (startBtn && !spStartInProgress) {
-            startBtn.disabled = aiCount < 1;
+            startBtn.disabled = aiCount < 1 || !hasVoted;
             // Ensure the label is correct when not actively starting
             startBtn.textContent = '> START_MISSION';
         }
