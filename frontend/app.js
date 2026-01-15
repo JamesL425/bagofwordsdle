@@ -5930,7 +5930,10 @@ async function confirmLeaveGame({ forfeit = false } = {}) {
 
     try {
         if (code && playerId) {
-            const payload = { player_id: playerId };
+            const payload = {
+                player_id: playerId,
+                session_token: gameState.sessionToken,
+            };
             // Only solo games support "soft exit" vs "forfeit".
             if (gameState.isSingleplayer && forfeit) {
                 payload.forfeit = true;
