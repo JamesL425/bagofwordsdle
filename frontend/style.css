@@ -2568,12 +2568,13 @@ body.nerd-mode .nerd-sim {
 .profile-modal {
     position: relative;
     z-index: 1;
-    width: min(520px, 95%);
+    width: min(580px, 95%);
+    max-height: 90vh;
+    overflow-y: auto;
     background: var(--bg-card);
     border: 2px solid var(--accent-primary);
     border-radius: var(--radius);
     box-shadow: 0 0 40px rgba(0, 255, 65, 0.25), 0 0 80px rgba(0, 255, 65, 0.1);
-    overflow: hidden;
     animation: profile-appear 0.2s ease-out;
 }
 
@@ -2591,7 +2592,7 @@ body.nerd-mode .nerd-sim {
 /* Profile Banner */
 .profile-banner {
     position: relative;
-    height: 80px;
+    height: 70px;
     background: linear-gradient(135deg, 
         rgba(0, 255, 65, 0.15) 0%, 
         rgba(0, 100, 30, 0.2) 50%,
@@ -2639,9 +2640,9 @@ body.nerd-mode .nerd-sim {
 .profile-header {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding: 0 1.5rem;
-    margin-top: -40px;
+    gap: 0.875rem;
+    padding: 0 1.25rem;
+    margin-top: -35px;
     position: relative;
     z-index: 1;
 }
@@ -2651,11 +2652,11 @@ body.nerd-mode .nerd-sim {
 }
 
 .profile-avatar {
-    width: 72px;
-    height: 72px;
+    width: 60px;
+    height: 60px;
     border-radius: 50%;
-    border: 3px solid var(--accent-primary);
-    box-shadow: 0 0 20px rgba(0, 255, 65, 0.4);
+    border: 2px solid var(--accent-primary);
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
     object-fit: cover;
     background: var(--bg-card);
 }
@@ -2664,31 +2665,31 @@ body.nerd-mode .nerd-sim {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 72px;
-    height: 72px;
+    width: 60px;
+    height: 60px;
     border-radius: 50%;
-    border: 3px solid var(--border);
+    border: 2px solid var(--border);
     background: var(--bg-secondary);
-    font-size: 2rem;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+    font-size: 1.75rem;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
 }
 
 .profile-title-wrapper {
     flex: 1;
     min-width: 0;
-    padding-top: 0.5rem;
+    padding-top: 0.4rem;
 }
 
 .profile-name-row {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
 }
 
 .profile-header h2 {
     color: var(--accent-primary);
     margin: 0;
-    font-size: 1.4rem;
+    font-size: 1.2rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2696,25 +2697,25 @@ body.nerd-mode .nerd-sim {
 }
 
 .profile-badge {
-    font-size: 1.2rem;
+    font-size: 1rem;
     flex-shrink: 0;
 }
 
 .profile-joined {
     display: block;
     color: var(--text-muted);
-    font-size: 0.75rem;
-    margin-top: 0.25rem;
+    font-size: 0.7rem;
+    margin-top: 0.2rem;
 }
 
 /* Profile Content */
 .profile-content {
     position: relative;
-    padding: 1.25rem 1.5rem 1.5rem;
+    padding: 1rem 1.25rem 1.25rem;
 }
 
 .profile-section {
-    margin-bottom: 1.25rem;
+    margin-bottom: 1rem;
 }
 
 .profile-section:last-of-type {
@@ -2723,8 +2724,8 @@ body.nerd-mode .nerd-sim {
 
 .profile-section-title {
     color: var(--accent-secondary);
-    font-size: 0.75rem;
-    margin: 0 0 0.75rem 0;
+    font-size: 0.7rem;
+    margin: 0 0 0.6rem 0;
     letter-spacing: 0.05em;
     opacity: 0.8;
 }
@@ -2732,12 +2733,12 @@ body.nerd-mode .nerd-sim {
 .profile-stats-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 0.75rem;
+    gap: 0.6rem;
 }
 
 .profile-stat {
     text-align: center;
-    padding: 0.75rem 0.5rem;
+    padding: 0.6rem 0.4rem;
     background: var(--bg-secondary);
     border-radius: var(--radius-sm);
     border: 1px solid var(--border);
@@ -2751,7 +2752,7 @@ body.nerd-mode .nerd-sim {
 
 .profile-stat-value {
     display: block;
-    font-size: 1.3rem;
+    font-size: 1.1rem;
     font-weight: bold;
     color: var(--text-primary);
     font-family: 'JetBrains Mono', monospace;
@@ -2759,16 +2760,16 @@ body.nerd-mode .nerd-sim {
 
 .profile-stat-label {
     display: block;
-    font-size: 0.65rem;
+    font-size: 0.6rem;
     color: var(--text-muted);
     text-transform: uppercase;
-    margin-top: 0.2rem;
+    margin-top: 0.15rem;
     letter-spacing: 0.03em;
 }
 
 /* Ranked Section */
 .profile-ranked-section {
-    padding-top: 1.25rem;
+    padding-top: 1rem;
     border-top: 1px solid var(--border);
 }
 
@@ -2776,12 +2777,12 @@ body.nerd-mode .nerd-sim {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 .profile-rank-tier .rank-badge {
-    font-size: 0.9rem;
-    padding: 0.5rem 1.25rem;
+    font-size: 0.8rem;
+    padding: 0.4rem 1rem;
 }
 
 .profile-ranked-grid {
@@ -2792,8 +2793,8 @@ body.nerd-mode .nerd-sim {
 .profile-actions {
     display: flex;
     justify-content: center;
-    margin-top: 1.25rem;
-    padding-top: 1.25rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
     border-top: 1px solid var(--border);
 }
 
