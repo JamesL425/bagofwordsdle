@@ -3913,10 +3913,22 @@ function updatePlayersGrid(game) {
         });
     });
     
-    // Sort and keep top 3 for each player
+    // Sort and keep top 3 unique words for each player
     Object.keys(topGuessesPerPlayer).forEach(playerId => {
+        // Sort by similarity descending
         topGuessesPerPlayer[playerId].sort((a, b) => b.similarity - a.similarity);
-        topGuessesPerPlayer[playerId] = topGuessesPerPlayer[playerId].slice(0, 3);
+        // Deduplicate words, keeping only the highest similarity for each word
+        const seen = new Set();
+        const unique = [];
+        for (const guess of topGuessesPerPlayer[playerId]) {
+            const wordLower = guess.word.toLowerCase();
+            if (!seen.has(wordLower)) {
+                seen.add(wordLower);
+                unique.push(guess);
+                if (unique.length >= 3) break;
+            }
+        }
+        topGuessesPerPlayer[playerId] = unique;
     });
     
     // Get max transformed similarity for danger indicator
