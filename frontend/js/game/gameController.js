@@ -8,6 +8,7 @@ import { games } from '../services/api.js';
 import { gameState } from '../state/gameState.js';
 import { optionsState } from '../state/optionsState.js';
 import { showError, showSuccess, showInfo } from '../ui/toast.js';
+import { playTurnNotificationSfx } from '../utils/audio.js';
 import * as screens from '../ui/screens.js';
 import * as playerCards from './playerCards.js';
 import * as history from './history.js';
@@ -38,6 +39,9 @@ async function requestNotificationPermission() {
  */
 function showTurnNotification() {
     if (!optionsState.turnNotificationsEnabled) return;
+    
+    // Play notification sound
+    playTurnNotificationSfx();
     
     // Show toast notification (always, for in-tab feedback)
     showInfo("🎯 It's your turn!");

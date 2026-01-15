@@ -194,6 +194,18 @@ export function playMMRChangeSfx(isGain) {
 }
 
 /**
+ * Play turn notification sound effect - attention-grabbing but pleasant chime
+ */
+export function playTurnNotificationSfx() {
+    resumeSfxContext();
+    // Two-note attention chime (like a doorbell or notification)
+    playTone({ freq: 587, durationMs: 120, type: 'sine', volume: 0.06 }); // D5
+    setTimeout(() => {
+        playTone({ freq: 880, durationMs: 180, type: 'sine', volume: 0.07 }); // A5
+    }, 100);
+}
+
+/**
  * Set BGM configuration
  * @param {Object} config - BGM config from server
  */
