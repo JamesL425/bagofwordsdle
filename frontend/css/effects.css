@@ -3,6 +3,33 @@
  * Cosmetics, particles, victory effects, elimination animations
  */
 
+/* ============ AI CHAT BUBBLES ============ */
+
+@keyframes fadeInOut {
+    0% {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+    15% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    85% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-10px);
+    }
+}
+
+.ai-chat-bubble {
+    font-family: var(--font-body, 'Inter', sans-serif);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 /* ============ MATRIX BACKGROUND ============ */
 
 .matrix-bg {

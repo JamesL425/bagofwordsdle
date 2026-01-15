@@ -4472,6 +4472,11 @@ async function submitGuess() {
         // Update with real server state
         removePendingGuessFromHistory();
         updateGame(game);
+        
+        // Show AI reactions if any (singleplayer)
+        if (game.ai_reactions && game.ai_reactions.length > 0) {
+            showAiReactions(game.ai_reactions);
+        }
 
         // Then let AIs take their turns
         maybeRunSingleplayerAiTurns(game);
@@ -4488,6 +4493,20 @@ async function submitGuess() {
     } finally {
         guessInput.placeholder = originalPlaceholder;
     }
+}
+
+/**
+ * Show AI reactions (chat messages) with staggered timing
+ */
+function showAiReactions(reactions) {
+    if (!reactions || reactions.length === 0) return;
+    
+    reactions.forEach((reaction, index) => {
+        // Stagger reactions by 400ms each
+        setTimeout(() => {
+            showAiChatMessage(reaction.ai_name, reaction.message);
+        }, index * 400);
+    });
 }
 
 // Optimistic UI helpers for guess submission
@@ -4573,13 +4592,21 @@ async function runSingleplayerAiTurns() {
                 turnText.textContent = `${currentAi.name} is thinking...`;
             }
 
-            // Reduced thinking time for snappier feel (350ms instead of 1000ms)
-            await sleep(350);
-
-            // Process AI move - server returns updated game state
+            // Process AI move - server returns updated game state with think_time_ms
             const updated = await apiCall(`/api/games/${gameState.code}/ai-step`, 'POST', {
                 player_id: gameState.playerId,
             });
+            
+            // Use dynamic thinking time from server (or fallback to 350ms)
+            const thinkTimeMs = updated.ai_think_time_ms || 350;
+            
+            // Wait for the AI's "thinking" time for natural feel
+            await sleep(thinkTimeMs);
+            
+            // Show AI chat message if any
+            if (updated.ai_chat) {
+                showAiChatMessage(currentAi?.name || 'AI', updated.ai_chat);
+            }
             
             // Use the returned game state directly (no second fetch needed)
             game = updated;
@@ -4594,6 +4621,36 @@ async function runSingleplayerAiTurns() {
     } finally {
         singleplayerAiRunnerActive = false;
     }
+}
+
+/**
+ * Show an AI chat message in the game UI
+ */
+function showAiChatMessage(aiName, message) {
+    if (!message) return;
+    
+    // Use toast for now, could be enhanced with a proper chat bubble
+    const chatEl = document.createElement('div');
+    chatEl.className = 'ai-chat-bubble';
+    chatEl.innerHTML = `<strong>${aiName}:</strong> ${message}`;
+    chatEl.style.cssText = `
+        position: fixed;
+        bottom: 100px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 14px;
+        z-index: 1000;
+        animation: fadeInOut 2.5s ease-in-out forwards;
+    `;
+    
+    document.body.appendChild(chatEl);
+    
+    // Remove after animation
+    setTimeout(() => chatEl.remove(), 2500);
 }
 
 // Change word - also handle Enter key

@@ -500,6 +500,158 @@ ADMIN_ECONOMY_TTL_SECONDS = 3600
 
 # ============== AI PLAYER CONFIGURATION ==============
 
+# AI Personality types - each affects playstyle
+AI_PERSONALITY_TYPES = ["aggressive", "cautious", "chaotic", "methodical", "opportunist"]
+
+# Personality modifiers (applied on top of difficulty settings)
+AI_PERSONALITY_CONFIG = {
+    "aggressive": {
+        "description": "Targets leaders, takes risks",
+        "targeting_boost": 0.15,           # More likely to target
+        "self_leak_tolerance": 0.05,       # Willing to leak more
+        "target_preference": "leader",     # Prefers players doing well
+        "random_chance_mod": -0.1,         # Less random guessing
+        "think_time_mod": 0.8,             # Thinks faster (impatient)
+    },
+    "cautious": {
+        "description": "Defensive, avoids self-leak",
+        "targeting_boost": -0.1,           # Less aggressive targeting
+        "self_leak_tolerance": -0.08,      # Very careful about leaking
+        "target_preference": "safe",       # Targets already-exposed players
+        "random_chance_mod": 0.05,         # Slightly more random (safer)
+        "think_time_mod": 1.3,             # Thinks longer (careful)
+    },
+    "chaotic": {
+        "description": "Unpredictable, random streaks",
+        "targeting_boost": 0.0,
+        "self_leak_tolerance": 0.02,
+        "target_preference": "random",     # Random target selection
+        "random_chance_mod": 0.2,          # Much more random
+        "think_time_mod": 0.7,             # Quick decisions
+    },
+    "methodical": {
+        "description": "Systematic elimination",
+        "targeting_boost": 0.05,
+        "self_leak_tolerance": -0.03,
+        "target_preference": "weakest",    # Focuses on nearly-eliminated players
+        "random_chance_mod": -0.05,        # Slightly less random
+        "think_time_mod": 1.1,             # Deliberate pace
+    },
+    "opportunist": {
+        "description": "Exploits weak players",
+        "targeting_boost": 0.1,
+        "self_leak_tolerance": 0.0,
+        "target_preference": "vulnerable", # Targets high-danger players
+        "random_chance_mod": -0.08,
+        "think_time_mod": 0.95,
+    },
+}
+
+# AI Timing configuration - simulates human thinking patterns
+AI_TIMING_CONFIG = {
+    "rookie": {
+        "base_think_ms": (800, 2500),       # Slower, uncertain
+        "strategic_think_ms": (1500, 4000), # Takes longer on hard decisions
+        "hesitation_chance": 0.3,           # Sometimes pauses mid-thought
+        "hesitation_ms": (300, 800),        # How long the hesitation lasts
+    },
+    "analyst": {
+        "base_think_ms": (600, 2000),
+        "strategic_think_ms": (1200, 3000),
+        "hesitation_chance": 0.2,
+        "hesitation_ms": (200, 600),
+    },
+    "field-agent": {
+        "base_think_ms": (500, 1500),
+        "strategic_think_ms": (1000, 2500),
+        "hesitation_chance": 0.15,
+        "hesitation_ms": (150, 500),
+    },
+    "spymaster": {
+        "base_think_ms": (450, 1300),
+        "strategic_think_ms": (900, 2000),
+        "hesitation_chance": 0.1,
+        "hesitation_ms": (100, 400),
+    },
+    "ghost": {
+        "base_think_ms": (350, 1100),       # Quick, confident
+        "strategic_think_ms": (700, 1800),
+        "hesitation_chance": 0.05,
+        "hesitation_ms": (80, 300),
+    },
+}
+
+# AI Mistake configuration - makes AIs feel more human
+AI_MISTAKE_CONFIG = {
+    "rookie": {
+        "miss_obvious_target": 0.25,        # Fails to follow up on good clues
+        "overconfident_guess": 0.20,        # Guesses too-similar words (self-leak)
+        "repeat_bad_strategy": 0.15,        # Keeps targeting wrong player
+        "panic_mistake": 0.40,              # Makes bad choices under pressure
+        "forget_clue": 0.20,                # Ignores recent high-similarity info
+    },
+    "analyst": {
+        "miss_obvious_target": 0.15,
+        "overconfident_guess": 0.12,
+        "repeat_bad_strategy": 0.10,
+        "panic_mistake": 0.25,
+        "forget_clue": 0.12,
+    },
+    "field-agent": {
+        "miss_obvious_target": 0.10,
+        "overconfident_guess": 0.10,
+        "repeat_bad_strategy": 0.08,
+        "panic_mistake": 0.18,
+        "forget_clue": 0.08,
+    },
+    "spymaster": {
+        "miss_obvious_target": 0.05,
+        "overconfident_guess": 0.08,
+        "repeat_bad_strategy": 0.04,
+        "panic_mistake": 0.12,
+        "forget_clue": 0.05,
+    },
+    "ghost": {
+        "miss_obvious_target": 0.03,
+        "overconfident_guess": 0.06,
+        "repeat_bad_strategy": 0.02,
+        "panic_mistake": 0.08,
+        "forget_clue": 0.02,
+    },
+}
+
+# AI Chat messages for different situations
+AI_CHAT_MESSAGES = {
+    "near_miss": [
+        "So close!", "Hmm interesting...", "👀", "Getting warmer...",
+        "Ooh that was close", "Almost!", "🤔", "Noted...",
+    ],
+    "got_eliminated": [
+        "GG", "Well played!", "😅", "You got me", "Nice one",
+        "Ouch", "Fair enough", "👏", "I knew it...",
+    ],
+    "eliminated_someone": [
+        "Got you!", "Sorry not sorry", "💀", "Gotcha!",
+        "Too easy", "😎", "Bye bye", "Called it",
+    ],
+    "panic_mode": [
+        "😰", "This is fine...", "Uh oh", "🙈",
+        "Getting hot in here", "Sweating a bit", "",  # Sometimes silent
+    ],
+    "good_guess": [
+        "Nice guess!", "Good one", "👍", "Clever",
+        "Didn't see that coming", "Ooh smart", "",
+    ],
+    "game_start": [
+        "Good luck everyone!", "Let's go!", "Ready!", "🎯",
+        "May the best spy win", "Bring it on", "",
+    ],
+    "thinking": [
+        "Hmm...", "Let me think...", "🤔", "Interesting...",
+        "", "", "",  # Often silent while thinking
+    ],
+}
+
 # AI difficulty settings
 #
 # NOTE: Difficulty keys are persisted in saved game state; changing keys can affect in-flight games.
@@ -516,7 +668,7 @@ AI_DIFFICULTY_CONFIG = {
         # Defense/risk knobs (used by ai_choose_guess)
         "self_leak_soft_max": 0.92,
         "self_leak_hard_max": 0.98,
-        "panic_danger": "critical",      # rookie basically doesn't “panic”
+        "panic_danger": "critical",      # rookie basically doesn't "panic"
         "panic_aggression_boost": 0.05,
         "candidate_pool": 8,
         "clue_words_per_target": 1,
@@ -593,7 +745,9 @@ def generate_ai_player_id(difficulty: str) -> str:
 
 
 def create_ai_player(difficulty: str, existing_names: list) -> dict:
-    """Create an AI player with the specified difficulty."""
+    """Create an AI player with the specified difficulty and random personality."""
+    import random
+    
     default_cfg = AI_DIFFICULTY_CONFIG.get("rookie") or {}
     config = AI_DIFFICULTY_CONFIG.get(difficulty, default_cfg)
     
@@ -609,7 +763,10 @@ def create_ai_player(difficulty: str, existing_names: list) -> dict:
     
     name = f"{config['name_prefix']}-{suffix}"
     
-    # Give different difficulties distinct “agent” vibes in the UI
+    # Assign a random personality
+    personality = random.choice(AI_PERSONALITY_TYPES)
+    
+    # Give different difficulties distinct "agent" vibes in the UI
     ai_cosmetics_by_difficulty = {
         "rookie": {"card_border": "classic", "card_background": "default", "name_color": "default"},
         "analyst": {"card_border": "ice", "card_background": "gradient_ice", "name_color": "ice"},
@@ -623,6 +780,7 @@ def create_ai_player(difficulty: str, existing_names: list) -> dict:
         "id": generate_ai_player_id(difficulty),
         "name": name,
         "difficulty": difficulty,
+        "personality": personality,
         "is_ai": True,
         "secret_word": None,
         "secret_embedding": None,
@@ -639,6 +797,16 @@ def create_ai_player(difficulty: str, existing_names: list) -> dict:
         "ai_memory": {
             "high_similarity_targets": {},  # player_id -> [(word, similarity)]
             "guessed_words": [],
+            "grudges": {},                   # player_id -> grudge_strength (0-1)
+            "streak": 0,                     # positive = hot streak, negative = cold streak
+            "last_guess_quality": None,      # "good", "bad", "neutral"
+            "adaptation_notes": {},          # player_id -> observed patterns
+        },
+        "ai_state": {
+            "is_panicking": False,
+            "confidence": 0.5,               # 0-1, affects decision making
+            "last_think_time_ms": 0,
+            "pending_chat": None,            # Message to send after turn
         },
     }
 
@@ -863,13 +1031,325 @@ def _ai_self_similarity(ai_player: dict, word: str) -> Optional[float]:
         return None
 
 
+# ============== AI REALISM HELPERS ==============
+
+def _ai_get_personality_modifiers(ai_player: dict) -> dict:
+    """Get personality modifiers for an AI player."""
+    personality = ai_player.get("personality", "methodical")
+    return AI_PERSONALITY_CONFIG.get(personality, AI_PERSONALITY_CONFIG["methodical"])
+
+
+def _ai_calculate_think_time(ai_player: dict, is_strategic: bool, is_panicking: bool) -> int:
+    """Calculate how long the AI should 'think' before making a move (in ms)."""
+    import random
+    
+    difficulty = ai_player.get("difficulty", "rookie")
+    timing = AI_TIMING_CONFIG.get(difficulty, AI_TIMING_CONFIG["rookie"])
+    personality_mods = _ai_get_personality_modifiers(ai_player)
+    
+    # Base think time range
+    if is_strategic:
+        min_ms, max_ms = timing["strategic_think_ms"]
+    else:
+        min_ms, max_ms = timing["base_think_ms"]
+    
+    # Apply personality modifier
+    think_mod = personality_mods.get("think_time_mod", 1.0)
+    min_ms = int(min_ms * think_mod)
+    max_ms = int(max_ms * think_mod)
+    
+    # Panicking makes you either faster (rushed) or slower (frozen)
+    if is_panicking:
+        if random.random() < 0.6:
+            # Rushed - faster
+            min_ms = int(min_ms * 0.6)
+            max_ms = int(max_ms * 0.7)
+        else:
+            # Frozen - slower
+            min_ms = int(min_ms * 1.3)
+            max_ms = int(max_ms * 1.5)
+    
+    # Add hesitation chance
+    hesitation_chance = timing.get("hesitation_chance", 0.1)
+    hesitation_ms = 0
+    if random.random() < hesitation_chance:
+        h_min, h_max = timing.get("hesitation_ms", (100, 400))
+        hesitation_ms = random.randint(h_min, h_max)
+    
+    base_time = random.randint(min_ms, max_ms)
+    return base_time + hesitation_ms
+
+
+def _ai_should_make_mistake(ai_player: dict, mistake_type: str, is_panicking: bool = False) -> bool:
+    """Check if the AI should make a specific type of mistake."""
+    import random
+    
+    difficulty = ai_player.get("difficulty", "rookie")
+    mistakes = AI_MISTAKE_CONFIG.get(difficulty, AI_MISTAKE_CONFIG["rookie"])
+    
+    base_chance = mistakes.get(mistake_type, 0.0)
+    
+    # Panic increases mistake chance
+    if is_panicking and mistake_type == "panic_mistake":
+        base_chance = min(0.9, base_chance * 1.5)
+    elif is_panicking:
+        base_chance = min(0.8, base_chance * 1.2)
+    
+    # Personality affects some mistakes
+    personality_mods = _ai_get_personality_modifiers(ai_player)
+    if mistake_type == "overconfident_guess" and personality_mods.get("self_leak_tolerance", 0) > 0:
+        base_chance = min(0.5, base_chance * 1.3)  # Aggressive types more prone
+    
+    # Streak affects mistakes - cold streak increases mistakes
+    memory = ai_player.get("ai_memory", {})
+    streak = memory.get("streak", 0)
+    if streak < -2:  # Cold streak
+        base_chance = min(0.6, base_chance * 1.2)
+    elif streak > 2:  # Hot streak - fewer mistakes
+        base_chance = base_chance * 0.7
+    
+    return random.random() < base_chance
+
+
+def _ai_update_streak(ai_player: dict, guess_result: str):
+    """Update AI's hot/cold streak based on guess outcome."""
+    memory = ai_player.get("ai_memory", {})
+    streak = memory.get("streak", 0)
+    
+    if guess_result == "elimination":
+        streak = min(5, streak + 2)  # Big boost for elimination
+    elif guess_result == "high_similarity":
+        streak = min(5, streak + 1)  # Small boost for good guess
+    elif guess_result == "low_similarity":
+        streak = max(-5, streak - 1)  # Penalty for bad guess
+    elif guess_result == "got_eliminated":
+        streak = -3  # Reset to cold on being eliminated
+    
+    memory["streak"] = streak
+    memory["last_guess_quality"] = guess_result
+    ai_player["ai_memory"] = memory
+
+
+def _ai_update_grudge(ai_player: dict, attacker_id: str, similarity: float):
+    """Update grudge against a player who targeted this AI."""
+    memory = ai_player.get("ai_memory", {})
+    grudges = memory.get("grudges", {})
+    
+    # High similarity attacks build grudge
+    if similarity > 0.6:
+        current_grudge = grudges.get(attacker_id, 0.0)
+        grudge_increase = (similarity - 0.5) * 0.5  # 0.6 sim = +0.05, 0.9 sim = +0.2
+        grudges[attacker_id] = min(1.0, current_grudge + grudge_increase)
+    
+    # Grudges decay slightly over time
+    for pid in list(grudges.keys()):
+        if pid != attacker_id:
+            grudges[pid] = max(0, grudges[pid] - 0.05)
+    
+    memory["grudges"] = grudges
+    ai_player["ai_memory"] = memory
+
+
+def _ai_select_target_by_personality(ai_player: dict, game: dict, available_targets: list) -> Optional[dict]:
+    """Select a target based on AI personality preference."""
+    import random
+    
+    if not available_targets:
+        return None
+    
+    personality_mods = _ai_get_personality_modifiers(ai_player)
+    preference = personality_mods.get("target_preference", "random")
+    memory = ai_player.get("ai_memory", {})
+    grudges = memory.get("grudges", {})
+    
+    # Check for grudge override (personality-independent revenge)
+    if grudges:
+        max_grudge_id = max(grudges.keys(), key=lambda k: grudges[k])
+        if grudges[max_grudge_id] > 0.5:
+            # Strong grudge - 40% chance to target them instead
+            if random.random() < 0.4:
+                grudge_target = next((t for t in available_targets if t.get("player_id") == max_grudge_id), None)
+                if grudge_target:
+                    return grudge_target
+    
+    if preference == "random":
+        return random.choice(available_targets)
+    
+    elif preference == "leader":
+        # Target player with most eliminations (or first in turn order as proxy)
+        # For now, just pick the one with highest danger to others
+        return max(available_targets, key=lambda t: t.get("score", 0))
+    
+    elif preference == "safe":
+        # Target already-exposed players (high danger score)
+        exposed = [t for t in available_targets if t.get("top_similarity", 0) > 0.65]
+        if exposed:
+            return random.choice(exposed)
+        return random.choice(available_targets)
+    
+    elif preference == "weakest":
+        # Target player closest to elimination (highest danger)
+        return max(available_targets, key=lambda t: t.get("top_similarity", 0))
+    
+    elif preference == "vulnerable":
+        # Same as weakest but with some randomness
+        sorted_targets = sorted(available_targets, key=lambda t: t.get("top_similarity", 0), reverse=True)
+        top_half = sorted_targets[:max(1, len(sorted_targets) // 2)]
+        return random.choice(top_half)
+    
+    return random.choice(available_targets)
+
+
+def _ai_maybe_bluff(ai_player: dict, game: dict, available_words: list) -> Optional[str]:
+    """Occasionally guess a word near own secret to mislead opponents."""
+    import random
+    
+    difficulty = ai_player.get("difficulty", "rookie")
+    personality_mods = _ai_get_personality_modifiers(ai_player)
+    
+    # Only higher difficulties bluff, and only certain personalities
+    bluff_base_chance = {
+        "rookie": 0.0,
+        "analyst": 0.03,
+        "field-agent": 0.06,
+        "spymaster": 0.10,
+        "ghost": 0.15,
+    }.get(difficulty, 0.0)
+    
+    # Cautious personalities don't bluff; aggressive ones bluff more
+    if personality_mods.get("self_leak_tolerance", 0) < 0:
+        bluff_base_chance = 0  # Cautious won't bluff
+    elif personality_mods.get("self_leak_tolerance", 0) > 0:
+        bluff_base_chance *= 1.5  # Aggressive bluffs more
+    
+    if random.random() >= bluff_base_chance:
+        return None
+    
+    # Find words moderately similar to own secret (not too close, not too far)
+    my_secret = ai_player.get("secret_word", "")
+    if not my_secret:
+        return None
+    
+    try:
+        my_embedding = ai_player.get("secret_embedding")
+        if not my_embedding:
+            return None
+        
+        bluff_candidates = []
+        for word in available_words[:30]:  # Sample for performance
+            word_emb = get_embedding(word)
+            sim = cosine_similarity(my_embedding, word_emb)
+            # Sweet spot: 0.5-0.75 similarity (close enough to mislead, not too close to self-eliminate)
+            if 0.5 < sim < 0.75:
+                bluff_candidates.append((word, sim))
+        
+        if bluff_candidates:
+            # Pick one randomly from the bluff candidates
+            return random.choice(bluff_candidates)[0]
+    except Exception:
+        pass
+    
+    return None
+
+
+def _ai_adapt_to_player(ai_player: dict, game: dict, player_id: str):
+    """Track patterns in a player's behavior for adaptation."""
+    memory = ai_player.get("ai_memory", {})
+    adaptation = memory.get("adaptation_notes", {})
+    
+    if player_id not in adaptation:
+        adaptation[player_id] = {
+            "guess_patterns": [],
+            "word_change_count": 0,
+            "avg_similarity_received": 0.0,
+            "samples": 0,
+        }
+    
+    # Analyze recent history for this player
+    history = game.get("history", [])
+    player_guesses = [h for h in history if h.get("guesser_id") == player_id]
+    
+    if player_guesses:
+        # Track their targeting patterns
+        recent = player_guesses[-5:]
+        my_id = ai_player.get("id")
+        targeted_me = sum(1 for g in recent if g.get("similarities", {}).get(my_id, 0) > 0.5)
+        adaptation[player_id]["targeting_me_rate"] = targeted_me / len(recent) if recent else 0
+    
+    memory["adaptation_notes"] = adaptation
+    ai_player["ai_memory"] = memory
+
+
+def _ai_generate_chat_message(ai_player: dict, trigger: str, context: dict = None) -> Optional[str]:
+    """Generate a contextual chat message for the AI."""
+    import random
+    
+    messages = AI_CHAT_MESSAGES.get(trigger, [])
+    if not messages:
+        return None
+    
+    # Higher difficulties chat less (more stoic)
+    difficulty = ai_player.get("difficulty", "rookie")
+    chat_chance = {
+        "rookie": 0.6,
+        "analyst": 0.45,
+        "field-agent": 0.35,
+        "spymaster": 0.25,
+        "ghost": 0.15,
+    }.get(difficulty, 0.3)
+    
+    # Personality affects chat frequency
+    personality = ai_player.get("personality", "methodical")
+    if personality == "chaotic":
+        chat_chance *= 1.5
+    elif personality == "cautious":
+        chat_chance *= 0.7
+    
+    if random.random() >= chat_chance:
+        return None
+    
+    message = random.choice(messages)
+    return message if message else None  # Empty strings mean silence
+
+
+def _ai_update_confidence(ai_player: dict, event: str, value: float = 0.0):
+    """Update AI's confidence level based on game events."""
+    ai_state = ai_player.get("ai_state", {})
+    confidence = ai_state.get("confidence", 0.5)
+    
+    if event == "made_elimination":
+        confidence = min(1.0, confidence + 0.15)
+    elif event == "high_similarity_guess":
+        confidence = min(1.0, confidence + 0.05)
+    elif event == "low_similarity_guess":
+        confidence = max(0.1, confidence - 0.05)
+    elif event == "got_targeted":
+        # Value is the similarity of the attack
+        confidence = max(0.1, confidence - value * 0.2)
+    elif event == "danger_increased":
+        confidence = max(0.1, confidence - 0.1)
+    
+    ai_state["confidence"] = confidence
+    ai_player["ai_state"] = ai_state
+
+
 def ai_choose_guess(ai_player: dict, game: dict) -> Optional[str]:
-    """AI chooses a word to guess based on difficulty and game state."""
+    """AI chooses a word to guess based on difficulty, personality, and game state.
+    
+    This function incorporates:
+    - Difficulty-based strategic decision making
+    - Personality-driven target selection
+    - Human-like mistakes
+    - Bluffing behavior
+    - Grudge-based targeting
+    - Confidence and streak effects
+    """
     import random
     
     difficulty = ai_player.get("difficulty", "rookie")
     default_cfg = AI_DIFFICULTY_CONFIG.get("rookie") or {}
     config = AI_DIFFICULTY_CONFIG.get(difficulty, default_cfg)
+    personality_mods = _ai_get_personality_modifiers(ai_player)
     
     theme_words = game.get("theme", {}).get("words", [])
     memory = ai_player.get("ai_memory", {})
@@ -899,18 +1379,39 @@ def ai_choose_guess(ai_player: dict, game: dict) -> Optional[str]:
     strategic_chance = float(config.get("strategic_chance", 0.15) or 0.15)
     targeting_strength = float(config.get("targeting_strength", 0.2) or 0.2)
     min_target_similarity = float(config.get("min_target_similarity", 0.3) or 0.3)
+    
+    # Apply personality modifiers
+    strategic_chance = max(0.05, min(0.95, strategic_chance + personality_mods.get("random_chance_mod", 0) * -1))
+    targeting_strength = max(0.1, min(0.95, targeting_strength + personality_mods.get("targeting_boost", 0)))
 
     panic_threshold = str(config.get("panic_danger", "high") or "high")
     panic = _ai_is_panic(my_danger_level, panic_threshold)
+    
+    # Update AI state for panic
+    ai_state = ai_player.get("ai_state", {})
+    ai_state["is_panicking"] = panic
+    ai_player["ai_state"] = ai_state
+    
     if panic:
         strategic_chance = min(0.98, strategic_chance + float(config.get("panic_aggression_boost", 0.2) or 0.2))
         targeting_strength = min(0.98, targeting_strength + float(config.get("panic_aggression_boost", 0.2) or 0.2) * 0.6)
+        
+        # Generate panic chat message
+        chat_msg = _ai_generate_chat_message(ai_player, "panic_mode")
+        if chat_msg:
+            ai_state["pending_chat"] = chat_msg
 
     # Self-leak controls: avoid guesses too close to our own secret unless panic forces our hand
     soft_max = float(config.get("self_leak_soft_max", 0.85) or 0.85)
     hard_max = float(config.get("self_leak_hard_max", 0.95) or 0.95)
+    
+    # Apply personality self-leak tolerance
+    leak_tolerance = personality_mods.get("self_leak_tolerance", 0)
+    soft_max = min(0.95, soft_max + leak_tolerance)
+    hard_max = min(0.98, hard_max + leak_tolerance)
+    
     if panic:
-        # In panic, relax leak avoidance a bit: you're willing to “bleed” to secure a word change
+        # In panic, relax leak avoidance a bit: you're willing to "bleed" to secure a word change
         soft_max = min(0.99, soft_max + 0.05)
         hard_max = min(0.995, hard_max + 0.03)
 
@@ -956,15 +1457,36 @@ def ai_choose_guess(ai_player: dict, game: dict) -> Optional[str]:
         top_n = min(len(scored), 3 if not panic else 2)
         return str(random.choice(scored[:top_n])[0])
     
+    # === MISTAKE CHECK: Miss obvious target ===
+    # Sometimes the AI "forgets" to follow up on a good clue
+    if _ai_should_make_mistake(ai_player, "miss_obvious_target", panic):
+        # Skip strategic guessing entirely, go random
+        pool_size = int(config.get("candidate_pool", 12) or 12)
+        sample_n = max(8, min(len(available_words), pool_size))
+        sample = random.sample(available_words, sample_n) if sample_n < len(available_words) else available_words
+        pick = pick_low_leak(sample)
+        if pick:
+            return pick
+    
+    # === MISTAKE CHECK: Overconfident guess (self-leak) ===
+    if _ai_should_make_mistake(ai_player, "overconfident_guess", panic):
+        # Relax self-leak constraints significantly
+        soft_max = min(0.98, soft_max + 0.15)
+        hard_max = min(0.99, hard_max + 0.1)
+    
+    # === BLUFFING: Occasionally guess near own word to mislead ===
+    bluff_word = _ai_maybe_bluff(ai_player, game, available_words)
+    if bluff_word:
+        return bluff_word
+    
     if random.random() < strategic_chance:
         # Strategic guess: try to find words similar to high-similarity targets
         #
-        # If we're in danger, prioritize targets who are already “vulnerable” (high danger score)
+        # If we're in danger, prioritize targets who are already "vulnerable" (high danger score)
         target = None
 
         def best_target_from_history(prefer_vulnerable: bool) -> Optional[dict]:
-            best = None
-            best_score = -1.0
+            targets_list = []
             for p in game.get("players", []) or []:
                 if not p or p.get("id") == ai_player.get("id"):
                     continue
@@ -979,24 +1501,43 @@ def ai_choose_guess(ai_player: dict, game: dict) -> Optional[str]:
                 if prefer_vulnerable:
                     # vulnerability is essentially the opponent's danger score
                     score = _ai_danger_score(top3)
-                if score > best_score:
-                    best_score = score
-                    best = {
-                        "player_id": p.get("id"),
-                        "player_name": p.get("name"),
-                        "top_word": top3[0][0] if top3 else None,
-                        "top_similarity": top_sim,
-                        "score": score,
-                    }
-            return best
+                targets_list.append({
+                    "player_id": p.get("id"),
+                    "player_name": p.get("name"),
+                    "top_word": top3[0][0] if top3 else None,
+                    "top_similarity": top_sim,
+                    "score": score,
+                })
+            return targets_list
 
         if panic:
-            target = best_target_from_history(prefer_vulnerable=True)
-        if target is None:
-            # Prefer word-change-aware targeting from public history
-            target = best_target_from_history(prefer_vulnerable=False) or ai_find_best_target(ai_player, game)
+            targets_list = best_target_from_history(prefer_vulnerable=True)
+        else:
+            targets_list = best_target_from_history(prefer_vulnerable=False)
         
-        if target and target["top_word"] and target["top_similarity"] > min_target_similarity:
+        # Use personality-based target selection
+        if targets_list:
+            target = _ai_select_target_by_personality(ai_player, game, targets_list)
+        
+        # Fallback to legacy targeting if personality selection fails
+        if target is None:
+            target = ai_find_best_target(ai_player, game)
+        
+        if target and target.get("top_word") and target.get("top_similarity", 0) > min_target_similarity:
+            # === MISTAKE CHECK: Forget clue ===
+            # Sometimes AI ignores recent high-similarity info
+            if _ai_should_make_mistake(ai_player, "forget_clue", panic):
+                # Use older/weaker clues instead
+                target_id = target.get("player_id")
+                if target_id:
+                    all_clues = _ai_top_guesses_since_change(game, target_id, k=10)
+                    if len(all_clues) > 3:
+                        # Use weaker clues (positions 4-7)
+                        weaker_clues = all_clues[3:7]
+                        if weaker_clues:
+                            target["top_word"] = weaker_clues[0][0]
+                            target["top_similarity"] = weaker_clues[0][1]
+            
             # Find words similar to the word that got high similarity.
             # We also avoid repeating globally-guessed words and avoid leaking our own secret.
             pool_size = int(config.get("candidate_pool", 12) or 12)
@@ -1090,11 +1631,35 @@ def ai_change_word(ai_player: dict, game: dict) -> Optional[str]:
 
 
 def process_ai_turn(game: dict, ai_player: dict) -> Optional[dict]:
-    """Process an AI player's turn and return the guess result."""
+    """Process an AI player's turn and return the guess result.
+    
+    Includes:
+    - Dynamic thinking time calculation
+    - Streak and confidence updates
+    - Grudge tracking
+    - Chat message generation
+    """
     import random
     
     if not ai_player.get("is_ai") or not ai_player.get("is_alive"):
         return None
+    
+    # Determine if this will be a strategic decision (affects think time)
+    ai_state = ai_player.get("ai_state", {})
+    is_panicking = ai_state.get("is_panicking", False)
+    
+    # Pre-calculate if we have good targets (indicates strategic thinking)
+    memory = ai_player.get("ai_memory", {})
+    targets = memory.get("high_similarity_targets", {})
+    has_good_target = any(
+        sims and sims[0][1] > 0.5 
+        for sims in targets.values()
+    )
+    
+    # Calculate thinking time
+    think_time_ms = _ai_calculate_think_time(ai_player, has_good_target, is_panicking)
+    ai_state["last_think_time_ms"] = think_time_ms
+    ai_player["ai_state"] = ai_state
     
     # Choose a guess
     guess_word = ai_choose_guess(ai_player, game)
@@ -1125,14 +1690,43 @@ def process_ai_turn(game: dict, ai_player: dict) -> Optional[dict]:
     # If AI eliminated someone, they can change their word
     if eliminations:
         ai_player["can_change_word"] = True
+        # Update streak - elimination is great!
+        _ai_update_streak(ai_player, "elimination")
+        _ai_update_confidence(ai_player, "made_elimination")
+        # Generate elimination chat
+        chat_msg = _ai_generate_chat_message(ai_player, "eliminated_someone")
+        if chat_msg:
+            ai_state["pending_chat"] = chat_msg
+    else:
+        # Update streak based on similarity results
+        my_sim = similarities.get(ai_player["id"], 0)
+        max_other_sim = max(
+            (sim for pid, sim in similarities.items() if pid != ai_player["id"]),
+            default=0
+        )
+        if max_other_sim > 0.7:
+            _ai_update_streak(ai_player, "high_similarity")
+            _ai_update_confidence(ai_player, "high_similarity_guess")
+            # Near miss chat
+            chat_msg = _ai_generate_chat_message(ai_player, "near_miss")
+            if chat_msg:
+                ai_state["pending_chat"] = chat_msg
+        elif max_other_sim < 0.3:
+            _ai_update_streak(ai_player, "low_similarity")
+            _ai_update_confidence(ai_player, "low_similarity_guess")
     
     # Update AI memory
     ai_update_memory(ai_player, guess_word, similarities, game)
     
-    # Also update other AI players' memories
+    # Also update other AI players' memories and track grudges
     for p in game["players"]:
         if p.get("is_ai") and p["id"] != ai_player["id"]:
             ai_update_memory(p, guess_word, similarities, game)
+            # Track grudge if this guess targeted them
+            their_sim = similarities.get(p["id"], 0)
+            if their_sim > 0.5:
+                _ai_update_grudge(p, ai_player["id"], their_sim)
+                _ai_update_confidence(p, "got_targeted", their_sim)
     
     # Record history
     history_entry = {
@@ -1144,10 +1738,17 @@ def process_ai_turn(game: dict, ai_player: dict) -> Optional[dict]:
     }
     game["history"].append(history_entry)
     
+    # Get any pending chat message
+    pending_chat = ai_state.get("pending_chat")
+    ai_state["pending_chat"] = None
+    ai_player["ai_state"] = ai_state
+    
     return {
         "word": guess_word,
         "similarities": similarities,
         "eliminations": eliminations,
+        "think_time_ms": think_time_ms,
+        "ai_chat": pending_chat,
     }
 
 
@@ -6060,9 +6661,12 @@ class handler(BaseHTTPRequestHandler):
             
             save_game(code, game)
             
-            # Return full game state to avoid client needing a second fetch
+            # Return full game state with AI-specific data
             game_response = self._build_game_response(game, player_id, code)
             if game_response:
+                # Add AI realism data to response
+                game_response['ai_think_time_ms'] = ai_result.get('think_time_ms', 350)
+                game_response['ai_chat'] = ai_result.get('ai_chat')
                 return self._send_json(game_response)
             
             # Fallback to minimal response if helper fails
@@ -6169,11 +6773,37 @@ class handler(BaseHTTPRequestHandler):
                 except Exception as e:
                     print(f"Error building word change options: {e}")
             
-            # Update AI memories with this guess (for singleplayer games)
+            # Update AI memories and reactions with this guess (for singleplayer games)
+            ai_reactions = []
             if game.get('is_singleplayer'):
                 for p in game['players']:
                     if p.get('is_ai'):
                         ai_update_memory(p, word, similarities, game)
+                        
+                        # Track grudges against the guesser
+                        their_sim = similarities.get(p['id'], 0)
+                        if their_sim > 0.5:
+                            _ai_update_grudge(p, player_id, their_sim)
+                            _ai_update_confidence(p, "got_targeted", their_sim)
+                        
+                        # Generate AI reactions
+                        if p['id'] in eliminations:
+                            # AI got eliminated - generate reaction
+                            _ai_update_streak(p, "got_eliminated")
+                            chat_msg = _ai_generate_chat_message(p, "got_eliminated")
+                            if chat_msg:
+                                ai_reactions.append({
+                                    "ai_name": p.get('name', 'AI'),
+                                    "message": chat_msg,
+                                })
+                        elif their_sim > 0.65:
+                            # Near miss - AI might react
+                            chat_msg = _ai_generate_chat_message(p, "near_miss")
+                            if chat_msg:
+                                ai_reactions.append({
+                                    "ai_name": p.get('name', 'AI'),
+                                    "message": chat_msg,
+                                })
             
             # Advance turn (but game is paused if waiting for word change)
             alive_players = [p for p in game['players'] if p['is_alive']]
@@ -6210,6 +6840,9 @@ class handler(BaseHTTPRequestHandler):
             # Return full game state to avoid client needing a second fetch
             game_response = self._build_game_response(game, player_id, code)
             if game_response:
+                # Include AI reactions if any (singleplayer only)
+                if ai_reactions:
+                    game_response['ai_reactions'] = ai_reactions
                 return self._send_json(game_response)
             
             # Fallback to minimal response if helper fails
@@ -6220,6 +6853,8 @@ class handler(BaseHTTPRequestHandler):
                 "winner": game.get('winner'),
                 "waiting_for_word_change": game.get('waiting_for_word_change'),
             }
+            if ai_reactions:
+                response['ai_reactions'] = ai_reactions
             
             return self._send_json(response)
 

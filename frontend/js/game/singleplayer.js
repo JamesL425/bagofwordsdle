@@ -116,11 +116,31 @@ function sleep(ms) {
  */
 export function getAiDifficultyInfo(key) {
     const difficulties = {
-        rookie: { name: 'Rookie', desc: 'Beginner AI, makes random guesses', color: '#4CAF50' },
-        analyst: { name: 'Analyst', desc: 'Avoids common words, moderate targeting', color: '#2196F3' },
-        'field-agent': { name: 'Field Agent', desc: 'Strategic guessing, good at targeting', color: '#FF9800' },
-        spymaster: { name: 'Spymaster', desc: 'Picks obscure words, strong targeting', color: '#9C27B0' },
-        ghost: { name: 'Ghost', desc: 'Expert AI, very hard to beat', color: '#F44336' },
+        rookie: { 
+            name: 'Rookie', 
+            desc: 'Friendly newcomer who makes obvious mistakes and thinks slowly', 
+            color: '#4CAF50' 
+        },
+        analyst: { 
+            name: 'Analyst', 
+            desc: 'Thoughtful player who occasionally overthinks decisions', 
+            color: '#2196F3' 
+        },
+        'field-agent': { 
+            name: 'Field Agent', 
+            desc: 'Experienced player with good instincts and occasional clutch plays', 
+            color: '#FF9800' 
+        },
+        spymaster: { 
+            name: 'Spymaster', 
+            desc: 'Veteran player who makes calculated moves and rarely errors', 
+            color: '#9C27B0' 
+        },
+        ghost: { 
+            name: 'Ghost', 
+            desc: 'Expert player with intimidating reads - almost psychic', 
+            color: '#F44336' 
+        },
     };
     return difficulties[key] || difficulties.rookie;
 }
