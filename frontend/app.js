@@ -1417,7 +1417,7 @@ const BADGE_EMOJIS = {
     hunter: '⚔️', assassin: '🗡️', executioner: '☠️', victor: '🎖️',
     champion: '🏆', legend: '👑', veteran: '🎗️', rank_bronze: '🥉',
     rank_silver: '🥈', rank_gold: '🥇', rank_platinum: '💠',
-    rank_diamond: '🔷', skull: '💀', ghost: '👻', rocket: '🚀',
+        rank_diamond: '🔷', rank_master: '⚜️', skull: '💀', ghost: '👻', rocket: '🚀',
     hacker: '💻', ghost_protocol: '🕵️', overlord: '🦅', dragon: '🐉',
     alien: '👽', wizard: '🧙', robot: '🤖', unicorn: '🦄',
     crystal_ball: '🔮', joystick: '🕹️', meteor: '☄️', phoenix: '🔥',
@@ -1430,11 +1430,12 @@ const BADGE_EMOJIS = {
 // Get rank tier from MMR
 function getProfileRankTier(mmr) {
     const v = Number(mmr || 0);
-    if (v >= 1700) return { key: 'diamond', name: 'DIAMOND' };
-    if (v >= 1550) return { key: 'platinum', name: 'PLATINUM' };
+    if (v >= 2000) return { key: 'master', name: 'MASTER' };
+    if (v >= 1800) return { key: 'diamond', name: 'DIAMOND' };
+    if (v >= 1600) return { key: 'platinum', name: 'PLATINUM' };
     if (v >= 1400) return { key: 'gold', name: 'GOLD' };
-    if (v >= 1250) return { key: 'silver', name: 'SILVER' };
-    if (v >= 1100) return { key: 'bronze', name: 'BRONZE' };
+    if (v >= 1200) return { key: 'silver', name: 'SILVER' };
+    if (v >= 1000) return { key: 'bronze', name: 'BRONZE' };
     return { key: 'unranked', name: 'UNRANKED' };
 }
 
@@ -2205,11 +2206,12 @@ let leaderboardState = {
 function getRankTier(mmr) {
     const v = Number(mmr || 0);
     // NOTE: Avoid emoji icons here (font support varies). We render CSS badges instead.
-    if (v >= 1700) return { key: 'diamond', name: 'DIAMOND' };
-    if (v >= 1550) return { key: 'platinum', name: 'PLATINUM' };
+    if (v >= 2000) return { key: 'master', name: 'MASTER' };
+    if (v >= 1800) return { key: 'diamond', name: 'DIAMOND' };
+    if (v >= 1600) return { key: 'platinum', name: 'PLATINUM' };
     if (v >= 1400) return { key: 'gold', name: 'GOLD' };
-    if (v >= 1250) return { key: 'silver', name: 'SILVER' };
-    if (v >= 1100) return { key: 'bronze', name: 'BRONZE' };
+    if (v >= 1200) return { key: 'silver', name: 'SILVER' };
+    if (v >= 1000) return { key: 'bronze', name: 'BRONZE' };
     return { key: 'unranked', name: 'UNRANKED' };
 }
 
@@ -2224,11 +2226,11 @@ function renderRankBadge(tier) {
 
 // Tier boundaries for MMR bar visualization
 const MMR_TIER_BOUNDARIES = {
-    bronze: { min: 1100, max: 1250 },
-    silver: { min: 1250, max: 1400 },
-    gold: { min: 1400, max: 1550 },
-    platinum: { min: 1550, max: 1700 },
-    diamond: { min: 1700, max: 2000 },
+    bronze: { min: 1000, max: 1200 },
+    silver: { min: 1200, max: 1400 },
+    gold: { min: 1400, max: 1600 },
+    platinum: { min: 1600, max: 1800 },
+    diamond: { min: 1800, max: 2000 },
     master: { min: 2000, max: 3000 }
 };
 

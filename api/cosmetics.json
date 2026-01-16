@@ -442,17 +442,17 @@
     },
     "rank_bronze": {
       "name": "Bronze Rank",
-      "description": "Peak MMR 1100+",
+      "description": "Peak MMR 1000+",
       "premium": false,
       "icon": "🥉",
-      "requirements": [{ "metric": "peak_mmr", "min": 1100 }]
+      "requirements": [{ "metric": "peak_mmr", "min": 1000 }]
     },
     "rank_silver": {
       "name": "Silver Rank",
-      "description": "Peak MMR 1250+",
+      "description": "Peak MMR 1200+",
       "premium": false,
       "icon": "🥈",
-      "requirements": [{ "metric": "peak_mmr", "min": 1250 }]
+      "requirements": [{ "metric": "peak_mmr", "min": 1200 }]
     },
     "rank_gold": {
       "name": "Gold Rank",
@@ -463,17 +463,24 @@
     },
     "rank_platinum": {
       "name": "Platinum Rank",
-      "description": "Peak MMR 1550+",
+      "description": "Peak MMR 1600+",
       "premium": false,
       "icon": "💠",
-      "requirements": [{ "metric": "peak_mmr", "min": 1550 }]
+      "requirements": [{ "metric": "peak_mmr", "min": 1600 }]
     },
     "rank_diamond": {
       "name": "Diamond Rank",
-      "description": "Peak MMR 1700+",
+      "description": "Peak MMR 1800+",
       "premium": false,
       "icon": "🔷",
-      "requirements": [{ "metric": "peak_mmr", "min": 1700 }]
+      "requirements": [{ "metric": "peak_mmr", "min": 1800 }]
+    },
+    "rank_master": {
+      "name": "Master Rank",
+      "description": "Peak MMR 2000+",
+      "premium": false,
+      "icon": "⚜️",
+      "requirements": [{ "metric": "peak_mmr", "min": 2000 }]
     },
     "hacker": {
       "name": "Hacker",

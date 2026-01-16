@@ -629,6 +629,7 @@ function getBadgeHtml(cosmetics) {
         rank_gold: '🥇',
         rank_platinum: '💠',
         rank_diamond: '🔷',
+        rank_master: '⚜️',
         skull: '💀',
         ghost: '👻',
         rocket: '🚀',

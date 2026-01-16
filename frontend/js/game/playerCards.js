@@ -105,7 +105,7 @@ export function getBadgeHtml(cosmetics) {
         hunter: '⚔️', assassin: '🗡️', executioner: '☠️', victor: '🎖️',
         champion: '🏆', legend: '👑', veteran: '🎗️', rank_bronze: '🥉',
         rank_silver: '🥈', rank_gold: '🥇', rank_platinum: '💠',
-        rank_diamond: '🔷', skull: '💀', ghost: '👻', rocket: '🚀',
+        rank_diamond: '🔷', rank_master: '⚜️', skull: '💀', ghost: '👻', rocket: '🚀',
         hacker: '💻', ghost_protocol: '🕵️', overlord: '🦅', dragon: '🐉',
         alien: '👽', wizard: '🧙', robot: '🤖', unicorn: '🦄',
         crystal_ball: '🔮', joystick: '🕹️', meteor: '☄️', phoenix: '🔥',

@@ -41,18 +41,19 @@
     "ttl_seconds": 15
   },
   "ranked": {
-    "initial_mmr": 1250,
-    "k_factor": 32,
-    "placement_k_factor": 80,
+    "initial_mmr": 1200,
+    "k_factor": 64,
+    "placement_k_factor": 160,
     "placement_games": 5,
     "provisional_games": 20,
-    "provisional_k_factor": 48,
+    "provisional_k_factor": 100,
     "tier_thresholds": {
-      "bronze": 1100,
-      "silver": 1250,
+      "bronze": 1000,
+      "silver": 1200,
       "gold": 1400,
-      "platinum": 1550,
-      "diamond": 1700
+      "platinum": 1600,
+      "diamond": 1800,
+      "master": 2000
     }
   },
   "time_controls": {
@@ -62,24 +63,24 @@
     },
     "ranked": {
       "initial_time": 180,
-      "increment": 20
+      "increment": 5
     },
     "casual_presets": {
       "bullet": {
         "initial_time": 60,
-        "increment": 5
+        "increment": 2
       },
       "blitz": {
         "initial_time": 120,
-        "increment": 10
+        "increment": 3
       },
       "rapid": {
         "initial_time": 300,
-        "increment": 15
+        "increment": 5
       },
       "classical": {
         "initial_time": 600,
-        "increment": 30
+        "increment": 10
       },
       "none": {
         "initial_time": 0,

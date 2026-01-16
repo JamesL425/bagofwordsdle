@@ -30,11 +30,12 @@ export function setProfileCallback(callback) {
  */
 export function getRankTier(mmr) {
     const v = Number(mmr || 0);
-    if (v >= 1700) return { key: 'diamond', name: 'DIAMOND' };
-    if (v >= 1550) return { key: 'platinum', name: 'PLATINUM' };
+    if (v >= 2000) return { key: 'master', name: 'MASTER' };
+    if (v >= 1800) return { key: 'diamond', name: 'DIAMOND' };
+    if (v >= 1600) return { key: 'platinum', name: 'PLATINUM' };
     if (v >= 1400) return { key: 'gold', name: 'GOLD' };
-    if (v >= 1250) return { key: 'silver', name: 'SILVER' };
-    if (v >= 1100) return { key: 'bronze', name: 'BRONZE' };
+    if (v >= 1200) return { key: 'silver', name: 'SILVER' };
+    if (v >= 1000) return { key: 'bronze', name: 'BRONZE' };
     return { key: 'unranked', name: 'UNRANKED' };
 }
 
