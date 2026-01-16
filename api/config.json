@@ -4,8 +4,8 @@
     "max_players": 6,
     "game_expiry_seconds": 7200,
     "lobby_expiry_seconds": 600,
-    "words_per_player": 18,
-    "theme_words_per_category": 120
+    "words_per_player": 16,
+    "theme_words_per_category": 100
   },
   "embedding": {
     "model": "text-embedding-3-large",
