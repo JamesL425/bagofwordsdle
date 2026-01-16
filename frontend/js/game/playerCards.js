@@ -107,7 +107,16 @@ export function getBadgeHtml(cosmetics) {
         rank_silver: '🥈', rank_gold: '🥇', rank_platinum: '💠',
         rank_diamond: '🔷', skull: '💀', ghost: '👻', rocket: '🚀',
         hacker: '💻', ghost_protocol: '🕵️', overlord: '🦅', dragon: '🐉',
-        alien: '👽', heart: '❤️', crown: '👑', lightning: '⚡', flame: '🔥'
+        alien: '👽', wizard: '🧙', robot: '🤖', unicorn: '🦄',
+        crystal_ball: '🔮', joystick: '🕹️', meteor: '☄️', phoenix: '🔥',
+        wolf: '🐺', octopus: '🐙', ninja: '🥷', fairy: '🧚',
+        cat: '🐈‍⬛', dice: '🎲', eye: '👁️',
+        // Expensive shop badges
+        ancient_one: '🦑', cosmic_entity: '🌌',
+        // Legendary admin badges
+        infinity: '♾️',
+        // Legacy v1 IDs
+        heart: '❤️', crown: '👑', lightning: '⚡', flame: '🔥'
     };
     return badges[cosmetics.badge] ? `<span class="player-badge">${badges[cosmetics.badge]}</span>` : '';
 }

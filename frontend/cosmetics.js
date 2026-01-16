@@ -653,6 +653,11 @@ function getBadgeHtml(cosmetics) {
         cat: '🐈‍⬛',
         dice: '🎲',
         eye: '👁️',
+        // Expensive shop badges
+        ancient_one: '🦑',
+        cosmic_entity: '🌌',
+        // Legendary admin badges
+        infinity: '♾️',
         // Legacy v1 IDs (kept so old game states still render)
         heart: '❤️',
         crown: '👑',
@@ -824,6 +829,17 @@ function playVictoryEffect(effectId, targetEl = null) {
             break;
         case 'aurora':
             createAuroraEffect(container);
+            break;
+        // Expensive shop victory effects
+        case 'cosmic_collapse':
+            createCosmicCollapseEffect(container);
+            break;
+        case 'ascension':
+            createAscensionEffect(container);
+            break;
+        // Legendary admin victory effect
+        case 'big_bang':
+            createBigBangEffect(container);
             break;
         default:
             if (typeof createConfetti === 'function') {
@@ -1111,6 +1127,132 @@ function createAuroraEffect(container) {
         star.style.animationDelay = (Math.random() * 2) + 's';
         container.appendChild(star);
     }
+    
+    setTimeout(() => container.innerHTML = '', 4000);
+}
+
+// Expensive shop victory effects
+function createCosmicCollapseEffect(container) {
+    container.innerHTML = '';
+    
+    // Create imploding stars
+    for (let i = 0; i < 30; i++) {
+        const star = document.createElement('div');
+        star.style.position = 'absolute';
+        star.style.left = Math.random() * 100 + '%';
+        star.style.top = Math.random() * 100 + '%';
+        star.style.width = (3 + Math.random() * 5) + 'px';
+        star.style.height = star.style.width;
+        star.style.borderRadius = '50%';
+        star.style.background = Math.random() > 0.5 ? '#ffd700' : '#ffffff';
+        star.style.animation = `cosmicCollapseStar ${1 + Math.random()}s ease-in forwards`;
+        star.style.animationDelay = (Math.random() * 0.5) + 's';
+        container.appendChild(star);
+    }
+    
+    // Create central singularity
+    setTimeout(() => {
+        const singularity = document.createElement('div');
+        singularity.className = 'cosmic-collapse-effect';
+        container.appendChild(singularity);
+    }, 800);
+    
+    setTimeout(() => container.innerHTML = '', 3000);
+}
+
+function createAscensionEffect(container) {
+    container.innerHTML = '';
+    
+    // Create ascending wings/light
+    const ascension = document.createElement('div');
+    ascension.className = 'ascension-effect';
+    ascension.textContent = '👼';
+    container.appendChild(ascension);
+    
+    // Add light rays
+    for (let i = 0; i < 8; i++) {
+        const ray = document.createElement('div');
+        ray.style.position = 'absolute';
+        ray.style.top = '0';
+        ray.style.left = '50%';
+        ray.style.width = '4px';
+        ray.style.height = '100%';
+        ray.style.background = 'linear-gradient(to bottom, rgba(255, 215, 0, 0.8), transparent)';
+        ray.style.transformOrigin = 'bottom center';
+        ray.style.transform = `translateX(-50%) rotate(${i * 45}deg)`;
+        ray.style.opacity = '0';
+        ray.style.animation = 'ascensionRay 2s ease-out forwards';
+        ray.style.animationDelay = (0.5 + i * 0.1) + 's';
+        container.appendChild(ray);
+    }
+    
+    // Add golden particles
+    for (let i = 0; i < 40; i++) {
+        setTimeout(() => {
+            const particle = document.createElement('div');
+            particle.style.position = 'absolute';
+            particle.style.left = (30 + Math.random() * 40) + '%';
+            particle.style.bottom = '0';
+            particle.style.width = '4px';
+            particle.style.height = '4px';
+            particle.style.borderRadius = '50%';
+            particle.style.background = '#ffd700';
+            particle.style.animation = 'ascensionParticle 2s ease-out forwards';
+            container.appendChild(particle);
+            setTimeout(() => particle.remove(), 2000);
+        }, Math.random() * 1500);
+    }
+    
+    setTimeout(() => container.innerHTML = '', 4000);
+}
+
+// Legendary admin victory effect
+function createBigBangEffect(container) {
+    container.innerHTML = '';
+    
+    // Create central explosion point
+    const bang = document.createElement('div');
+    bang.className = 'big-bang-effect';
+    container.appendChild(bang);
+    
+    // Create expanding rings
+    for (let i = 0; i < 5; i++) {
+        setTimeout(() => {
+            const ring = document.createElement('div');
+            ring.style.position = 'absolute';
+            ring.style.top = '50%';
+            ring.style.left = '50%';
+            ring.style.width = '10px';
+            ring.style.height = '10px';
+            ring.style.borderRadius = '50%';
+            ring.style.border = '3px solid';
+            ring.style.borderColor = ['#ffffff', '#ffd700', '#ff4500', '#ff00ff', '#00ffff'][i];
+            ring.style.transform = 'translate(-50%, -50%)';
+            ring.style.animation = 'bigBangRing 2s ease-out forwards';
+            container.appendChild(ring);
+        }, i * 200);
+    }
+    
+    // Create star particles
+    setTimeout(() => {
+        for (let i = 0; i < 100; i++) {
+            const star = document.createElement('div');
+            star.style.position = 'absolute';
+            star.style.top = '50%';
+            star.style.left = '50%';
+            star.style.width = (2 + Math.random() * 4) + 'px';
+            star.style.height = star.style.width;
+            star.style.borderRadius = '50%';
+            star.style.background = ['#ffffff', '#ffd700', '#ff00ff', '#00ffff'][Math.floor(Math.random() * 4)];
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 50 + Math.random() * 150;
+            star.style.setProperty('--tx', Math.cos(angle) * distance + 'px');
+            star.style.setProperty('--ty', Math.sin(angle) * distance + 'px');
+            star.style.animation = 'bigBangStar 2s ease-out forwards';
+            star.style.animationDelay = (Math.random() * 0.5) + 's';
+            container.appendChild(star);
+        }
+    }, 500);
     
     setTimeout(() => container.innerHTML = '', 4000);
 }

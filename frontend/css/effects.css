@@ -1448,6 +1448,509 @@ body[data-particles="runes"]::before {
 
 /* ============ REDUCED MOTION ============ */
 
+/* ============ EXPENSIVE SHOP COSMETICS ============ */
+
+/* Card Borders - Expensive Shop */
+.player-card.border-obsidian_throne {
+    border-color: #1a1a1a;
+    box-shadow: 0 0 20px rgba(255, 100, 0, 0.3), inset 0 0 15px rgba(255, 100, 0, 0.1);
+    animation: obsidianGlow 3s ease-in-out infinite;
+}
+
+@keyframes obsidianGlow {
+    0%, 100% { box-shadow: 0 0 20px rgba(255, 100, 0, 0.3), inset 0 0 15px rgba(255, 100, 0, 0.1); }
+    50% { box-shadow: 0 0 35px rgba(255, 100, 0, 0.5), inset 0 0 25px rgba(255, 100, 0, 0.2); }
+}
+
+.player-card.border-celestial_halo {
+    border-color: #ffd700;
+    box-shadow: 0 0 30px rgba(255, 215, 0, 0.6), 0 0 60px rgba(255, 255, 255, 0.3);
+    animation: celestialHalo 4s ease-in-out infinite;
+}
+
+@keyframes celestialHalo {
+    0%, 100% { box-shadow: 0 0 30px rgba(255, 215, 0, 0.6), 0 0 60px rgba(255, 255, 255, 0.3); }
+    50% { box-shadow: 0 0 50px rgba(255, 215, 0, 0.8), 0 0 80px rgba(255, 255, 255, 0.5); }
+}
+
+/* Card Borders - Legendary Admin */
+.player-card.border-godframe {
+    border-color: #ffd700;
+    box-shadow: 0 0 40px rgba(255, 215, 0, 0.8), 0 0 80px rgba(255, 255, 255, 0.4), inset 0 0 20px rgba(255, 215, 0, 0.3);
+    animation: godframeAura 2s ease-in-out infinite;
+}
+
+@keyframes godframeAura {
+    0%, 100% { 
+        box-shadow: 0 0 40px rgba(255, 215, 0, 0.8), 0 0 80px rgba(255, 255, 255, 0.4), inset 0 0 20px rgba(255, 215, 0, 0.3);
+        filter: brightness(1);
+    }
+    50% { 
+        box-shadow: 0 0 60px rgba(255, 215, 0, 1), 0 0 100px rgba(255, 255, 255, 0.6), inset 0 0 30px rgba(255, 215, 0, 0.5);
+        filter: brightness(1.1);
+    }
+}
+
+/* Card Backgrounds - Expensive Shop */
+.player-card.bg-ancient_temple {
+    background: 
+        linear-gradient(135deg, rgba(139, 119, 101, 0.15), rgba(101, 67, 33, 0.1)),
+        var(--bg-card);
+    box-shadow: inset 0 0 30px rgba(255, 215, 0, 0.05);
+}
+
+.player-card.bg-dimensional_rift {
+    background: 
+        radial-gradient(ellipse at center, rgba(138, 43, 226, 0.2) 0%, transparent 60%),
+        linear-gradient(135deg, rgba(0, 0, 50, 0.3), var(--bg-card));
+    animation: dimensionalRift 4s ease-in-out infinite;
+}
+
+@keyframes dimensionalRift {
+    0%, 100% { filter: hue-rotate(0deg); }
+    50% { filter: hue-rotate(30deg); }
+}
+
+/* Card Backgrounds - Legendary Admin */
+.player-card.bg-reality_tear {
+    background: 
+        radial-gradient(ellipse at center, rgba(0, 0, 0, 0.8) 0%, transparent 50%),
+        linear-gradient(135deg, rgba(138, 43, 226, 0.2), rgba(0, 255, 255, 0.1)),
+        var(--bg-card);
+    animation: realityTear 3s ease-in-out infinite;
+}
+
+@keyframes realityTear {
+    0%, 100% { 
+        box-shadow: inset 0 0 30px rgba(138, 43, 226, 0.3);
+    }
+    50% { 
+        box-shadow: inset 0 0 50px rgba(0, 255, 255, 0.4);
+    }
+}
+
+/* Name Colors - Expensive Shop */
+.name.name-prismatic {
+    background: linear-gradient(90deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #8b00ff, #ff0000);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: prismaticShift 3s linear infinite;
+}
+
+@keyframes prismaticShift {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
+}
+
+.name.name-supernova_glow {
+    color: #ffffff;
+    text-shadow: 0 0 10px #ffffff, 0 0 20px #ffd700, 0 0 30px #ff8c00, 0 0 40px #ff4500;
+    animation: supernovaGlow 2s ease-in-out infinite;
+}
+
+@keyframes supernovaGlow {
+    0%, 100% { text-shadow: 0 0 10px #ffffff, 0 0 20px #ffd700, 0 0 30px #ff8c00; }
+    50% { text-shadow: 0 0 20px #ffffff, 0 0 40px #ffd700, 0 0 60px #ff8c00, 0 0 80px #ff4500; }
+}
+
+/* Name Colors - Legendary Admin */
+.name.name-omniscient {
+    background: linear-gradient(90deg, #ff00ff, #00ffff, #ff00ff, #ffd700, #ff00ff);
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: omniscientShift 4s ease-in-out infinite;
+    filter: drop-shadow(0 0 10px rgba(255, 0, 255, 0.5));
+}
+
+@keyframes omniscientShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+/* Elimination Effects - Expensive Shop */
+.player-card.elim-dimension_shatter {
+    animation: elimDimensionShatter 1s ease-out forwards;
+}
+
+@keyframes elimDimensionShatter {
+    0% { opacity: 1; transform: scale(1); filter: none; }
+    30% { transform: scale(1.1); filter: hue-rotate(90deg); }
+    60% { transform: scale(0.9) skewX(10deg); filter: hue-rotate(180deg); opacity: 0.7; }
+    100% { transform: scale(0) rotate(180deg); filter: hue-rotate(360deg); opacity: 0; }
+}
+
+.player-card.elim-time_collapse {
+    animation: elimTimeCollapse 1.2s ease-in-out forwards;
+}
+
+@keyframes elimTimeCollapse {
+    0% { opacity: 1; filter: none; }
+    25% { opacity: 0.8; filter: blur(2px); transform: scale(1.1); }
+    50% { opacity: 1; filter: none; transform: scale(0.9); }
+    75% { opacity: 0.5; filter: blur(4px) sepia(1); transform: scale(1.2); }
+    100% { opacity: 0; filter: blur(10px); transform: scale(0); }
+}
+
+/* Elimination Effects - Legendary Admin */
+.player-card.elim-annihilate {
+    animation: elimAnnihilate 1.5s ease-out forwards;
+}
+
+@keyframes elimAnnihilate {
+    0% { opacity: 1; transform: scale(1); filter: brightness(1); }
+    20% { filter: brightness(3) contrast(2); }
+    40% { transform: scale(1.3); filter: brightness(5); }
+    60% { transform: scale(0.5); filter: brightness(0) invert(1); }
+    100% { transform: scale(0); opacity: 0; filter: brightness(0); }
+}
+
+/* Guess Effects - Expensive Shop */
+#guess-form.guess-thunderclap,
+.cosmetics-guess-form.guess-thunderclap {
+    animation: guessThunderclap 0.6s ease;
+}
+
+@keyframes guessThunderclap {
+    0% { transform: scale(1); filter: brightness(1); }
+    20% { transform: scale(1.05); filter: brightness(3); background: rgba(255, 255, 0, 0.3); }
+    40% { transform: scale(0.98); filter: brightness(1); }
+    60% { transform: scale(1.02); filter: brightness(1.5); }
+    100% { transform: scale(1); filter: brightness(1); }
+}
+
+#guess-form.guess-gravity_pulse,
+.cosmetics-guess-form.guess-gravity_pulse {
+    animation: guessGravityPulse 0.7s ease;
+}
+
+@keyframes guessGravityPulse {
+    0% { transform: scale(1); box-shadow: none; }
+    50% { transform: scale(0.95); box-shadow: 0 0 50px 20px rgba(138, 43, 226, 0.5); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(138, 43, 226, 0); }
+}
+
+/* Guess Effects - Legendary Admin */
+#guess-form.guess-reality_warp,
+.cosmetics-guess-form.guess-reality_warp {
+    animation: guessRealityWarp 0.8s ease;
+}
+
+@keyframes guessRealityWarp {
+    0% { transform: scale(1) skewX(0deg); filter: none; }
+    25% { transform: scale(1.1) skewX(5deg); filter: hue-rotate(90deg); }
+    50% { transform: scale(0.9) skewX(-5deg); filter: hue-rotate(180deg); }
+    75% { transform: scale(1.05) skewX(3deg); filter: hue-rotate(270deg); }
+    100% { transform: scale(1) skewX(0deg); filter: none; }
+}
+
+/* Turn Indicators - Expensive Shop */
+.player-card.turn-void_aura.current-turn {
+    box-shadow: 0 0 40px rgba(75, 0, 130, 0.8), inset 0 0 20px rgba(0, 0, 0, 0.5);
+    animation: turnVoidAura 2s ease-in-out infinite;
+}
+
+@keyframes turnVoidAura {
+    0%, 100% { box-shadow: 0 0 40px rgba(75, 0, 130, 0.8), inset 0 0 20px rgba(0, 0, 0, 0.5); }
+    50% { box-shadow: 0 0 60px rgba(75, 0, 130, 1), inset 0 0 30px rgba(0, 0, 0, 0.7); }
+}
+
+.player-card.turn-celestial_blessing.current-turn {
+    box-shadow: 0 0 40px rgba(255, 215, 0, 0.8), 0 0 80px rgba(255, 255, 255, 0.4);
+    animation: turnCelestialBlessing 2s ease-in-out infinite;
+}
+
+@keyframes turnCelestialBlessing {
+    0%, 100% { box-shadow: 0 0 40px rgba(255, 215, 0, 0.8), 0 0 80px rgba(255, 255, 255, 0.4); }
+    50% { box-shadow: 0 0 60px rgba(255, 215, 0, 1), 0 0 100px rgba(255, 255, 255, 0.6); }
+}
+
+/* Turn Indicators - Legendary Admin */
+.player-card.turn-divine_mandate.current-turn {
+    box-shadow: 0 0 50px rgba(255, 215, 0, 1), 0 0 100px rgba(255, 255, 255, 0.8);
+    animation: turnDivineMandate 1.5s ease-in-out infinite;
+    border-color: #ffd700;
+}
+
+@keyframes turnDivineMandate {
+    0%, 100% { 
+        box-shadow: 0 0 50px rgba(255, 215, 0, 1), 0 0 100px rgba(255, 255, 255, 0.8);
+        filter: brightness(1);
+    }
+    50% { 
+        box-shadow: 0 0 80px rgba(255, 215, 0, 1), 0 0 150px rgba(255, 255, 255, 1);
+        filter: brightness(1.2);
+    }
+}
+
+/* Victory Effects - Expensive Shop */
+.cosmic-collapse-effect {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 10px;
+    height: 10px;
+    background: radial-gradient(circle, #ffffff, #ffd700, #ff4500);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: cosmicCollapseExpand 2s ease-out forwards;
+}
+
+@keyframes cosmicCollapseExpand {
+    0% { width: 300px; height: 300px; opacity: 0; }
+    30% { opacity: 1; }
+    100% { width: 10px; height: 10px; opacity: 0; filter: brightness(5); }
+}
+
+.ascension-effect {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 8rem;
+    animation: ascensionRise 3s ease-out forwards;
+    filter: drop-shadow(0 0 30px rgba(255, 215, 0, 0.8));
+}
+
+@keyframes ascensionRise {
+    0% { opacity: 0; transform: translate(-50%, 100%); }
+    30% { opacity: 1; transform: translate(-50%, -50%); }
+    70% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+    100% { opacity: 0; transform: translate(-50%, -150%) scale(1.5); }
+}
+
+/* Victory Effects - Legendary Admin */
+.big-bang-effect {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 5px;
+    height: 5px;
+    background: #ffffff;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: bigBangExpand 3s ease-out forwards;
+}
+
+@keyframes bigBangExpand {
+    0% { width: 5px; height: 5px; opacity: 1; background: #ffffff; }
+    20% { width: 100px; height: 100px; background: #ffd700; }
+    40% { width: 300px; height: 300px; background: #ff4500; }
+    60% { width: 500px; height: 500px; background: #ff00ff; }
+    80% { width: 800px; height: 800px; background: #00ffff; opacity: 0.5; }
+    100% { width: 200vmax; height: 200vmax; opacity: 0; }
+}
+
+/* Matrix Colors - Expensive Shop (handled via JS canvas) */
+/* Particle Overlays - Expensive Shop */
+body[data-particles="quantum_foam"]::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 9997;
+    background-image: 
+        radial-gradient(3px 3px at 10% 20%, rgba(138, 43, 226, 0.4), transparent),
+        radial-gradient(2px 2px at 30% 50%, rgba(0, 255, 255, 0.3), transparent),
+        radial-gradient(4px 4px at 50% 30%, rgba(255, 0, 255, 0.3), transparent),
+        radial-gradient(2px 2px at 70% 70%, rgba(138, 43, 226, 0.4), transparent),
+        radial-gradient(3px 3px at 90% 40%, rgba(0, 255, 255, 0.3), transparent);
+    animation: quantumFoamFloat 4s ease-in-out infinite;
+}
+
+@keyframes quantumFoamFloat {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+body[data-particles="astral_projection"]::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 9997;
+    background: 
+        radial-gradient(ellipse at 20% 30%, rgba(138, 43, 226, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 70%, rgba(0, 191, 255, 0.15) 0%, transparent 50%);
+    animation: astralFloat 8s ease-in-out infinite;
+}
+
+@keyframes astralFloat {
+    0%, 100% { opacity: 0.5; transform: translateX(0); }
+    50% { opacity: 0.8; transform: translateX(20px); }
+}
+
+/* Particle Overlays - Legendary Admin */
+body[data-particles="cosmic_dust"]::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 9997;
+    background-image: 
+        radial-gradient(1px 1px at 5% 10%, rgba(255, 255, 255, 0.8), transparent),
+        radial-gradient(2px 2px at 15% 30%, rgba(255, 215, 0, 0.6), transparent),
+        radial-gradient(1px 1px at 25% 50%, rgba(255, 255, 255, 0.7), transparent),
+        radial-gradient(2px 2px at 35% 20%, rgba(138, 43, 226, 0.5), transparent),
+        radial-gradient(1px 1px at 45% 70%, rgba(255, 255, 255, 0.8), transparent),
+        radial-gradient(2px 2px at 55% 40%, rgba(0, 255, 255, 0.5), transparent),
+        radial-gradient(1px 1px at 65% 60%, rgba(255, 255, 255, 0.7), transparent),
+        radial-gradient(2px 2px at 75% 80%, rgba(255, 0, 255, 0.5), transparent),
+        radial-gradient(1px 1px at 85% 25%, rgba(255, 255, 255, 0.8), transparent),
+        radial-gradient(2px 2px at 95% 55%, rgba(255, 215, 0, 0.6), transparent);
+    animation: cosmicDustDrift 20s linear infinite;
+}
+
+@keyframes cosmicDustDrift {
+    0% { transform: translateY(0) rotate(0deg); }
+    100% { transform: translateY(-100px) rotate(5deg); }
+}
+
+/* Seasonal Themes - Expensive Shop */
+body[data-seasonal="blood_moon"]::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 9996;
+    background: radial-gradient(circle at 80% 20%, rgba(139, 0, 0, 0.2) 0%, transparent 50%);
+}
+
+body[data-seasonal="cosmic_storm"]::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 9996;
+    background: 
+        radial-gradient(ellipse at 30% 40%, rgba(138, 43, 226, 0.15) 0%, transparent 40%),
+        radial-gradient(ellipse at 70% 60%, rgba(0, 191, 255, 0.15) 0%, transparent 40%);
+    animation: cosmicStormSwirl 10s ease-in-out infinite;
+}
+
+@keyframes cosmicStormSwirl {
+    0%, 100% { filter: hue-rotate(0deg); }
+    50% { filter: hue-rotate(30deg); }
+}
+
+/* Seasonal Themes - Legendary Admin */
+body[data-seasonal="eclipse"]::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 9996;
+    background: radial-gradient(circle at 50% 30%, rgba(0, 0, 0, 0.9) 0%, rgba(255, 100, 0, 0.3) 20%, transparent 40%);
+    animation: eclipseGlow 5s ease-in-out infinite;
+}
+
+@keyframes eclipseGlow {
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 1; }
+}
+
+/* Alt Backgrounds - Expensive Shop */
+body[data-alt-bg="eldritch_realm"] .matrix-bg {
+    background: linear-gradient(180deg, rgba(75, 0, 130, 0.3) 0%, rgba(0, 0, 0, 0.9) 100%);
+}
+
+body[data-alt-bg="astral_plane"] .matrix-bg {
+    background: linear-gradient(180deg, rgba(138, 43, 226, 0.2) 0%, rgba(0, 191, 255, 0.1) 50%, rgba(0, 0, 0, 0.8) 100%);
+}
+
+/* Alt Backgrounds - Legendary Admin */
+body[data-alt-bg="multiverse"] .matrix-bg {
+    background: 
+        radial-gradient(ellipse at 20% 30%, rgba(255, 0, 0, 0.1) 0%, transparent 30%),
+        radial-gradient(ellipse at 50% 50%, rgba(0, 255, 0, 0.1) 0%, transparent 30%),
+        radial-gradient(ellipse at 80% 70%, rgba(0, 0, 255, 0.1) 0%, transparent 30%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.9) 100%);
+    animation: multiverseShift 10s ease-in-out infinite;
+}
+
+@keyframes multiverseShift {
+    0%, 100% { filter: hue-rotate(0deg); }
+    33% { filter: hue-rotate(120deg); }
+    66% { filter: hue-rotate(240deg); }
+}
+
+/* Profile Accents - Expensive Shop (handled via JS) */
+/* Profile Banners - Expensive Shop */
+.profile-banner[data-banner="ancient_runes"] {
+    background: 
+        linear-gradient(135deg, rgba(139, 69, 19, 0.3), rgba(101, 67, 33, 0.2)),
+        var(--bg-secondary);
+}
+
+.profile-banner[data-banner="galactic_core"] {
+    background: 
+        radial-gradient(ellipse at center, rgba(255, 215, 0, 0.2) 0%, transparent 50%),
+        linear-gradient(135deg, rgba(75, 0, 130, 0.3), rgba(0, 0, 50, 0.3)),
+        var(--bg-secondary);
+}
+
+/* Profile Banners - Legendary Admin */
+.profile-banner[data-banner="genesis"] {
+    background: 
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 215, 0, 0.2) 20%, transparent 50%),
+        linear-gradient(135deg, rgba(0, 0, 0, 0.8), rgba(75, 0, 130, 0.3)),
+        var(--bg-secondary);
+    animation: genesisPulse 3s ease-in-out infinite;
+}
+
+@keyframes genesisPulse {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.2); }
+}
+
+/* New Victory Effect Animations */
+@keyframes cosmicCollapseStar {
+    0% { transform: translate(0, 0) scale(1); opacity: 1; }
+    100% { transform: translate(calc(50vw - 50%), calc(50vh - 50%)) scale(0); opacity: 0; }
+}
+
+@keyframes ascensionRay {
+    0% { opacity: 0; }
+    50% { opacity: 0.8; }
+    100% { opacity: 0; }
+}
+
+@keyframes ascensionParticle {
+    0% { transform: translateY(0); opacity: 1; }
+    100% { transform: translateY(-100vh); opacity: 0; }
+}
+
+@keyframes bigBangRing {
+    0% { width: 10px; height: 10px; opacity: 1; }
+    100% { width: 200vmax; height: 200vmax; opacity: 0; }
+}
+
+@keyframes bigBangStar {
+    0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0.5); opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .confetti-piece,
     .firework,

@@ -1419,7 +1419,12 @@ const BADGE_EMOJIS = {
     rank_silver: '🥈', rank_gold: '🥇', rank_platinum: '💠',
     rank_diamond: '🔷', skull: '💀', ghost: '👻', rocket: '🚀',
     hacker: '💻', ghost_protocol: '🕵️', overlord: '🦅', dragon: '🐉',
-    alien: '👽', heart: '❤️', crown: '👑', lightning: '⚡', flame: '🔥'
+    alien: '👽', wizard: '🧙', robot: '🤖', unicorn: '🦄',
+    crystal_ball: '🔮', joystick: '🕹️', meteor: '☄️', phoenix: '🔥',
+    wolf: '🐺', octopus: '🐙', ninja: '🥷', fairy: '🧚',
+    cat: '🐈‍⬛', dice: '🎲', eye: '👁️',
+    ancient_one: '🦑', cosmic_entity: '🌌', infinity: '♾️',
+    heart: '❤️', crown: '👑', lightning: '⚡', flame: '🔥'
 };
 
 // Get rank tier from MMR
