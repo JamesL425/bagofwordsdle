@@ -15,8 +15,9 @@ let gamePollingInterval = null;
 let wordSelectPollingInterval = null;
 let singleplayerLobbyPollingInterval = null;
 
-// Polling state
+// Polling state - prevent overlapping requests
 let chatPollInFlight = false;
+let gamePollInFlight = false;
 
 // Callbacks for UI updates
 let onLobbyUpdate = null;
@@ -172,6 +173,9 @@ async function pollGameOnce() {
     const playerId = gameState.playerId;
     
     if (!code) return;
+    if (gamePollInFlight) return;  // Prevent overlapping requests
+    
+    gamePollInFlight = true;
     
     try {
         let game;
@@ -189,6 +193,8 @@ async function pollGameOnce() {
         pollChatOnce();
     } catch (e) {
         console.error('Game poll error:', e);
+    } finally {
+        gamePollInFlight = false;
     }
 }
 

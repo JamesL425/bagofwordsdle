@@ -8,6 +8,7 @@ import { games } from '../services/api.js';
 import { gameState } from '../state/gameState.js';
 import { showError } from '../ui/toast.js';
 import * as screens from '../ui/screens.js';
+import * as singleplayer from './singleplayer.js';
 
 // Selected word state
 let selectedWord = null;
@@ -146,6 +147,9 @@ export function updateStatus(game) {
             beginBtn.disabled = lockedCount < game.players.length;
         }
     }
+    
+    // Trigger AI word picks if needed (singleplayer)
+    singleplayer.maybeTriggerAiWordPick(game);
 }
 
 /**

@@ -127,6 +127,7 @@ export function getSimilarityClass(sim) {
 
 /**
  * Render player cards grid
+ * Uses efficient DOM diffing to prevent flickering
  * @param {Object} game - Game state from server
  */
 export function render(game) {
@@ -138,7 +139,19 @@ export function render(game) {
     const currentPlayerId = game.current_player_id;
     const lastEntry = game.history?.length > 0 ? game.history[game.history.length - 1] : null;
     
-    grid.innerHTML = game.players.map(player => {
+    // Build a map of existing cards by player ID for efficient updates
+    const existingCards = new Map();
+    grid.querySelectorAll('.player-card[data-player-id]').forEach(card => {
+        existingCards.set(card.dataset.playerId, card);
+    });
+    
+    // Track which player IDs we've processed
+    const processedIds = new Set();
+    
+    // Update or create cards in order
+    game.players.forEach((player, index) => {
+        processedIds.add(player.id);
+        
         const isMe = player.id === myPlayerId;
         const isCurrentTurn = player.id === currentPlayerId && player.is_alive;
         const isAI = player.is_ai;
@@ -149,21 +162,15 @@ export function render(game) {
         
         // Build data attributes
         const dataAttrs = getPlayerCardDataAttrs(cosmetics);
-        let dataAttrStr = '';
-        for (const [key, val] of Object.entries(dataAttrs)) {
-            dataAttrStr += ` ${key}="${escapeHtml(val)}"`;
-        }
         
-        // Status and similarity
+        // Build status HTML
         let statusHtml = '';
-        let simValue = null;
-        
         if (!player.is_alive) {
             const revealedWord = player.secret_word || '???';
             statusHtml = `<div class="status eliminated">ELIMINATED</div>
                           <div class="revealed-word">${escapeHtml(revealedWord)}</div>`;
         } else if (lastEntry && lastEntry.similarities && lastEntry.similarities[player.id] !== undefined) {
-            simValue = lastEntry.similarities[player.id];
+            const simValue = lastEntry.similarities[player.id];
             const transformedSim = transformSimilarity(simValue);
             const simColor = getSimilarityColor(transformedSim);
             const simPercent = Math.round(transformedSim * 100);
@@ -173,32 +180,104 @@ export function render(game) {
             statusHtml = `<div class="status alive">ACTIVE</div>`;
         }
         
-        // Click handler for profile
-        const clickable = !isAI && !isMe && onProfileClick ? 'clickable-profile' : '';
-        const dataName = !isAI ? `data-player-name="${escapeHtml(player.name)}"` : '';
+        // Check if we have an existing card for this player
+        let card = existingCards.get(player.id);
         
-        return `
-            <div class="player-card ${cosmeticClasses} ${isCurrentTurn ? 'current-turn' : ''} ${!player.is_alive ? 'eliminated' : ''} ${clickable}"
-                 data-player-id="${escapeHtml(player.id)}" ${dataName}${dataAttrStr}>
-                <div class="name ${nameColorClass}">
+        if (card) {
+            // Update existing card in place (prevents flickering)
+            card.className = `player-card ${cosmeticClasses} ${isCurrentTurn ? 'current-turn' : ''} ${!player.is_alive ? 'eliminated' : ''} ${!isAI && !isMe && onProfileClick ? 'clickable-profile' : ''}`.trim();
+            
+            // Update data attributes
+            for (const [key, val] of Object.entries(dataAttrs)) {
+                card.setAttribute(key, val);
+            }
+            
+            // Update name section
+            const nameDiv = card.querySelector('.name');
+            if (nameDiv) {
+                nameDiv.className = `name ${nameColorClass}`.trim();
+                nameDiv.innerHTML = `
                     ${escapeHtml(player.name)}${badgeHtml}
                     ${isMe && !isSpectator ? '<span class="you-badge">(YOU)</span>' : ''}
                     ${isAI ? '<span class="ai-badge">🤖</span>' : ''}
+                `;
+            }
+            
+            // Update status section - find and update or replace
+            const existingStatus = card.querySelector('.status');
+            const existingSimilarity = card.querySelector('.similarity');
+            const existingRevealed = card.querySelector('.revealed-word');
+            
+            // Remove old status elements
+            if (existingStatus) existingStatus.remove();
+            if (existingSimilarity) existingSimilarity.remove();
+            if (existingRevealed) existingRevealed.remove();
+            
+            // Add new status HTML
+            card.insertAdjacentHTML('beforeend', statusHtml);
+            
+            // Ensure card is in correct position
+            const currentPosition = Array.from(grid.children).indexOf(card);
+            if (currentPosition !== index) {
+                if (index === 0) {
+                    grid.prepend(card);
+                } else {
+                    const prevCard = grid.children[index - 1];
+                    if (prevCard) {
+                        prevCard.after(card);
+                    }
+                }
+            }
+        } else {
+            // Create new card
+            const clickable = !isAI && !isMe && onProfileClick ? 'clickable-profile' : '';
+            const dataName = !isAI ? `data-player-name="${escapeHtml(player.name)}"` : '';
+            let dataAttrStr = '';
+            for (const [key, val] of Object.entries(dataAttrs)) {
+                dataAttrStr += ` ${key}="${escapeHtml(val)}"`;
+            }
+            
+            const cardHtml = `
+                <div class="player-card ${cosmeticClasses} ${isCurrentTurn ? 'current-turn' : ''} ${!player.is_alive ? 'eliminated' : ''} ${clickable}"
+                     data-player-id="${escapeHtml(player.id)}" ${dataName}${dataAttrStr}>
+                    <div class="name ${nameColorClass}">
+                        ${escapeHtml(player.name)}${badgeHtml}
+                        ${isMe && !isSpectator ? '<span class="you-badge">(YOU)</span>' : ''}
+                        ${isAI ? '<span class="ai-badge">🤖</span>' : ''}
+                    </div>
+                    ${statusHtml}
                 </div>
-                ${statusHtml}
-            </div>
-        `;
-    }).join('');
-    
-    // Attach profile click handlers
-    if (onProfileClick) {
-        grid.querySelectorAll('.clickable-profile').forEach(el => {
-            el.addEventListener('click', () => {
-                const name = el.dataset.playerName;
+            `;
+            
+            // Insert at correct position
+            if (index === 0) {
+                grid.insertAdjacentHTML('afterbegin', cardHtml);
+            } else if (grid.children[index - 1]) {
+                grid.children[index - 1].insertAdjacentHTML('afterend', cardHtml);
+            } else {
+                grid.insertAdjacentHTML('beforeend', cardHtml);
+            }
+            
+            // Get the newly created card for click handler
+            card = grid.querySelector(`.player-card[data-player-id="${player.id}"]`);
+        }
+        
+        // Attach profile click handler if needed
+        if (card && !isAI && !isMe && onProfileClick && !card._hasClickHandler) {
+            card.addEventListener('click', () => {
+                const name = card.dataset.playerName;
                 if (name) onProfileClick(name);
             });
-        });
-    }
+            card._hasClickHandler = true;
+        }
+    });
+    
+    // Remove cards for players no longer in the game
+    existingCards.forEach((card, playerId) => {
+        if (!processedIds.has(playerId)) {
+            card.remove();
+        }
+    });
 }
 
 export default {

@@ -17,6 +17,7 @@ let aiWordPickInFlight = false;
  */
 export function isAiTurn(game) {
     if (!game || game.status !== 'playing') return false;
+    if (!game.all_words_set) return false;
     const currentPlayer = game.players?.find(p => p.id === game.current_player_id);
     return currentPlayer?.is_ai === true;
 }
@@ -27,7 +28,9 @@ export function isAiTurn(game) {
  * @returns {boolean}
  */
 export function hasAiNeedingWordPick(game) {
-    if (!game || game.status !== 'playing') return false;
+    if (!game) return false;
+    // AI word picks happen during word_selection status
+    if (game.status !== 'word_selection') return false;
     return game.players?.some(p => p.is_ai && !p.has_word);
 }
 

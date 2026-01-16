@@ -135,20 +135,18 @@ function handleGameUpdate(game) {
             screens.show('lobby');
         }
         // Update lobby UI
-    } else if (game.status === 'playing') {
-        if (!game.all_words_set) {
-            // Word selection phase
-            if (currentScreen !== 'wordselect') {
-                wordSelection.show(game);
-            }
-            wordSelection.updateStatus(game);
-        } else {
-            // Active game
-            if (currentScreen !== 'game') {
-                screens.show('game');
-            }
-            gameController.updateGame(game);
+    } else if (game.status === 'word_selection') {
+        // Word selection phase (distinct backend status)
+        if (currentScreen !== 'wordselect') {
+            wordSelection.show(game);
         }
+        wordSelection.updateStatus(game);
+    } else if (game.status === 'playing') {
+        // Active game - all words should be set at this point
+        if (currentScreen !== 'game') {
+            screens.show('game');
+        }
+        gameController.updateGame(game);
     } else if (game.status === 'finished') {
         if (currentScreen !== 'gameover') {
             screens.show('gameover');

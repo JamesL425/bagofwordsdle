@@ -4385,18 +4385,30 @@ def get_theme_embeddings(game: dict) -> dict:
 
 def precompute_theme_similarities(game: dict, theme_embeddings: dict) -> dict:
     """
-    Pre-compute similarity matrix for all theme words.
+    Pre-compute similarity matrix for all theme words using vectorized numpy operations.
     Returns dict mapping word -> {word: similarity} for O(1) lookups.
     """
     words = list(theme_embeddings.keys())
-    matrix = {}
+    if not words:
+        return {}
     
-    for w1 in words:
+    # Stack all embeddings into a matrix for vectorized computation
+    embeddings_matrix = np.array([theme_embeddings[w] for w in words])
+    
+    # Normalize all vectors (for cosine similarity)
+    norms = np.linalg.norm(embeddings_matrix, axis=1, keepdims=True)
+    norms[norms == 0] = 1  # Avoid division by zero
+    normalized = embeddings_matrix / norms
+    
+    # Compute all pairwise similarities at once: (n x d) @ (d x n) = (n x n)
+    similarity_matrix = np.dot(normalized, normalized.T)
+    
+    # Convert to dict format
+    matrix = {}
+    for i, w1 in enumerate(words):
         matrix[w1] = {}
-        emb1 = theme_embeddings[w1]
-        for w2 in words:
-            emb2 = theme_embeddings[w2]
-            matrix[w1][w2] = round(cosine_similarity(emb1, emb2), 4)
+        for j, w2 in enumerate(words):
+            matrix[w1][w2] = round(float(similarity_matrix[i, j]), 4)
     
     return matrix
 
@@ -4640,6 +4652,13 @@ def apply_ranked_mmr_updates(game: dict):
                 u_stats['ranked_losses'] = int(u_stats.get('ranked_losses', 0) or 0) + 1
             user['stats'] = u_stats
             save_user(user)
+            
+            # Also update leaderboard zset so player appears after placement
+            try:
+                current_mmr = int(u_stats.get('mmr', RANKED_INITIAL_MMR) or RANKED_INITIAL_MMR)
+                redis.zadd("leaderboard:mmr", {uid: current_mmr})
+            except Exception as e:
+                print(f"Failed to update ranked leaderboard for {uid}: {e}")
         game['ranked_processed'] = True
         return
 
@@ -4695,6 +4714,13 @@ def apply_ranked_mmr_updates(game: dict):
                 u_stats['ranked_losses'] = int(u_stats.get('ranked_losses', 0) or 0) + 1
             user['stats'] = u_stats
             save_user(user)
+            
+            # Also update leaderboard zset so player appears after placement
+            try:
+                current_mmr = int(u_stats.get('mmr', RANKED_INITIAL_MMR) or RANKED_INITIAL_MMR)
+                redis.zadd("leaderboard:mmr", {uid: current_mmr})
+            except Exception as e:
+                print(f"Failed to update ranked leaderboard for {uid}: {e}")
         game['ranked_processed'] = True
         return
 
@@ -4788,8 +4814,8 @@ def apply_ranked_mmr_updates(game: dict):
         # Update ranked leaderboard zset
         try:
             redis.zadd("leaderboard:mmr", {uid: new_int})
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Failed to update ranked leaderboard for {uid}: {e}")
 
         pid = uid_to_pid.get(uid)
         if pid:
