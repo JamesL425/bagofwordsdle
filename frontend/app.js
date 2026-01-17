@@ -5016,6 +5016,12 @@ function showGameOver(game) {
         loadDaily();
     }
     
+    // Refresh auth user data to get updated stats (especially for ranked games)
+    const savedToken = localStorage.getItem('embeddle_auth_token');
+    if (savedToken && typeof loadAuthenticatedUser === 'function') {
+        loadAuthenticatedUser(savedToken);
+    }
+    
     const winner = game.players.find(p => p.id === game.winner);
     const isWinner = game.winner === gameState.playerId;
     const isRanked = Boolean(game.is_ranked);

@@ -235,7 +235,7 @@ RANKED_PROVISIONAL_GAMES = int((CONFIG.get("ranked", {}) or {}).get("provisional
 RANKED_PROVISIONAL_K_FACTOR = float((CONFIG.get("ranked", {}) or {}).get("provisional_k_factor", 48) or 48)
 # Participation bonus: small flat MMR bonus per game to make elo slightly positive-sum
 # This prevents rating deflation and rewards active play
-RANKED_PARTICIPATION_BONUS = float((CONFIG.get("ranked", {}) or {}).get("participation_bonus", 2.0) or 2.0)
+RANKED_PARTICIPATION_BONUS = float((CONFIG.get("ranked", {}) or {}).get("participation_bonus", 10.0) or 10.0)
 
 # Time control settings (chess clock model)
 TIME_CONTROLS_CONFIG = CONFIG.get("time_controls", {})
@@ -4584,11 +4584,14 @@ def apply_ranked_mmr_updates(game: dict):
     Idempotent best-effort: guarded by game['ranked_processed'] and a Redis setnx key.
     """
     if not isinstance(game, dict):
+        print(f"[RANKED DEBUG] apply_ranked_mmr_updates: game is not a dict")
         return
     if not bool(game.get('is_ranked', False)):
+        print(f"[RANKED DEBUG] apply_ranked_mmr_updates: game is not ranked (is_ranked={game.get('is_ranked')})")
         return
-
+    
     code = game.get('code') or ''
+    print(f"[RANKED DEBUG] Processing ranked game {code}")
     redis = get_redis()
     result_key = f"ranked:{code}:mmr_result"
 
@@ -4608,6 +4611,7 @@ def apply_ranked_mmr_updates(game: dict):
 
     # If already processed, still try to attach saved results (for robustness against concurrent saves)
     if game.get('ranked_processed'):
+        print(f"[RANKED DEBUG] Game {code} already processed (ranked_processed=True)")
         if not game.get('ranked_mmr'):
             _attach_saved_result()
         return
@@ -4619,6 +4623,7 @@ def apply_ranked_mmr_updates(game: dict):
             ok = redis.setnx(guard_key, "1")
             if not ok:
                 # Already processed elsewhere; attach saved results so we don't overwrite them on save.
+                print(f"[RANKED DEBUG] Game {code} already processed (Redis guard key exists)")
                 _attach_saved_result()
                 game['ranked_processed'] = True
                 return
@@ -4648,10 +4653,13 @@ def apply_ranked_mmr_updates(game: dict):
             continue
         participants.append(p)
 
+    print(f"[RANKED DEBUG] Game {code} has {len(participants)} authenticated participants")
+
     if len(participants) < 2:
         # Even if we can't do MMR calculations (not enough human players),
         # still increment ranked_games for the solo human participant
         # so placement progress (0/5) is tracked correctly.
+        print(f"[RANKED DEBUG] Game {code} has < 2 participants, updating stats without MMR calc")
         for p in participants:
             uid = p.get('auth_user_id')
             if not uid:
@@ -4714,6 +4722,7 @@ def apply_ranked_mmr_updates(game: dict):
 
     # If we couldn't load at least 2 users, still update stats for loaded users
     if len(rating) < 2:
+        print(f"[RANKED DEBUG] Game {code} couldn't load 2+ users (loaded {len(rating)}), updating stats without MMR calc")
         # Update ranked_games for any users we did load
         for uid, user in user_map.items():
             u_stats = get_user_stats(user)
@@ -4745,8 +4754,11 @@ def apply_ranked_mmr_updates(game: dict):
     uids = list(uid_to_pid.keys())
     n = len(uids)
     if n < 2:
+        print(f"[RANKED DEBUG] Game {code} has < 2 uids after mapping ({n}), returning early")
         game['ranked_processed'] = True
         return
+    
+    print(f"[RANKED DEBUG] Game {code} processing MMR for {n} players")
 
     deltas = {uid: 0.0 for uid in uids}
 
@@ -4833,6 +4845,7 @@ def apply_ranked_mmr_updates(game: dict):
 
         user['stats'] = u_stats
         save_user(user)
+        print(f"[RANKED DEBUG] Updated user {uid}: ranked_games={u_stats.get('ranked_games')}, mmr={u_stats.get('mmr')}, delta={delta_int}")
 
         # Update ranked leaderboard zset
         try:
@@ -4852,6 +4865,7 @@ def apply_ranked_mmr_updates(game: dict):
     game['ranked_processed'] = True
     if mmr_result_by_pid:
         game['ranked_mmr'] = mmr_result_by_pid
+        print(f"[RANKED DEBUG] Game {code} finished processing, mmr_result_by_pid={mmr_result_by_pid}")
         # Persist results in Redis so concurrent finish requests can attach them reliably.
         try:
             redis.setex(result_key, GAME_EXPIRY_SECONDS, json.dumps(mmr_result_by_pid))
@@ -4860,6 +4874,8 @@ def apply_ranked_mmr_updates(game: dict):
                 redis.set(result_key, json.dumps(mmr_result_by_pid))
             except Exception:
                 pass
+    else:
+        print(f"[RANKED DEBUG] Game {code} finished processing but no mmr_result_by_pid")
 
 
 def update_game_stats(game: dict):
@@ -4867,6 +4883,8 @@ def update_game_stats(game: dict):
     winner_id = game.get('winner')
     is_multiplayer = not bool(game.get('is_singleplayer'))
     is_ranked = bool(game.get('is_ranked', False)) and is_multiplayer
+    
+    print(f"[RANKED DEBUG] update_game_stats called: is_ranked={is_ranked}, is_multiplayer={is_multiplayer}, winner={winner_id}")
     
     # Count eliminations per player
     eliminations_by_player = {}
@@ -4970,7 +4988,9 @@ def update_game_stats(game: dict):
         try:
             apply_ranked_mmr_updates(game)
         except Exception as e:
+            import traceback
             print(f"Ranked MMR update error: {e}")
+            print(f"Ranked MMR update traceback: {traceback.format_exc()}")
 
 
 def get_leaderboard(leaderboard_type: str = 'alltime') -> list:
