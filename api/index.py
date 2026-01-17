@@ -7566,15 +7566,18 @@ class handler(BaseHTTPRequestHandler):
             game['word_selection_started_at'] = time.time()  # Start word selection timer
             game['word_selection_time'] = get_word_selection_time(bool(game.get('is_ranked', False)))
             
-            # Pre-cache theme embeddings in Redis during word selection phase
+            # Pre-cache theme embeddings in Redis in background thread
             # This warms the cache so lookups during gameplay are fast
-            # NOTE: We do NOT store embeddings in game state (too large ~2.5MB)
+            # NOTE: We do NOT block on this - embeddings will be ready by the time players pick words
             theme_words = game.get('theme', {}).get('words', [])
             if theme_words:
-                try:
-                    batch_get_embeddings(theme_words)  # Just warm the Redis cache
-                except Exception as e:
-                    print(f"Theme embedding pre-cache error (start): {e}")
+                import threading
+                def precache_embeddings():
+                    try:
+                        batch_get_embeddings(theme_words)
+                    except Exception as e:
+                        print(f"Theme embedding pre-cache error (start): {e}")
+                threading.Thread(target=precache_embeddings, daemon=True).start()
             
             save_game(code, game)
             return self._send_json({"status": "word_selection", "theme": game['theme']['name']})
