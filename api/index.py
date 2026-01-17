@@ -233,6 +233,9 @@ RANKED_PLACEMENT_K_FACTOR = float((CONFIG.get("ranked", {}) or {}).get("placemen
 RANKED_PLACEMENT_GAMES = int((CONFIG.get("ranked", {}) or {}).get("placement_games", 5) or 5)
 RANKED_PROVISIONAL_GAMES = int((CONFIG.get("ranked", {}) or {}).get("provisional_games", 20) or 20)
 RANKED_PROVISIONAL_K_FACTOR = float((CONFIG.get("ranked", {}) or {}).get("provisional_k_factor", 48) or 48)
+# Participation bonus: small flat MMR bonus per game to make elo slightly positive-sum
+# This prevents rating deflation and rewards active play
+RANKED_PARTICIPATION_BONUS = float((CONFIG.get("ranked", {}) or {}).get("participation_bonus", 2.0) or 2.0)
 
 # Time control settings (chess clock model)
 TIME_CONTROLS_CONFIG = CONFIG.get("time_controls", {})
@@ -4798,7 +4801,7 @@ def apply_ranked_mmr_updates(game: dict):
         scale = float(k_factor) / float(max(1, n - 1))
         
         old = rating[uid]
-        new = old + (scale * deltas.get(uid, 0.0))
+        new = old + (scale * deltas.get(uid, 0.0)) + RANKED_PARTICIPATION_BONUS
         try:
             new_int = int(round(new))
         except Exception:
