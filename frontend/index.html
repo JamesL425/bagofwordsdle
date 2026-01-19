@@ -451,11 +451,17 @@
                 
                 <div class="home-actions">
                     <div class="home-actions-primary">
-                        <button id="quickplay-btn" class="btn btn-primary btn-large btn-block home-action">&gt; QUICK_PLAY</button>
-                        <button id="ranked-btn" class="btn btn-rank btn-large btn-block home-action">&gt; RANKED</button>
+                        <button id="quickplay-btn" class="btn btn-primary btn-large btn-block home-action">
+                            <span class="btn-text">&gt; QUICK_PLAY</span>
+                            <span id="quickplay-queue-count" class="queue-count hidden">0 in queue</span>
+                        </button>
+                        <button id="ranked-btn" class="btn btn-rank btn-large btn-block home-action">
+                            <span class="btn-text">&gt; RANKED</span>
+                            <span id="ranked-queue-count" class="queue-count hidden">0 in queue</span>
+                        </button>
                     </div>
                     <div class="home-actions-secondary">
-                        <button id="create-private-btn" class="btn btn-secondary btn-block home-action">&gt; PRIVATE_LOBBY</button>
+                        <button id="create-lobby-btn" class="btn btn-secondary btn-block home-action">&gt; CUSTOM_LOBBY</button>
                         <button id="singleplayer-btn" class="btn btn-secondary btn-block home-action">&gt; SOLO_MISSION</button>
                     </div>
                     <div class="home-join-row">
@@ -1117,18 +1123,26 @@
         </footer>
     </div>
 
-    <!-- Private Lobby Modal -->
-    <div id="private-lobby-modal" class="modal-overlay closable-modal">
+    <!-- Custom Lobby Modal -->
+    <div id="custom-lobby-modal" class="modal-overlay closable-modal">
         <div class="modal-backdrop" data-close="true"></div>
-        <div class="modal private-lobby-modal">
+        <div class="modal custom-lobby-modal">
             <div class="modal-header">
-                <h2>// CREATE_PRIVATE_LOBBY</h2>
-                <button id="close-private-lobby-btn" class="btn btn-ghost btn-tiny">×</button>
+                <h2>// CREATE_CUSTOM_LOBBY</h2>
+                <button id="close-custom-lobby-btn" class="btn btn-ghost btn-tiny">×</button>
             </div>
             <div class="modal-content">
                 <div class="form-group">
-                    <label for="private-time-control">TIME CONTROL</label>
-                    <select id="private-time-control" class="time-control-select">
+                    <label>VISIBILITY</label>
+                    <div class="visibility-toggle">
+                        <button type="button" id="visibility-public" class="visibility-btn active" data-value="public">PUBLIC</button>
+                        <button type="button" id="visibility-private" class="visibility-btn" data-value="private">PRIVATE</button>
+                    </div>
+                    <p class="form-hint" id="visibility-hint">Anyone can join from Active Servers</p>
+                </div>
+                <div class="form-group">
+                    <label for="custom-time-control">TIME CONTROL</label>
+                    <select id="custom-time-control" class="time-control-select">
                         <option value="bullet">Bullet (1 min + 5s)</option>
                         <option value="blitz">Blitz (2 min + 10s)</option>
                         <option value="rapid" selected>Rapid (5 min + 15s)</option>
@@ -1137,7 +1151,7 @@
                     </select>
                 </div>
                 <div class="modal-buttons">
-                    <button id="create-private-lobby-confirm" class="btn btn-primary">&gt; CREATE_LOBBY</button>
+                    <button id="create-custom-lobby-confirm" class="btn btn-primary">&gt; CREATE_LOBBY</button>
                 </div>
             </div>
         </div>

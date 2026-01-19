@@ -5242,9 +5242,8 @@ def _try_quick_play_match(redis, queue_key: str, requesting_player_id: str, wait
     """
     Try to create a quick play match.
     
-    - If 4+ players: create match with first 4
-    - If 30s timeout with 2-3 players: fill with AI
-    - If 30s timeout with 1 player: fill with 3 AI
+    - If 4 players: create match with first 4 (FIFO)
+    - Never adds AI - waits for human players
     """
     players = _get_queue_players(redis, queue_key, "quick_play")
     
@@ -5253,22 +5252,6 @@ def _try_quick_play_match(redis, queue_key: str, requesting_player_id: str, wait
         players.sort(key=lambda p: p.get("joined_at", now))
         match_players = players[:QUEUE_MATCH_SIZE]
         return _create_match_from_queue(redis, "quick_play", match_players, ai_fill=0)
-    
-    # Check if timeout reached
-    if wait_time >= QUEUE_QUICK_PLAY_TIMEOUT and len(players) >= 1:
-        # Find the requesting player
-        requesting_player = next((p for p in players if p.get("player_id") == requesting_player_id), None)
-        if not requesting_player:
-            return None
-        
-        # Check if requesting player has been waiting long enough
-        player_wait = now - requesting_player.get("joined_at", now)
-        if player_wait >= QUEUE_QUICK_PLAY_TIMEOUT:
-            # Create match with available players + AI fill
-            players.sort(key=lambda p: p.get("joined_at", now))
-            match_players = players[:QUEUE_MATCH_SIZE]
-            ai_fill = QUEUE_MATCH_SIZE - len(match_players)
-            return _create_match_from_queue(redis, "quick_play", match_players, ai_fill=ai_fill)
     
     return None
 
@@ -6142,6 +6125,20 @@ class handler(BaseHTTPRequestHandler):
                 "streak_broken": streak_result['streak_broken'],
                 "streak_info": streak_info,
             })
+
+        # GET /api/queue/counts - Get current queue sizes (no auth required)
+        if path == '/api/queue/counts':
+            try:
+                redis = get_redis()
+                quick_play_count = redis.zcard(_queue_key("quick_play")) or 0
+                ranked_count = redis.zcard(_queue_key("ranked")) or 0
+                return self._send_json({
+                    "quick_play": int(quick_play_count),
+                    "ranked": int(ranked_count),
+                })
+            except Exception as e:
+                print(f"[QUEUE] Error getting counts: {e}")
+                return self._send_json({"quick_play": 0, "ranked": 0})
 
         # GET /api/queue/status - Get queue status and check for matches
         if path == '/api/queue/status':
@@ -7432,19 +7429,8 @@ class handler(BaseHTTPRequestHandler):
                 game['theme_votes'][theme] = []
             game['theme_votes'][theme].append(player_id)
             
-            # Return immediately with updated votes, save in background
-            response_votes = game['theme_votes']
-            
-            # Fire-and-forget save (don't block response)
-            import threading
-            def save_async():
-                try:
-                    save_game(code, game)
-                except Exception as e:
-                    print(f"Async vote save error: {e}")
-            threading.Thread(target=save_async, daemon=True).start()
-            
-            return self._send_json({"status": "voted", "theme_votes": response_votes})
+            save_game(code, game)
+            return self._send_json({"status": "voted", "theme_votes": game['theme_votes']})
 
         # POST /api/games/{code}/theme - Set the theme (creator chooses)
         if '/theme' in path and path.startswith('/api/games/') and path.count('/') == 4:

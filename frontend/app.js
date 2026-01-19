@@ -2255,9 +2255,12 @@ function showScreen(screenName) {
         renderRecentGames();
         // Refresh stats bar (ranked counter, credits, streak) when returning home
         updateHomeStatsBar();
+        // Start queue count polling
+        startQueueCountPolling();
     } else {
         stopLobbyRefresh();
         stopSpectateRefresh();
+        stopQueueCountPolling();
     }
 }
 
@@ -2652,8 +2655,10 @@ function updateQueueTimer() {
     const statusMessage = document.getElementById('queue-status-message');
     if (statusMessage) {
         if (gameState.queueMode === 'quick_play') {
-            if (elapsed >= 25) {
-                statusMessage.textContent = 'Preparing match with AI operatives...';
+            if (elapsed >= 60) {
+                statusMessage.textContent = 'Still searching... hang tight!';
+            } else if (elapsed >= 30) {
+                statusMessage.textContent = 'Waiting for more operatives...';
             } else if (elapsed >= 15) {
                 statusMessage.textContent = 'Expanding search parameters...';
             } else {
@@ -2793,40 +2798,116 @@ document.getElementById('quickplay-btn')?.addEventListener('click', async () => 
     await quickPlay({ ranked: false });
 });
 
-document.getElementById('create-private-btn')?.addEventListener('click', () => {
-    showPrivateLobbyModal();
+document.getElementById('create-lobby-btn')?.addEventListener('click', () => {
+    showCustomLobbyModal();
 });
 
 document.getElementById('ranked-btn')?.addEventListener('click', async () => {
     await quickPlay({ ranked: true });
 });
 
-// Private Lobby Modal
-function showPrivateLobbyModal() {
+// Custom Lobby Modal
+let customLobbyVisibility = 'public';
+
+function showCustomLobbyModal() {
     if (!gameState.playerName) {
         showError('Enter your callsign first (top right)');
         document.getElementById('login-name').focus();
         return;
     }
-    const modal = document.getElementById('private-lobby-modal');
+    const modal = document.getElementById('custom-lobby-modal');
     if (modal) modal.classList.add('show');
+    
+    // Reset to public by default
+    customLobbyVisibility = 'public';
+    updateVisibilityToggle();
 }
 
-function hidePrivateLobbyModal() {
-    const modal = document.getElementById('private-lobby-modal');
+function hideCustomLobbyModal() {
+    const modal = document.getElementById('custom-lobby-modal');
     if (modal) modal.classList.remove('show');
 }
 
-document.getElementById('close-private-lobby-btn')?.addEventListener('click', hidePrivateLobbyModal);
+function updateVisibilityToggle() {
+    const publicBtn = document.getElementById('visibility-public');
+    const privateBtn = document.getElementById('visibility-private');
+    const hint = document.getElementById('visibility-hint');
+    
+    if (publicBtn && privateBtn) {
+        publicBtn.classList.toggle('active', customLobbyVisibility === 'public');
+        privateBtn.classList.toggle('active', customLobbyVisibility === 'private');
+    }
+    
+    if (hint) {
+        hint.textContent = customLobbyVisibility === 'public' 
+            ? 'Anyone can join from Active Servers' 
+            : 'Only players with the code can join';
+    }
+}
 
-document.getElementById('private-lobby-modal')?.querySelector('.modal-backdrop')?.addEventListener('click', hidePrivateLobbyModal);
-
-document.getElementById('create-private-lobby-confirm')?.addEventListener('click', async () => {
-    const timeControlSelect = document.getElementById('private-time-control');
-    const timeControl = timeControlSelect?.value || 'rapid';
-    hidePrivateLobbyModal();
-    await createLobby({ visibility: 'private', isRanked: false, timeControl });
+document.getElementById('visibility-public')?.addEventListener('click', () => {
+    customLobbyVisibility = 'public';
+    updateVisibilityToggle();
 });
+
+document.getElementById('visibility-private')?.addEventListener('click', () => {
+    customLobbyVisibility = 'private';
+    updateVisibilityToggle();
+});
+
+document.getElementById('close-custom-lobby-btn')?.addEventListener('click', hideCustomLobbyModal);
+
+document.getElementById('custom-lobby-modal')?.querySelector('.modal-backdrop')?.addEventListener('click', hideCustomLobbyModal);
+
+document.getElementById('create-custom-lobby-confirm')?.addEventListener('click', async () => {
+    const timeControlSelect = document.getElementById('custom-time-control');
+    const timeControl = timeControlSelect?.value || 'rapid';
+    hideCustomLobbyModal();
+    await createLobby({ visibility: customLobbyVisibility, isRanked: false, timeControl });
+});
+
+// Queue count polling
+let queueCountInterval = null;
+
+async function fetchQueueCounts() {
+    try {
+        const data = await apiCall('/api/queue/counts');
+        updateQueueCountDisplay('quickplay', data.quick_play || 0);
+        updateQueueCountDisplay('ranked', data.ranked || 0);
+    } catch (error) {
+        // Silently fail - queue counts are nice-to-have
+        console.debug('Failed to fetch queue counts:', error);
+    }
+}
+
+function updateQueueCountDisplay(mode, count) {
+    const elementId = mode === 'quickplay' ? 'quickplay-queue-count' : 'ranked-queue-count';
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    
+    if (count > 0) {
+        el.textContent = `${count} in queue`;
+        el.classList.remove('hidden');
+    } else {
+        el.classList.add('hidden');
+    }
+}
+
+function startQueueCountPolling() {
+    // Fetch immediately
+    fetchQueueCounts();
+    // Then poll every 5 seconds
+    if (!queueCountInterval) {
+        queueCountInterval = setInterval(fetchQueueCounts, 5000);
+    }
+}
+
+function stopQueueCountPolling() {
+    if (queueCountInterval) {
+        clearInterval(queueCountInterval);
+        queueCountInterval = null;
+    }
+}
 
 // Join by code (home screen)
 const joinCodeInput = document.getElementById('join-code-input');

@@ -8993,3 +8993,131 @@ body[data-background="binary_rain"]::after {
         }
     }
 }
+
+/* ============ QUEUE COUNT BADGES ============ */
+
+.home-actions-primary .btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.home-actions-primary .btn-text {
+    font-weight: 700;
+}
+
+.queue-count {
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    opacity: 0.9;
+}
+
+.queue-count.hidden {
+    display: none;
+}
+
+#quickplay-btn .queue-count {
+    color: rgba(0, 255, 65, 0.7);
+}
+
+#ranked-btn .queue-count {
+    color: rgba(255, 204, 0, 0.7);
+}
+
+/* ============ CUSTOM LOBBY MODAL ============ */
+
+.custom-lobby-modal {
+    max-width: 400px;
+}
+
+.custom-lobby-modal .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.custom-lobby-modal .modal-header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.custom-lobby-modal .modal-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.custom-lobby-modal .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.custom-lobby-modal .form-group label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.custom-lobby-modal .time-control-select {
+    width: 100%;
+}
+
+.form-hint {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+}
+
+/* Visibility Toggle */
+.visibility-toggle {
+    display: flex;
+    gap: 0;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.visibility-btn {
+    flex: 1;
+    padding: 0.6rem 1rem;
+    background: var(--bg-secondary);
+    border: none;
+    color: var(--text-muted);
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.visibility-btn:first-child {
+    border-right: 1px solid var(--border);
+}
+
+.visibility-btn:hover:not(.active) {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+}
+
+.visibility-btn.active {
+    background: var(--accent-primary);
+    color: var(--bg-primary);
+}
+
+/* ============ REPLAY CARD ============ */
+
+.replay-card .home-replay-row {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.replay-card .replay-code-input {
+    flex: 1;
+    min-width: 0;
+}
