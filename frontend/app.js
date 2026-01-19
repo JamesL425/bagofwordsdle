@@ -214,9 +214,6 @@ const DEFAULT_OPTIONS = {
 
 let optionsState = { ...DEFAULT_OPTIONS };
 
-// Preloaded click sound
-let clickAudio = null;
-
 function loadOptions() {
     try {
         const raw = localStorage.getItem('embeddle_options');
@@ -227,12 +224,18 @@ function loadOptions() {
                 parsed.musicVolume = parsed.musicEnabled ? 12 : 0;
                 delete parsed.musicEnabled;
             }
+            // Migrate old SFX toggles - default to 50% for new system
+            // (old clickSfxEnabled was false by default, so we ignore it for migration)
             if (typeof parsed.clickSfxEnabled !== 'undefined' || typeof parsed.eliminationSfxEnabled !== 'undefined') {
-                // If either old SFX toggle was on, default to 50%
-                const hadSfx = parsed.clickSfxEnabled || parsed.eliminationSfxEnabled;
+                // If elimination SFX was on (the main one), enable SFX at 50%
+                const hadSfx = parsed.eliminationSfxEnabled !== false;
                 parsed.sfxVolume = hadSfx ? 50 : 0;
                 delete parsed.clickSfxEnabled;
                 delete parsed.eliminationSfxEnabled;
+            }
+            // Ensure sfxVolume has a value (for users with partial old settings)
+            if (typeof parsed.sfxVolume !== 'number') {
+                parsed.sfxVolume = 50;
             }
             optionsState = { ...DEFAULT_OPTIONS, ...parsed };
         } else {
@@ -347,40 +350,6 @@ function playTone({ freq = 800, durationMs = 40, type = 'square', volume = 0.04 
 
     osc.start(now);
     osc.stop(now + (durationMs / 1000) + 0.02);
-}
-
-function initClickAudio() {
-    if (clickAudio) return;
-    try {
-        clickAudio = new Audio('/click.mp3');
-        clickAudio.preload = 'auto';
-    } catch (e) {
-        console.warn('Failed to init click audio:', e);
-    }
-}
-
-function playClickSfx() {
-    const effectiveVolume = getEffectiveSfxVolume();
-    if (effectiveVolume <= 0) return;
-    
-    initClickAudio();
-    if (!clickAudio) {
-        // Fallback to synthesized tone
-        resumeSfxContext();
-        playTone({ freq: 880, durationMs: 28, type: 'square', volume: 0.03 });
-        return;
-    }
-    
-    try {
-        // Clone the audio to allow overlapping plays
-        const sound = clickAudio.cloneNode();
-        sound.volume = clamp01(effectiveVolume * 0.5); // Base volume 50% of SFX slider
-        sound.play().catch(() => {});
-    } catch (e) {
-        // Fallback to synthesized tone
-        resumeSfxContext();
-        playTone({ freq: 880, durationMs: 28, type: 'square', volume: 0.03 });
-    }
 }
 
 function playEliminationSfx() {
@@ -1761,12 +1730,12 @@ document.getElementById('share-profile-btn')?.addEventListener('click', async ()
     }
 });
 
-// Global button click SFX (placeholder)
+// Global button click handler (no sound)
 document.addEventListener('click', (e) => {
     const btn = e.target?.closest?.('button.btn');
     if (!btn) return;
     if (btn.disabled) return;
-    playClickSfx();
+    // Click sound removed
 }, { capture: true });
 
 // DOM Elements
@@ -6474,6 +6443,13 @@ async function pollSpectate() {
         updateGame(game);
         pollChatOnce();
     } catch (e) {
+        // 404 means game ended/expired - this is expected, go back to home
+        if (e.status === 404) {
+            stopPolling();
+            showScreen('home');
+            showInfo('Game has ended');
+            return;
+        }
         console.error('Spectate poll error:', e);
     }
 }

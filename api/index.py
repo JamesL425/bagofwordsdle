@@ -2283,17 +2283,13 @@ def _ai_update_confidence(ai_player: dict, event: str, value: float = 0.0):
 
 
 def ai_choose_guess(ai_player: dict, game: dict) -> Optional[str]:
-    """AI chooses a word to guess based on difficulty, personality, and game state.
+    """AI chooses a word to guess. Fast and simple.
     
-    This function incorporates:
-    - Difficulty-based strategic decision making
-    - Personality-driven target selection
-    - Human-like mistakes
-    - Bluffing behavior
-    - Grudge-based targeting
-    - Confidence and streak effects
-    
-    For Nemesis difficulty, uses information-theoretic optimization instead.
+    Strategy:
+    - Look at game history for high-similarity clues
+    - Pick words similar to those clues
+    - Avoid guessing own secret word
+    - Higher difficulty = smarter targeting
     """
     import random
     
@@ -2301,263 +2297,60 @@ def ai_choose_guess(ai_player: dict, game: dict) -> Optional[str]:
     default_cfg = AI_DIFFICULTY_CONFIG.get("rookie") or {}
     config = AI_DIFFICULTY_CONFIG.get(difficulty, default_cfg)
     
-    # Nemesis uses completely different strategy - no randomness, no mistakes
+    # Nemesis uses completely different strategy
     if difficulty == "nemesis":
         return _nemesis_choose_guess(ai_player, game)
     
-    personality_mods = _ai_get_personality_modifiers(ai_player)
-    
     theme_words = game.get("theme", {}).get("words", [])
-    memory = ai_player.get("ai_memory", {})
-    guessed_words = memory.get("guessed_words", [])
     my_secret = (ai_player.get("secret_word") or "").lower().strip()
+    matrix = game.get('theme_similarity_matrix', {})
     
-    # Get stale guessed words (guessed but no word_change since - should be deprioritized)
-    stale_guessed = _get_stale_guessed_words(game)
-    
-    # Build available words - prefer words that haven't been guessed or are reguessable
-    available_words = []
-    deprioritized_words = []  # Words that were guessed but no word_change since
-    for w in theme_words:
-        wl = str(w).lower()
-        # Never guess your own secret word (huge self-leak)
-        if my_secret and wl == my_secret:
-            continue
-        if wl in stale_guessed:
-            deprioritized_words.append(w)
-        else:
-            available_words.append(w)
-    
-    # If all words have been guessed (rare), fall back to deprioritized
-    if not available_words:
-        available_words = deprioritized_words
-    
+    # Build available words (exclude own secret)
+    available_words = [w for w in theme_words if w.lower() != my_secret]
     if not available_words:
         return None
     
-    # Compute self-danger (how close others are to guessing us) from public history
-    my_top = _ai_top_guesses_since_change(game, ai_player.get("id"), k=3)
-    my_danger_score = _ai_danger_score(my_top)
-    my_danger_level = _ai_danger_level(my_danger_score)
-
-    # Decide if this should be a strategic guess (and boost when threatened)
-    strategic_chance = float(config.get("strategic_chance", 0.15) or 0.15)
-    targeting_strength = float(config.get("targeting_strength", 0.2) or 0.2)
-    min_target_similarity = float(config.get("min_target_similarity", 0.3) or 0.3)
+    strategic_chance = float(config.get("strategic_chance", 0.15))
     
-    # Apply personality modifiers
-    strategic_chance = max(0.05, min(0.95, strategic_chance + personality_mods.get("random_chance_mod", 0) * -1))
-    targeting_strength = max(0.1, min(0.95, targeting_strength + personality_mods.get("targeting_boost", 0)))
-
-    panic_threshold = str(config.get("panic_danger", "high") or "high")
-    panic = _ai_is_panic(my_danger_level, panic_threshold)
-    
-    # Update AI state for panic
-    ai_state = ai_player.get("ai_state", {})
-    ai_state["is_panicking"] = panic
-    ai_player["ai_state"] = ai_state
-    
-    if panic:
-        strategic_chance = min(0.98, strategic_chance + float(config.get("panic_aggression_boost", 0.2) or 0.2))
-        targeting_strength = min(0.98, targeting_strength + float(config.get("panic_aggression_boost", 0.2) or 0.2) * 0.6)
+    # Strategic guess: find best target from history
+    if random.random() < strategic_chance and matrix:
+        # Look at recent history for high-similarity guesses against opponents
+        best_clue = None
+        best_sim = 0.0
         
-        # Generate panic chat message
-        chat_msg = _ai_generate_chat_message(ai_player, "panic_mode")
-        if chat_msg:
-            ai_state["pending_chat"] = chat_msg
-
-    # Self-leak controls: avoid guesses too close to our own secret unless panic forces our hand
-    soft_max = float(config.get("self_leak_soft_max", 0.85) or 0.85)
-    hard_max = float(config.get("self_leak_hard_max", 0.95) or 0.95)
-    
-    # Apply personality self-leak tolerance
-    leak_tolerance = personality_mods.get("self_leak_tolerance", 0)
-    soft_max = min(0.95, soft_max + leak_tolerance)
-    hard_max = min(0.98, hard_max + leak_tolerance)
-    
-    if panic:
-        # In panic, relax leak avoidance a bit: you're willing to "bleed" to secure a word change
-        soft_max = min(0.99, soft_max + 0.05)
-        hard_max = min(0.995, hard_max + 0.03)
-
-    # Cache self-sim values for this turn (avoid repeated embedding lookups)
-    _self_sim_cache = {}
-
-    def get_self_sim(word: str) -> Optional[float]:
-        wl = str(word).lower()
-        if wl in _self_sim_cache:
-            return _self_sim_cache[wl]
-        sim = _ai_self_similarity(ai_player, wl, game)
-        _self_sim_cache[wl] = sim
-        return sim
-
-    # Helper: choose candidate words with low self-leak, fallback if needed
-    def pick_low_leak(candidates: list) -> Optional[str]:
-        if not candidates:
-            return None
-        # First pass: enforce hard_max
-        ok = []
-        for w in candidates:
-            sim = get_self_sim(w)
-            if sim is None:
-                ok.append(w)
-                continue
-            if sim <= hard_max:
-                ok.append(w)
-        if ok:
-            candidates = ok
-
-        # Second pass: prefer <= soft_max but don't hard-fail
-        scored = []
-        for w in candidates:
-            sim = get_self_sim(w)
-            # Lower similarity-to-self is better (less leak)
-            leak = sim if sim is not None else 0.0
-            penalty = 0.0
-            if sim is not None and sim > soft_max:
-                penalty = (sim - soft_max) * 10.0
-            scored.append((w, penalty, leak))
-        scored.sort(key=lambda x: (x[1], x[2]))
-        # Add a bit of personality noise so AIs aren't identical
-        top_n = min(len(scored), 3 if not panic else 2)
-        return str(random.choice(scored[:top_n])[0])
-    
-    # === MISTAKE CHECK: Miss obvious target ===
-    # Sometimes the AI "forgets" to follow up on a good clue
-    if _ai_should_make_mistake(ai_player, "miss_obvious_target", panic):
-        # Skip strategic guessing entirely, go random
-        pool_size = int(config.get("candidate_pool", 12) or 12)
-        sample_n = max(8, min(len(available_words), pool_size))
-        sample = random.sample(available_words, sample_n) if sample_n < len(available_words) else available_words
-        pick = pick_low_leak(sample)
-        if pick:
-            return pick
-    
-    # === MISTAKE CHECK: Overconfident guess (self-leak) ===
-    if _ai_should_make_mistake(ai_player, "overconfident_guess", panic):
-        # Relax self-leak constraints significantly
-        soft_max = min(0.98, soft_max + 0.15)
-        hard_max = min(0.99, hard_max + 0.1)
-    
-    # === BLUFFING: Occasionally guess near own word to mislead ===
-    bluff_word = _ai_maybe_bluff(ai_player, game, available_words)
-    if bluff_word:
-        return bluff_word
-    
-    if random.random() < strategic_chance:
-        # Strategic guess: try to find words similar to high-similarity targets
-        #
-        # If we're in danger, prioritize targets who are already "vulnerable" (high danger score)
-        target = None
-
-        def best_target_from_history(prefer_vulnerable: bool) -> Optional[dict]:
-            targets_list = []
-            for p in game.get("players", []) or []:
-                if not p or p.get("id") == ai_player.get("id"):
+        for entry in reversed(game.get("history", [])[-20:]):
+            word = entry.get("word", "").lower()
+            sims = entry.get("similarities", {})
+            for pid, sim in sims.items():
+                # Skip self
+                if pid == ai_player.get("id"):
                     continue
-                if not p.get("is_alive", True):
-                    continue
-                top3 = _ai_top_guesses_since_change(game, p.get("id"), k=3)
-                if not top3:
-                    continue
-                top_sim = float(top3[0][1]) if top3 else 0.0
-                avg_sim = sum(float(x[1]) for x in top3) / float(len(top3)) if top3 else 0.0
-                score = (top_sim * 0.7 + avg_sim * 0.3)
-                if prefer_vulnerable:
-                    # vulnerability is essentially the opponent's danger score
-                    score = _ai_danger_score(top3)
-                targets_list.append({
-                    "player_id": p.get("id"),
-                    "player_name": p.get("name"),
-                    "top_word": top3[0][0] if top3 else None,
-                    "top_similarity": top_sim,
-                    "score": score,
-                })
-            return targets_list
-
-        if panic:
-            targets_list = best_target_from_history(prefer_vulnerable=True)
-        else:
-            targets_list = best_target_from_history(prefer_vulnerable=False)
+                # Check if this player is still alive
+                player = next((p for p in game["players"] if p["id"] == pid and p.get("is_alive")), None)
+                if player and sim > best_sim:
+                    best_sim = sim
+                    best_clue = word
         
-        # Use personality-based target selection
-        if targets_list:
-            target = _ai_select_target_by_personality(ai_player, game, targets_list)
-        
-        # Fallback to legacy targeting if personality selection fails
-        if target is None:
-            target = ai_find_best_target(ai_player, game)
-        
-        if target and target.get("top_word") and target.get("top_similarity", 0) > min_target_similarity:
-            # === MISTAKE CHECK: Forget clue ===
-            # Sometimes AI ignores recent high-similarity info
-            if _ai_should_make_mistake(ai_player, "forget_clue", panic):
-                # Use older/weaker clues instead
-                target_id = target.get("player_id")
-                if target_id:
-                    all_clues = _ai_top_guesses_since_change(game, target_id, k=10)
-                    if len(all_clues) > 3:
-                        # Use weaker clues (positions 4-7)
-                        weaker_clues = all_clues[3:7]
-                        if weaker_clues:
-                            target["top_word"] = weaker_clues[0][0]
-                            target["top_similarity"] = weaker_clues[0][1]
+        # If we found a good clue, pick a similar word
+        if best_clue and best_sim > 0.4 and best_clue in matrix:
+            # Get words similar to the clue
+            clue_sims = matrix[best_clue]
+            candidates = []
+            for w in available_words:
+                wl = w.lower()
+                if wl == best_clue:
+                    continue  # Don't repeat the exact clue
+                sim = clue_sims.get(wl, 0)
+                candidates.append((w, sim))
             
-            # Find words similar to the word that got high similarity.
-            # We also avoid repeating globally-guessed words and avoid leaking our own secret.
-            pool_size = int(config.get("candidate_pool", 12) or 12)
-            clue_k = int(config.get("clue_words_per_target", 1) or 1)
-            target_id = target.get("player_id")
-            clues = _ai_top_guesses_since_change(game, target_id, k=max(1, min(3, clue_k))) if target_id else []
-            if not clues:
-                clues = [(target["top_word"], float(target.get("top_similarity") or 0.5))]
-
-            combined_scores = {}
-            combined_list_max = max(5, min(25, pool_size))
-            for clue_word, clue_sim in clues:
-                # Rank theme words near each clue word
-                sim_list = ai_find_similar_words(
-                    clue_word,
-                    available_words,
-                    guessed_words,
-                    count=combined_list_max,
-                    game=game,
-                )
-                if not sim_list:
-                    continue
-                try:
-                    w = float(clue_sim)
-                except Exception:
-                    w = 0.5
-                denom = float(len(sim_list)) if sim_list else 1.0
-                for rank, cand in enumerate(sim_list):
-                    # rank 0 is best; convert to [0..1] weight
-                    rscore = (denom - float(rank)) / denom
-                    combined_scores[cand] = combined_scores.get(cand, 0.0) + (w * rscore)
-
-            similar_words = [w for (w, _) in sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)]
-            
-            if similar_words:
-                # Higher targeting strength = more likely to pick the most similar word
-                # but still apply self-leak avoidance.
-                if random.random() < targeting_strength:
-                    pick = pick_low_leak(similar_words[: max(3, pool_size // 2)])
-                    if pick:
-                        return pick
-                pick = pick_low_leak(similar_words[: max(3, min(10, pool_size))])
-                if pick:
-                    return pick
+            if candidates:
+                candidates.sort(key=lambda x: x[1], reverse=True)
+                # Pick from top candidates with some randomness
+                top_n = min(5, len(candidates))
+                return random.choice(candidates[:top_n])[0]
     
-    # Random guess from available words
-    # Even on random guesses, avoid self-leak when possible.
-    # Don't evaluate the full theme every time; sample a reasonable set.
-    pool_size = int(config.get("candidate_pool", 12) or 12)
-    sample_n = max(8, min(len(available_words), pool_size * (2 if panic else 1)))
-    sample = random.sample(available_words, sample_n) if sample_n < len(available_words) else available_words
-    pick = pick_low_leak(sample)
-    if pick:
-        return pick
-    return str(random.choice(available_words))
+    # Random guess
+    return random.choice(available_words)
 
 
 def ai_change_word(ai_player: dict, game: dict) -> Optional[str]:
@@ -2610,111 +2403,69 @@ def process_ai_turn(game: dict, ai_player: dict) -> Optional[dict]:
     if not ai_player.get("is_ai") or not ai_player.get("is_alive"):
         return None
     
-    # Determine if this will be a strategic decision (affects think time)
     ai_state = ai_player.get("ai_state", {})
-    is_panicking = ai_state.get("is_panicking", False)
-    
-    # Pre-calculate if we have good targets (indicates strategic thinking)
-    memory = ai_player.get("ai_memory", {})
-    targets = memory.get("high_similarity_targets", {})
-    has_good_target = any(
-        sims and sims[0][1] > 0.5 
-        for sims in targets.values()
-    )
-    
-    # Calculate thinking time
-    think_time_ms = _ai_calculate_think_time(ai_player, has_good_target, is_panicking)
-    ai_state["last_think_time_ms"] = think_time_ms
-    ai_player["ai_state"] = ai_state
     
     # Choose a guess
     guess_word = ai_choose_guess(ai_player, game)
     if not guess_word:
         return None
     
-    # Get embedding and calculate similarities
-    try:
-        guess_embedding = get_embedding(guess_word)
-    except Exception as e:
-        print(f"AI embedding error: {e}")
-        return None
+    guess_lower = guess_word.lower()
     
+    # Calculate similarities - use pre-computed matrix for speed
     similarities = {}
+    matrix = game.get('theme_similarity_matrix')
+    
     for p in game["players"]:
-        if p.get("secret_embedding"):
-            sim = cosine_similarity(guess_embedding, p["secret_embedding"])
+        secret = p.get("secret_word", "").lower()
+        if not secret:
+            continue
+        
+        # Fast path: use matrix
+        if matrix and guess_lower in matrix:
+            sim = matrix[guess_lower].get(secret)
+            if sim is not None:
+                similarities[p["id"]] = round(sim, 4)
+                continue
+        
+        # Fallback: compute from embeddings (should be rare)
+        guess_emb = p.get("_guess_emb")
+        if not guess_emb:
+            try:
+                guess_emb = get_embedding(guess_word)
+            except Exception:
+                continue
+        secret_emb = p.get("secret_embedding")
+        if secret_emb:
+            sim = cosine_similarity(guess_emb, secret_emb)
             similarities[p["id"]] = round(sim, 4)
     
     # Check for eliminations
     eliminations = []
     for p in game["players"]:
         if p["id"] != ai_player["id"] and p.get("is_alive"):
-            if guess_word.lower() == p.get("secret_word", "").lower():
+            if guess_lower == p.get("secret_word", "").lower():
                 p["is_alive"] = False
                 eliminations.append(p["id"])
     
     # If AI eliminated someone, they can change their word
     if eliminations:
         ai_player["can_change_word"] = True
-        # Update streak - elimination is great!
-        _ai_update_streak(ai_player, "elimination")
-        _ai_update_confidence(ai_player, "made_elimination")
-        # Generate elimination chat
-        chat_msg = _ai_generate_chat_message(ai_player, "eliminated_someone")
-        if chat_msg:
-            ai_state["pending_chat"] = chat_msg
-    else:
-        # Update streak based on similarity results
-        my_sim = similarities.get(ai_player["id"], 0)
-        max_other_sim = max(
-            (sim for pid, sim in similarities.items() if pid != ai_player["id"]),
-            default=0
-        )
-        if max_other_sim > 0.7:
-            _ai_update_streak(ai_player, "high_similarity")
-            _ai_update_confidence(ai_player, "high_similarity_guess")
-            # Near miss chat
-            chat_msg = _ai_generate_chat_message(ai_player, "near_miss")
-            if chat_msg:
-                ai_state["pending_chat"] = chat_msg
-        elif max_other_sim < 0.3:
-            _ai_update_streak(ai_player, "low_similarity")
-            _ai_update_confidence(ai_player, "low_similarity_guess")
-    
-    # Update AI memory
-    ai_update_memory(ai_player, guess_word, similarities, game)
-    
-    # Also update other AI players' memories and track grudges
-    for p in game["players"]:
-        if p.get("is_ai") and p["id"] != ai_player["id"]:
-            ai_update_memory(p, guess_word, similarities, game)
-            # Track grudge if this guess targeted them
-            their_sim = similarities.get(p["id"], 0)
-            if their_sim > 0.5:
-                _ai_update_grudge(p, ai_player["id"], their_sim)
-                _ai_update_confidence(p, "got_targeted", their_sim)
     
     # Record history
     history_entry = {
         "guesser_id": ai_player["id"],
         "guesser_name": ai_player["name"],
-        "word": guess_word.lower(),
+        "word": guess_lower,
         "similarities": similarities,
         "eliminations": eliminations,
     }
     game["history"].append(history_entry)
     
-    # Get any pending chat message
-    pending_chat = ai_state.get("pending_chat")
-    ai_state["pending_chat"] = None
-    ai_player["ai_state"] = ai_state
-    
     return {
         "word": guess_word,
         "similarities": similarities,
         "eliminations": eliminations,
-        "think_time_ms": think_time_ms,
-        "ai_chat": pending_chat,
     }
 
 

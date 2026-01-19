@@ -17,9 +17,6 @@ let sfxAudioCtx = null;
 let musicVolume = 12;  // Default 12%
 let sfxVolume = 50;    // Default 50%
 
-// Preloaded click sound
-let clickAudio = null;
-
 /**
  * Clamp a number between 0 and 1
  * @param {number} n
@@ -103,41 +100,6 @@ export function playTone({ freq = 800, durationMs = 40, type = 'square', volume 
 
     osc.start(now);
     osc.stop(now + (durationMs / 1000) + 0.02);
-}
-
-/**
- * Initialize click sound audio element
- */
-function initClickAudio() {
-    if (clickAudio) return;
-    try {
-        clickAudio = new Audio('/click.mp3');
-        clickAudio.preload = 'auto';
-    } catch (e) {
-        console.warn('Failed to init click audio:', e);
-    }
-}
-
-/**
- * Play click sound effect using audio file
- */
-export function playClickSfx() {
-    const effectiveVolume = getEffectiveSfxVolume();
-    if (effectiveVolume <= 0) return;
-    
-    initClickAudio();
-    if (!clickAudio) return;
-    
-    try {
-        // Clone the audio to allow overlapping plays
-        const sound = clickAudio.cloneNode();
-        sound.volume = clamp01(effectiveVolume * 0.5); // Base volume 50% of SFX slider
-        sound.play().catch(() => {});
-    } catch (e) {
-        // Fallback to synthesized tone
-        resumeSfxContext();
-        playTone({ freq: 880, durationMs: 28, type: 'square', volume: 0.03 });
-    }
 }
 
 /**
