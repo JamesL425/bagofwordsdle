@@ -202,6 +202,11 @@ let gameState = {
     hasSubmittedWordChange: false,
     // Local flag to track if a guess is currently being submitted (prevents race with timeout)
     isSubmittingGuess: false,
+    // Queue/matchmaking state
+    queueMode: null,           // 'quick_play' or 'ranked'
+    queuePlayerId: null,       // Player ID for queue session
+    queuePollingInterval: null,
+    queueStartTime: null,      // When queue was joined (for local timer)
 };
 
 // ============ OPTIONS ============
@@ -1524,16 +1529,22 @@ async function openProfileModal(playerName) {
     document.getElementById('profile-joined').textContent = '';
     document.getElementById('profile-avatar').classList.add('hidden');
     document.getElementById('profile-avatar-placeholder').classList.remove('hidden');
+    document.getElementById('profile-avatar-emoji')?.classList.add('hidden');
     document.getElementById('profile-badge').textContent = '';
     
     modal.classList.add('show');
     
-    // Show logout button only when viewing own profile
+    // Show logout button and edit avatar button only when viewing own profile
     const logoutBtn = document.getElementById('profile-logout-btn');
+    const editAvatarBtn = document.getElementById('edit-avatar-btn');
+    const isOwnProfile = gameState.playerName && 
+        gameState.playerName.toLowerCase() === playerName.toLowerCase();
     if (logoutBtn) {
-        const isOwnProfile = gameState.playerName && 
-            gameState.playerName.toLowerCase() === playerName.toLowerCase();
         logoutBtn.classList.toggle('hidden', !isOwnProfile);
+    }
+    if (editAvatarBtn) {
+        // Only show edit button if user is authenticated
+        editAvatarBtn.classList.toggle('hidden', !isOwnProfile || !gameState.authToken);
     }
     
     profileModalInFlight = true;
@@ -1609,13 +1620,25 @@ async function openProfileModal(playerName) {
         // Update avatar
         const avatarEl = document.getElementById('profile-avatar');
         const placeholderEl = document.getElementById('profile-avatar-placeholder');
-        if (data.avatar) {
+        const emojiAvatarEl = document.getElementById('profile-avatar-emoji');
+        
+        if (data.custom_avatar) {
+            // Show emoji avatar
+            if (emojiAvatarEl) {
+                emojiAvatarEl.textContent = data.custom_avatar;
+                emojiAvatarEl.classList.remove('hidden');
+            }
+            avatarEl.classList.add('hidden');
+            placeholderEl.classList.add('hidden');
+        } else if (data.avatar) {
             avatarEl.src = data.avatar;
             avatarEl.classList.remove('hidden');
             placeholderEl.classList.add('hidden');
+            if (emojiAvatarEl) emojiAvatarEl.classList.add('hidden');
         } else {
             avatarEl.classList.add('hidden');
             placeholderEl.classList.remove('hidden');
+            if (emojiAvatarEl) emojiAvatarEl.classList.add('hidden');
         }
         
         // Update joined date
@@ -1903,6 +1926,188 @@ document.getElementById('share-profile-btn')?.addEventListener('click', async ()
     }
 });
 
+// ============ AVATAR PICKER ============
+
+let avatarPickerCatalog = null;
+
+async function openAvatarPicker() {
+    const modal = document.getElementById('avatar-picker-modal');
+    if (!modal) return;
+    
+    // Load avatar catalog if not loaded
+    if (!avatarPickerCatalog && cosmeticsState?.catalog?.profile_avatars) {
+        avatarPickerCatalog = cosmeticsState.catalog.profile_avatars;
+    }
+    
+    if (!avatarPickerCatalog) {
+        // Try to fetch from API
+        try {
+            const response = await fetch(`${API_BASE}/api/cosmetics`);
+            if (response.ok) {
+                const data = await response.json();
+                avatarPickerCatalog = data.catalog?.profile_avatars || {};
+            }
+        } catch (e) {
+            console.error('Failed to load avatar catalog:', e);
+        }
+    }
+    
+    if (!avatarPickerCatalog || Object.keys(avatarPickerCatalog).length === 0) {
+        showError('Failed to load avatars');
+        return;
+    }
+    
+    const grid = document.getElementById('avatar-picker-grid');
+    if (!grid) return;
+    
+    const currentAvatar = cosmeticsState?.userCosmetics?.profile_avatar || 'default';
+    const userStats = gameState?.authUser?.stats || {};
+    const hasFullAccess = cosmeticsState?.unlockAll || !cosmeticsState?.paywallEnabled || cosmeticsState?.isDonor || cosmeticsState?.isAdmin;
+    const ownedList = (cosmeticsState?.ownedCosmetics || {})['profile_avatar'] || [];
+    
+    let html = '';
+    
+    Object.entries(avatarPickerCatalog).forEach(([id, avatar]) => {
+        const isSelected = id === currentAvatar;
+        const isPremiumLocked = cosmeticsState?.paywallEnabled && avatar.premium && !hasFullAccess;
+        const isAdminOnly = avatar.admin_only && !cosmeticsState?.isAdmin;
+        
+        // Check requirements
+        let isReqLocked = false;
+        let reqText = '';
+        if (avatar.requirements && !cosmeticsState?.isAdmin && !cosmeticsState?.unlockAll) {
+            for (const req of avatar.requirements) {
+                const have = userStats[req.metric] || 0;
+                if (have < req.min) {
+                    isReqLocked = true;
+                    const labels = {
+                        mp_games_played: 'games',
+                        mp_wins: 'wins',
+                        mp_eliminations: 'eliminations',
+                        peak_mmr: 'MMR',
+                    };
+                    reqText = `${have}/${req.min} ${labels[req.metric] || req.metric}`;
+                    break;
+                }
+            }
+        }
+        
+        // Check shop purchase
+        const price = parseInt(avatar.price || 0, 10);
+        const isShopItem = price > 0 && !avatar.premium;
+        const isOwned = Array.isArray(ownedList) && ownedList.includes(id);
+        const isShopLocked = isShopItem && !isOwned && !(cosmeticsState?.isAdmin || cosmeticsState?.unlockAll);
+        
+        const isLocked = isPremiumLocked || isReqLocked || isShopLocked || isAdminOnly;
+        
+        let lockInfo = '';
+        if (isAdminOnly) lockInfo = 'Admin only';
+        else if (isPremiumLocked) lockInfo = 'Supporter only';
+        else if (isShopLocked) lockInfo = `${price}¢`;
+        else if (isReqLocked) lockInfo = reqText;
+        
+        html += `
+            <div class="avatar-option ${isSelected ? 'selected' : ''} ${isLocked ? 'locked' : ''}" 
+                 data-id="${id}" 
+                 data-locked="${isLocked}"
+                 title="${avatar.name}: ${avatar.description}${lockInfo ? ' (🔒 ' + lockInfo + ')' : ''}">
+                <span class="avatar-icon">${avatar.icon}</span>
+                <span class="avatar-name">${avatar.name}</span>
+                ${isLocked ? '<span class="avatar-lock">🔒</span>' : ''}
+            </div>
+        `;
+    });
+    
+    grid.innerHTML = html;
+    
+    // Add click handlers
+    grid.querySelectorAll('.avatar-option').forEach(el => {
+        el.addEventListener('click', async () => {
+            if (el.dataset.locked === 'true') {
+                showError('This avatar is locked');
+                return;
+            }
+            await selectAvatar(el.dataset.id);
+        });
+    });
+    
+    modal.classList.add('show');
+}
+
+function closeAvatarPicker() {
+    const modal = document.getElementById('avatar-picker-modal');
+    if (modal) modal.classList.remove('show');
+}
+
+async function selectAvatar(avatarId) {
+    if (!gameState.authToken) {
+        showError('Please sign in to change your avatar');
+        return;
+    }
+    
+    try {
+        // Use the existing cosmetics equip endpoint
+        const response = await fetch(`${API_BASE}/api/cosmetics/equip`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${gameState.authToken}`
+            },
+            body: JSON.stringify({ 
+                category: 'profile_avatar', 
+                cosmetic_id: avatarId 
+            })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            cosmeticsState.userCosmetics = data.cosmetics;
+            
+            // Update the profile modal avatar immediately
+            const emojiAvatarEl = document.getElementById('profile-avatar-emoji');
+            const avatarEl = document.getElementById('profile-avatar');
+            const placeholderEl = document.getElementById('profile-avatar-placeholder');
+            
+            if (avatarId === 'default') {
+                // Show Google avatar or placeholder
+                if (emojiAvatarEl) emojiAvatarEl.classList.add('hidden');
+                if (gameState.authUser?.avatar) {
+                    avatarEl.src = gameState.authUser.avatar;
+                    avatarEl.classList.remove('hidden');
+                    placeholderEl.classList.add('hidden');
+                } else {
+                    avatarEl.classList.add('hidden');
+                    placeholderEl.classList.remove('hidden');
+                }
+            } else {
+                // Show emoji avatar
+                const icon = avatarPickerCatalog?.[avatarId]?.icon || '👤';
+                if (emojiAvatarEl) {
+                    emojiAvatarEl.textContent = icon;
+                    emojiAvatarEl.classList.remove('hidden');
+                }
+                avatarEl.classList.add('hidden');
+                placeholderEl.classList.add('hidden');
+            }
+            
+            closeAvatarPicker();
+            showToast('Avatar updated!');
+        } else {
+            const err = await response.json();
+            showError(err.detail || 'Failed to update avatar');
+        }
+    } catch (e) {
+        console.error('Failed to update avatar:', e);
+        showError('Failed to update avatar');
+    }
+}
+
+// Edit avatar button
+document.getElementById('edit-avatar-btn')?.addEventListener('click', openAvatarPicker);
+
+// Close avatar picker
+document.getElementById('close-avatar-picker-btn')?.addEventListener('click', closeAvatarPicker);
+
 // Global button click handler (no sound)
 document.addEventListener('click', (e) => {
     const btn = e.target?.closest?.('button.btn');
@@ -1914,6 +2119,7 @@ document.addEventListener('click', (e) => {
 // DOM Elements
 const screens = {
     home: document.getElementById('home-screen'),
+    queue: document.getElementById('queue-screen'),
     leaderboard: document.getElementById('leaderboard-screen'),
     join: document.getElementById('join-screen'),
     lobby: document.getElementById('lobby-screen'),
@@ -2035,6 +2241,11 @@ function showScreen(screenName) {
         if (startBtn) {
             startBtn.textContent = '> START_MISSION';
         }
+    }
+    
+    // Clean up queue state when leaving queue screen
+    if (screenName !== 'queue' && gameState.queuePollingInterval) {
+        stopQueuePolling();
     }
     
     // Start/stop lobby refresh based on screen
@@ -2295,7 +2506,7 @@ function normalizeGameCodeInput(raw) {
         .slice(0, 6);
 }
 
-async function createLobby({ visibility = 'private', isRanked = false } = {}) {
+async function createLobby({ visibility = 'private', isRanked = false, timeControl = 'rapid' } = {}) {
     if (!gameState.playerName) {
         showError('Enter your callsign first (top right)');
         document.getElementById('login-name').focus();
@@ -2306,13 +2517,6 @@ async function createLobby({ visibility = 'private', isRanked = false } = {}) {
         return;
     }
     try {
-        // Get time control selection (only for casual games)
-        const timeControlSelect = document.getElementById('time-control-select');
-        let timeControl = 'default';
-        if (!isRanked && timeControlSelect) {
-            timeControl = timeControlSelect.value || 'default';
-        }
-        
         const data = await apiCall('/api/games', 'POST', {
             visibility,
             is_ranked: Boolean(isRanked),
@@ -2336,54 +2540,292 @@ async function quickPlay({ ranked = false } = {}) {
         return;
     }
 
-    try {
-        const mode = ranked ? 'ranked' : 'unranked';
-        const data = await apiCall(`/api/lobbies?mode=${mode}`);
-        const lobbies = Array.isArray(data?.lobbies) ? data.lobbies : [];
-        // Prefer the most-filled lobby so matches start faster
-        const best = lobbies
-            .slice()
-            .sort((a, b) => (b.player_count || 0) - (a.player_count || 0))[0];
+    // Join the matchmaking queue
+    await joinMatchmakingQueue(ranked ? 'ranked' : 'quick_play');
+}
 
-        if (best?.code) {
-            await joinLobby(best.code, gameState.playerName);
+// ============ MATCHMAKING QUEUE ============
+
+async function joinMatchmakingQueue(mode) {
+    if (!gameState.playerName) {
+        showError('Enter your callsign first');
+        return;
+    }
+
+    try {
+        const response = await apiCall('/api/queue/join', 'POST', {
+            mode: mode,
+            player_name: gameState.playerName,
+        });
+
+        if (response.status === 'ineligible') {
+            // Not eligible for ranked
+            const gamesNeeded = response.games_required - response.games_played;
+            showError(`Play ${gamesNeeded} more casual game${gamesNeeded !== 1 ? 's' : ''} to unlock ranked`);
             return;
         }
 
-        // No suitable lobby: create a fresh public one
-        // For quickplay, use the selected time control (or default for ranked)
-        const timeControlSelect = document.getElementById('time-control-select');
-        let timeControl = 'default';
-        if (!ranked && timeControlSelect) {
-            timeControl = timeControlSelect.value || 'default';
+        if (response.status === 'error') {
+            showError(response.message || 'Failed to join queue');
+            return;
         }
-        
-        const createData = await apiCall('/api/games', 'POST', {
-            visibility: 'public',
-            is_ranked: Boolean(ranked),
-            time_control: timeControl,
-        });
-        gameState.code = createData.code;
-        await joinLobby(createData.code, gameState.playerName);
+
+        // Store queue state
+        gameState.queueMode = mode;
+        gameState.queuePlayerId = response.player_id;
+        gameState.queueStartTime = Date.now();
+
+        // Show queue screen
+        showQueueScreen(mode);
+
+        // Start polling for match
+        startQueuePolling();
+
     } catch (error) {
-        showError(error.message);
+        showError(error.message || 'Failed to join queue');
     }
 }
+
+function showQueueScreen(mode) {
+    showScreen('queue');
+
+    // Update mode display
+    const modeDisplay = document.getElementById('queue-mode');
+    if (modeDisplay) {
+        modeDisplay.textContent = mode === 'ranked' ? 'RANKED' : 'QUICK PLAY';
+        modeDisplay.className = `queue-value ${mode === 'ranked' ? 'queue-ranked' : 'queue-casual'}`;
+    }
+
+    // Show/hide MMR display for ranked
+    const mmrDisplay = document.getElementById('queue-mmr-display');
+    if (mmrDisplay) {
+        mmrDisplay.classList.toggle('hidden', mode !== 'ranked');
+    }
+
+    // Reset displays
+    const playersDisplay = document.getElementById('queue-players');
+    if (playersDisplay) playersDisplay.textContent = '0';
+
+    const timerDisplay = document.getElementById('queue-timer');
+    if (timerDisplay) timerDisplay.textContent = '0:00';
+
+    const statusMessage = document.getElementById('queue-status-message');
+    if (statusMessage) {
+        statusMessage.textContent = 'Scanning for available operatives...';
+    }
+}
+
+function startQueuePolling() {
+    // Clear any existing polling
+    stopQueuePolling();
+
+    // Update timer immediately and start interval
+    updateQueueTimer();
+
+    // Poll for status every 2 seconds
+    gameState.queuePollingInterval = setInterval(async () => {
+        await pollQueueStatus();
+        updateQueueTimer();
+    }, 2000);
+}
+
+function stopQueuePolling() {
+    if (gameState.queuePollingInterval) {
+        clearInterval(gameState.queuePollingInterval);
+        gameState.queuePollingInterval = null;
+    }
+}
+
+function updateQueueTimer() {
+    if (!gameState.queueStartTime) return;
+
+    const elapsed = Math.floor((Date.now() - gameState.queueStartTime) / 1000);
+    const minutes = Math.floor(elapsed / 60);
+    const seconds = elapsed % 60;
+
+    const timerDisplay = document.getElementById('queue-timer');
+    if (timerDisplay) {
+        timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    // Update status message based on wait time
+    const statusMessage = document.getElementById('queue-status-message');
+    if (statusMessage) {
+        if (gameState.queueMode === 'quick_play') {
+            if (elapsed >= 25) {
+                statusMessage.textContent = 'Preparing match with AI operatives...';
+            } else if (elapsed >= 15) {
+                statusMessage.textContent = 'Expanding search parameters...';
+            } else {
+                statusMessage.textContent = 'Scanning for available operatives...';
+            }
+        } else {
+            // Ranked
+            if (elapsed >= 90) {
+                statusMessage.textContent = 'Searching across all skill levels...';
+            } else if (elapsed >= 60) {
+                statusMessage.textContent = 'Widening MMR search range...';
+            } else if (elapsed >= 30) {
+                statusMessage.textContent = 'Expanding search parameters...';
+            } else {
+                statusMessage.textContent = 'Searching for operatives at your skill level...';
+            }
+        }
+    }
+}
+
+async function pollQueueStatus() {
+    if (!gameState.queueMode || !gameState.queuePlayerId) return;
+
+    try {
+        const response = await apiCall(
+            `/api/queue/status?mode=${gameState.queueMode}&player_id=${gameState.queuePlayerId}`
+        );
+
+        if (response.status === 'matched') {
+            // Match found!
+            stopQueuePolling();
+            await onMatchFound(response);
+            return;
+        }
+
+        if (response.status === 'not_in_queue') {
+            // Somehow removed from queue
+            stopQueuePolling();
+            showScreen('home');
+            showError('Removed from queue');
+            return;
+        }
+
+        // Update queue info
+        const playersDisplay = document.getElementById('queue-players');
+        if (playersDisplay && response.queue_size !== undefined) {
+            // Show queue size as indicator of activity
+            playersDisplay.textContent = Math.min(response.queue_size, 4).toString();
+        }
+
+        // Update MMR range for ranked
+        if (response.mmr_range !== undefined) {
+            const mmrRangeDisplay = document.getElementById('queue-mmr-range');
+            if (mmrRangeDisplay) {
+                mmrRangeDisplay.textContent = `+/- ${response.mmr_range} MMR`;
+            }
+        }
+
+    } catch (error) {
+        console.error('Queue poll error:', error);
+        // Don't stop polling on transient errors
+    }
+}
+
+async function onMatchFound(matchData) {
+    const gameCode = matchData.game_code;
+    const playerId = matchData.player_id;
+    const sessionToken = matchData.session_token;
+    
+    if (!gameCode) {
+        showError('Match found but no game code received');
+        showScreen('home');
+        return;
+    }
+
+    // Clear queue state
+    gameState.queueMode = null;
+    gameState.queuePlayerId = null;
+    gameState.queueStartTime = null;
+
+    // If we have session info from the match, use it directly
+    if (playerId && sessionToken) {
+        gameState.code = gameCode;
+        gameState.playerId = playerId;
+        gameState.sessionToken = sessionToken;
+        
+        // Save session for persistence
+        saveGameSession();
+        
+        // Show success message
+        showSuccess('Match found! Joining game...');
+        
+        // Go directly to lobby
+        document.getElementById('lobby-code').textContent = gameCode;
+        showScreen('lobby');
+        startLobbyPolling();
+    } else {
+        // Fallback: join via API (shouldn't normally happen)
+        showSuccess('Match found! Joining game...');
+        try {
+            await joinLobby(gameCode, gameState.playerName);
+        } catch (error) {
+            showError('Failed to join match: ' + (error.message || 'Unknown error'));
+            showScreen('home');
+        }
+    }
+}
+
+async function leaveQueue() {
+    if (!gameState.queueMode || !gameState.queuePlayerId) {
+        showScreen('home');
+        return;
+    }
+
+    try {
+        await apiCall('/api/queue/leave', 'POST', {
+            mode: gameState.queueMode,
+            player_id: gameState.queuePlayerId,
+        });
+    } catch (error) {
+        console.error('Error leaving queue:', error);
+    }
+
+    // Clear state regardless of API result
+    stopQueuePolling();
+    gameState.queueMode = null;
+    gameState.queuePlayerId = null;
+    gameState.queueStartTime = null;
+
+    showScreen('home');
+}
+
+// Cancel queue button
+document.getElementById('cancel-queue-btn')?.addEventListener('click', leaveQueue);
 
 document.getElementById('quickplay-btn')?.addEventListener('click', async () => {
     await quickPlay({ ranked: false });
 });
 
-document.getElementById('create-public-btn')?.addEventListener('click', async () => {
-    await createLobby({ visibility: 'public', isRanked: false });
-});
-
-document.getElementById('create-private-btn')?.addEventListener('click', async () => {
-    await createLobby({ visibility: 'private', isRanked: false });
+document.getElementById('create-private-btn')?.addEventListener('click', () => {
+    showPrivateLobbyModal();
 });
 
 document.getElementById('ranked-btn')?.addEventListener('click', async () => {
     await quickPlay({ ranked: true });
+});
+
+// Private Lobby Modal
+function showPrivateLobbyModal() {
+    if (!gameState.playerName) {
+        showError('Enter your callsign first (top right)');
+        document.getElementById('login-name').focus();
+        return;
+    }
+    const modal = document.getElementById('private-lobby-modal');
+    if (modal) modal.classList.add('show');
+}
+
+function hidePrivateLobbyModal() {
+    const modal = document.getElementById('private-lobby-modal');
+    if (modal) modal.classList.remove('show');
+}
+
+document.getElementById('close-private-lobby-btn')?.addEventListener('click', hidePrivateLobbyModal);
+
+document.getElementById('private-lobby-modal')?.querySelector('.modal-backdrop')?.addEventListener('click', hidePrivateLobbyModal);
+
+document.getElementById('create-private-lobby-confirm')?.addEventListener('click', async () => {
+    const timeControlSelect = document.getElementById('private-time-control');
+    const timeControl = timeControlSelect?.value || 'rapid';
+    hidePrivateLobbyModal();
+    await createLobby({ visibility: 'private', isRanked: false, timeControl });
 });
 
 // Join by code (home screen)
@@ -6824,5 +7266,17 @@ async function initializeApp() {
         showScreen('home');
     }
 }
+
+// Clean up queue when leaving the page
+window.addEventListener('beforeunload', () => {
+    if (gameState.queueMode && gameState.queuePlayerId) {
+        // Use sendBeacon for reliable delivery during page unload
+        const data = JSON.stringify({
+            mode: gameState.queueMode,
+            player_id: gameState.queuePlayerId,
+        });
+        navigator.sendBeacon('/api/queue/leave', data);
+    }
+});
 
 initializeApp();

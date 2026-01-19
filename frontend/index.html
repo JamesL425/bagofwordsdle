@@ -312,6 +312,8 @@
                 <div class="profile-avatar-wrapper">
                     <img id="profile-avatar" class="profile-avatar hidden" src="" alt="">
                     <span id="profile-avatar-placeholder" class="profile-avatar-placeholder">👤</span>
+                    <span id="profile-avatar-emoji" class="profile-avatar-emoji hidden"></span>
+                    <button id="edit-avatar-btn" class="edit-avatar-btn hidden" title="Change avatar">✏️</button>
                 </div>
                 <div class="profile-title-wrapper">
                     <div class="profile-name-row">
@@ -382,6 +384,22 @@
         </div>
     </div>
 
+    <!-- Avatar Picker Modal -->
+    <div id="avatar-picker-modal" class="modal-overlay closable-modal">
+        <div class="modal-backdrop" data-close="true"></div>
+        <div class="modal avatar-picker-modal">
+            <div class="modal-header">
+                <h2>Choose Your Avatar</h2>
+                <button id="close-avatar-picker-btn" class="btn btn-ghost btn-tiny">×</button>
+            </div>
+            <div class="avatar-picker-content">
+                <div id="avatar-picker-grid" class="avatar-picker-grid">
+                    <!-- Avatars will be populated by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Chat Panel -->
     <div id="chat-panel" class="drawer-panel chat-panel">
         <div class="chat-header">
@@ -437,30 +455,15 @@
                         <button id="ranked-btn" class="btn btn-rank btn-large btn-block home-action">&gt; RANKED</button>
                     </div>
                     <div class="home-actions-secondary">
-                        <button id="create-private-btn" class="btn btn-primary btn-large btn-block home-action">&gt; CREATE_PRIVATE</button>
-                        <button id="create-public-btn" class="btn btn-primary btn-large btn-block home-action">&gt; CREATE_PUBLIC</button>
-                        <button id="singleplayer-btn" class="btn btn-primary btn-large btn-block home-action">&gt; SOLO_MISSION</button>
-                    </div>
-                    <div class="time-control-selector">
-                        <label for="time-control-select">TIME CONTROL:</label>
-                        <select id="time-control-select" class="time-control-select">
-                            <option value="bullet">Bullet (1 min + 5s)</option>
-                            <option value="blitz">Blitz (2 min + 10s)</option>
-                            <option value="rapid" selected>Rapid (5 min + 15s)</option>
-                            <option value="classical">Classical (10 min + 30s)</option>
-                            <option value="none">No Limit</option>
-                        </select>
+                        <button id="create-private-btn" class="btn btn-secondary btn-block home-action">&gt; PRIVATE_LOBBY</button>
+                        <button id="singleplayer-btn" class="btn btn-secondary btn-block home-action">&gt; SOLO_MISSION</button>
                     </div>
                     <div class="home-join-row">
                         <input type="text" id="join-code-input" maxlength="6" placeholder="SERVER_ID">
                         <button id="join-code-btn" class="btn btn-small btn-secondary">JOIN</button>
                     </div>
-                    <div class="home-replay-row">
-                        <input type="text" id="home-replay-input" placeholder="Paste replay code..." class="replay-code-input">
-                        <button id="home-replay-btn" class="btn btn-small btn-secondary">🎬 WATCH</button>
-                    </div>
                     <div class="home-links-row">
-                        <span id="ranked-signin-note" class="home-note">Ranked requires Google sign-in.</span>
+                        <span id="ranked-signin-note" class="home-note">Ranked requires Google sign-in + 5 casual games.</span>
                     </div>
                     <div class="home-support-row">
                         <a href="https://ko-fi.com/embeddle" target="_blank" rel="noopener" class="home-support-link">
@@ -533,6 +536,15 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Watch Replay -->
+                    <div class="card card-compact lobbies-card replay-card">
+                        <h3>// WATCH_REPLAY</h3>
+                        <div class="home-replay-row">
+                            <input type="text" id="home-replay-input" placeholder="Paste replay code..." class="replay-code-input">
+                            <button id="home-replay-btn" class="btn btn-small btn-secondary">🎬</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -564,6 +576,49 @@
                         <p>Guess someone's exact word to eliminate them. Last one standing wins</p>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Queue Screen (Matchmaking) -->
+        <div id="queue-screen" class="screen">
+            <div class="card queue-card">
+                <h2>// SEARCHING FOR OPERATIVES</h2>
+                
+                <div class="queue-animation">
+                    <div class="queue-radar">
+                        <div class="radar-ring radar-ring-1"></div>
+                        <div class="radar-ring radar-ring-2"></div>
+                        <div class="radar-ring radar-ring-3"></div>
+                        <div class="radar-sweep"></div>
+                        <div class="radar-center"></div>
+                    </div>
+                </div>
+                
+                <div class="queue-info">
+                    <div class="queue-mode-display">
+                        <span class="queue-label">MODE:</span>
+                        <span id="queue-mode" class="queue-value">QUICK PLAY</span>
+                    </div>
+                    <div class="queue-players-display">
+                        <span class="queue-label">OPERATIVES FOUND:</span>
+                        <span id="queue-players" class="queue-value">0</span>
+                        <span class="queue-value">/4</span>
+                    </div>
+                    <div class="queue-timer-display">
+                        <span class="queue-label">TIME IN QUEUE:</span>
+                        <span id="queue-timer" class="queue-value">0:00</span>
+                    </div>
+                    <div id="queue-mmr-display" class="queue-mmr-display hidden">
+                        <span class="queue-label">SEARCH RANGE:</span>
+                        <span id="queue-mmr-range" class="queue-value">+/- 100 MMR</span>
+                    </div>
+                </div>
+                
+                <div class="queue-status-text">
+                    <p id="queue-status-message">Scanning for available operatives...</p>
+                </div>
+                
+                <button id="cancel-queue-btn" class="btn btn-ghost">&lt; CANCEL</button>
             </div>
         </div>
 
@@ -1060,6 +1115,32 @@
                 </div>
             </div>
         </footer>
+    </div>
+
+    <!-- Private Lobby Modal -->
+    <div id="private-lobby-modal" class="modal-overlay closable-modal">
+        <div class="modal-backdrop" data-close="true"></div>
+        <div class="modal private-lobby-modal">
+            <div class="modal-header">
+                <h2>// CREATE_PRIVATE_LOBBY</h2>
+                <button id="close-private-lobby-btn" class="btn btn-ghost btn-tiny">×</button>
+            </div>
+            <div class="modal-content">
+                <div class="form-group">
+                    <label for="private-time-control">TIME CONTROL</label>
+                    <select id="private-time-control" class="time-control-select">
+                        <option value="bullet">Bullet (1 min + 5s)</option>
+                        <option value="blitz">Blitz (2 min + 10s)</option>
+                        <option value="rapid" selected>Rapid (5 min + 15s)</option>
+                        <option value="classical">Classical (10 min + 30s)</option>
+                        <option value="none">No Limit</option>
+                    </select>
+                </div>
+                <div class="modal-buttons">
+                    <button id="create-private-lobby-confirm" class="btn btn-primary">&gt; CREATE_LOBBY</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Leave Game Modal -->

@@ -181,6 +181,138 @@
       "admin_only": true
     }
   },
+  "profile_avatars": {
+    "default": {
+      "name": "Default",
+      "description": "Use your Google profile picture",
+      "premium": false,
+      "icon": "👤"
+    },
+    "robot": {
+      "name": "Robot",
+      "description": "Beep boop",
+      "premium": false,
+      "icon": "🤖"
+    },
+    "alien": {
+      "name": "Alien",
+      "description": "Greetings, earthling",
+      "premium": false,
+      "icon": "👽"
+    },
+    "ghost": {
+      "name": "Ghost",
+      "description": "Spooky!",
+      "premium": false,
+      "icon": "👻"
+    },
+    "ninja": {
+      "name": "Ninja",
+      "description": "Silent but deadly",
+      "premium": false,
+      "icon": "🥷"
+    },
+    "wizard": {
+      "name": "Wizard",
+      "description": "Master of the arcane",
+      "premium": false,
+      "icon": "🧙"
+    },
+    "astronaut": {
+      "name": "Astronaut",
+      "description": "To infinity and beyond",
+      "premium": false,
+      "icon": "🧑‍🚀"
+    },
+    "pirate": {
+      "name": "Pirate",
+      "description": "Arr matey!",
+      "premium": false,
+      "icon": "🏴‍☠️"
+    },
+    "cat": {
+      "name": "Cat",
+      "description": "Meow",
+      "premium": false,
+      "icon": "🐱",
+      "requirements": [{"metric": "mp_games_played", "min": 10}]
+    },
+    "dog": {
+      "name": "Dog",
+      "description": "Woof!",
+      "premium": false,
+      "icon": "🐶",
+      "requirements": [{"metric": "mp_games_played", "min": 10}]
+    },
+    "fox": {
+      "name": "Fox",
+      "description": "Clever and quick",
+      "premium": false,
+      "icon": "🦊",
+      "requirements": [{"metric": "mp_wins", "min": 5}]
+    },
+    "wolf": {
+      "name": "Wolf",
+      "description": "Leader of the pack",
+      "premium": false,
+      "icon": "🐺",
+      "requirements": [{"metric": "mp_eliminations", "min": 25}]
+    },
+    "dragon": {
+      "name": "Dragon",
+      "description": "Ancient and powerful",
+      "premium": false,
+      "icon": "🐲",
+      "requirements": [{"metric": "mp_eliminations", "min": 100}]
+    },
+    "unicorn": {
+      "name": "Unicorn",
+      "description": "Magical creature",
+      "premium": false,
+      "icon": "🦄",
+      "price": 500
+    },
+    "phoenix": {
+      "name": "Phoenix",
+      "description": "Rise from the ashes",
+      "premium": false,
+      "icon": "🔥",
+      "requirements": [{"metric": "peak_mmr", "min": 1400}]
+    },
+    "crown": {
+      "name": "Royalty",
+      "description": "Bow before the king",
+      "premium": false,
+      "icon": "👑",
+      "requirements": [{"metric": "peak_mmr", "min": 1800}]
+    },
+    "skull": {
+      "name": "Skull",
+      "description": "Embrace the darkness",
+      "premium": false,
+      "icon": "💀",
+      "price": 750
+    },
+    "diamond": {
+      "name": "Diamond",
+      "description": "Precious and rare",
+      "premium": true,
+      "icon": "💎"
+    },
+    "star": {
+      "name": "Superstar",
+      "description": "Shine bright",
+      "premium": true,
+      "icon": "⭐"
+    },
+    "infinity": {
+      "name": "Infinity",
+      "description": "Boundless power",
+      "premium": false,
+      "admin_only": true,
+      "icon": "♾️"
+    }
+  },
   "profile_titles": {
     "none": {
       "name": "None",

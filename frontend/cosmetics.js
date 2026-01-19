@@ -142,13 +142,14 @@ function updateCosmeticsPanel() {
         html += `<div class="cosmetics-banner donor">✓ Thank you for supporting Embeddle!</div>`;
     }
     
-    // All 5 categories (simplified)
+    // All 6 categories (simplified)
     const categories = [
         ['card_border', 'card_borders', 'Card Border'],
         ['badge', 'badges', 'Badge'],
         ['name_color', 'name_colors', 'Name Color'],
         ['victory_effect', 'victory_effects', 'Victory Effect'],
         ['profile_title', 'profile_titles', 'Profile Title'],
+        ['profile_avatar', 'profile_avatars', 'Profile Avatar'],
     ];
     
     categories.forEach(([key, catalogKey, label]) => {

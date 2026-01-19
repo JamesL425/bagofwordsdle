@@ -359,7 +359,8 @@ RANKED_PARTICIPATION_BONUS = float((CONFIG.get("ranked", {}) or {}).get("partici
 
 # Time control settings (chess clock model)
 TIME_CONTROLS_CONFIG = CONFIG.get("time_controls", {})
-RANKED_TIME_CONTROL = TIME_CONTROLS_CONFIG.get("ranked", {"initial_time": 180, "increment": 20})
+RANKED_TIME_CONTROL = TIME_CONTROLS_CONFIG.get("ranked", {"initial_time": 180, "increment": 5})
+QUICKPLAY_TIME_CONTROL = {"initial_time": 300, "increment": 5}  # 5 min + 5s for quick play
 CASUAL_TIME_PRESETS = TIME_CONTROLS_CONFIG.get("casual_presets", {
     "bullet": {"initial_time": 60, "increment": 5},
     "blitz": {"initial_time": 120, "increment": 10},
@@ -377,13 +378,19 @@ def get_word_selection_time(is_ranked: bool) -> int:
     """Get word selection time limit in seconds."""
     return WORD_SELECTION_TIME_RANKED if is_ranked else WORD_SELECTION_TIME_CASUAL
 
-def get_time_control(is_ranked: bool, preset: str = "rapid") -> dict:
+def get_time_control(is_ranked: bool, preset: str = "rapid", is_quickplay: bool = False) -> dict:
     """Get time control settings for a game (chess clock model)."""
     if is_ranked:
         return {
             "initial_time": int(RANKED_TIME_CONTROL.get("initial_time", 180)),
-            "increment": int(RANKED_TIME_CONTROL.get("increment", 20)),
+            "increment": int(RANKED_TIME_CONTROL.get("increment", 5)),
         }
+    if is_quickplay:
+        return {
+            "initial_time": int(QUICKPLAY_TIME_CONTROL.get("initial_time", 300)),
+            "increment": int(QUICKPLAY_TIME_CONTROL.get("increment", 5)),
+        }
+    # Private lobbies use presets
     preset_config = CASUAL_TIME_PRESETS.get(preset, CASUAL_TIME_PRESETS.get("rapid", {}))
     return {
         "initial_time": int(preset_config.get("initial_time", 300)),
@@ -510,6 +517,7 @@ DEFAULT_COSMETICS = {
     "badge": "none",
     "victory_effect": "classic",
     "profile_title": "none",
+    "profile_avatar": "default",
 }
 
 # Cosmetics schema version for stored user cosmetics payload.
@@ -522,6 +530,7 @@ COSMETIC_CATEGORY_TO_CATALOG_KEY = {
     'badge': 'badges',
     'victory_effect': 'victory_effects',
     'profile_title': 'profile_titles',
+    'profile_avatar': 'profile_avatars',
 }
 
 # Default stats stored on authenticated (Google) users.
@@ -4181,30 +4190,41 @@ def batch_get_embeddings(words: list, max_retries: int = 2) -> dict:
     Get embeddings for multiple words efficiently using batch API.
     Returns dict mapping lowercase words to their embeddings.
     
-    Includes retry logic for robustness and verification that all words are fetched.
+    Uses Redis mget for batch cache lookups (1 HTTP call instead of N).
     """
     result = {}
-    to_fetch = []
     redis = get_redis()
     
     # Normalize all words
-    normalized_words = set()
+    normalized_words = []
+    seen = set()
     for word in words:
         word_lower = word.lower().strip()
-        if word_lower:
-            normalized_words.add(word_lower)
+        if word_lower and word_lower not in seen:
+            normalized_words.append(word_lower)
+            seen.add(word_lower)
     
-    # Check cache for each word
-    for word_lower in normalized_words:
-        cache_key = f"emb:{word_lower}"
-        try:
-            cached = redis.get(cache_key)
+    if not normalized_words:
+        return result
+    
+    # Batch cache lookup using mget (1 HTTP call for all words)
+    cache_keys = [f"emb:{w}" for w in normalized_words]
+    to_fetch = []
+    
+    try:
+        cached_values = redis.mget(*cache_keys)
+        for i, cached in enumerate(cached_values):
+            word = normalized_words[i]
             if cached:
-                result[word_lower] = json.loads(cached)
-                continue
-        except Exception:
-            pass
-        to_fetch.append(word_lower)
+                try:
+                    result[word] = json.loads(cached)
+                except Exception:
+                    to_fetch.append(word)
+            else:
+                to_fetch.append(word)
+    except Exception:
+        # Fallback: all words need fetching
+        to_fetch = normalized_words
     
     # Batch fetch remaining from API with retry logic
     if to_fetch:
@@ -4214,6 +4234,8 @@ def batch_get_embeddings(words: list, max_retries: int = 2) -> dict:
                 client = get_openai_client()
                 # OpenAI batch limit is typically 2048 inputs, but chunk for safety
                 batch_size = 100
+                to_cache = {}  # Collect for batch cache write
+                
                 for i in range(0, len(to_fetch), batch_size):
                     batch = to_fetch[i:i + batch_size]
                     response = client.embeddings.create(
@@ -4225,13 +4247,14 @@ def batch_get_embeddings(words: list, max_retries: int = 2) -> dict:
                         word = batch[j]
                         embedding = embedding_data.embedding
                         result[word] = embedding
-                        
-                        # Cache in Redis
-                        try:
-                            cache_key = f"emb:{word}"
-                            redis.setex(cache_key, EMBEDDING_CACHE_SECONDS, json.dumps(embedding))
-                        except Exception:
-                            pass
+                        to_cache[f"emb:{word}"] = json.dumps(embedding)
+                
+                # Batch cache write using mset (1 HTTP call)
+                if to_cache:
+                    try:
+                        redis.mset(to_cache)
+                    except Exception:
+                        pass
                 
                 # Verify all words were fetched
                 to_fetch = [w for w in to_fetch if w not in result]
@@ -4936,6 +4959,542 @@ def get_leaderboard(leaderboard_type: str = 'alltime') -> list:
     return players[:100]  # Limit to top 100
 
 
+# ============== MATCHMAKING QUEUE SYSTEM ==============
+
+# Queue configuration
+QUEUE_EXPIRY_SECONDS = 300  # 5 minutes max in queue
+QUEUE_QUICK_PLAY_TIMEOUT = 30  # 30 seconds before filling with AI
+QUEUE_MATCH_SIZE = 4  # Fixed 4-player matches
+QUEUE_MIN_CASUAL_GAMES_FOR_RANKED = 5  # Minimum casual games before ranked
+
+# MMR range expansion for ranked matchmaking
+RANKED_MMR_RANGE_INITIAL = 100
+RANKED_MMR_RANGE_EXPANSIONS = [
+    (30, 200),   # After 30s: +/- 200
+    (60, 300),   # After 60s: +/- 300
+    (90, 400),   # After 90s: +/- 400
+    (120, 500),  # After 120s: +/- 500 (max)
+]
+RANKED_MMR_RANGE_MAX = 500
+
+
+def _queue_key(mode: str) -> str:
+    """Get Redis key for a queue mode."""
+    return f"queue:{mode}"
+
+
+def _queue_data_key(mode: str, player_id: str) -> str:
+    """Get Redis key for player queue data."""
+    return f"queue_data:{mode}:{player_id}"
+
+
+def _queue_match_key(player_id: str) -> str:
+    """Get Redis key for match notification."""
+    return f"queue_match:{player_id}"
+
+
+def get_mmr_range_for_wait_time(wait_seconds: float) -> int:
+    """Get the MMR range based on how long the player has been waiting."""
+    mmr_range = RANKED_MMR_RANGE_INITIAL
+    for threshold_seconds, expanded_range in RANKED_MMR_RANGE_EXPANSIONS:
+        if wait_seconds >= threshold_seconds:
+            mmr_range = expanded_range
+    return min(mmr_range, RANKED_MMR_RANGE_MAX)
+
+
+def join_matchmaking_queue(
+    mode: str,
+    player_id: str,
+    player_name: str,
+    auth_user_id: Optional[str] = None,
+    mmr: int = 1000,
+    cosmetics: Optional[dict] = None,
+) -> dict:
+    """
+    Add a player to the matchmaking queue.
+    
+    Args:
+        mode: 'quick_play' or 'ranked'
+        player_id: Unique player ID for this session
+        player_name: Display name
+        auth_user_id: Authenticated user ID (required for ranked)
+        mmr: Player's MMR (used for ranked matching)
+        cosmetics: Player's equipped cosmetics
+    
+    Returns:
+        dict with queue status
+    """
+    redis = get_redis()
+    now = time.time()
+    
+    queue_key = _queue_key(mode)
+    data_key = _queue_data_key(mode, player_id)
+    
+    # Store player data
+    player_data = {
+        "player_id": player_id,
+        "player_name": player_name,
+        "auth_user_id": auth_user_id,
+        "mmr": mmr,
+        "cosmetics": cosmetics or {},
+        "joined_at": now,
+    }
+    
+    # For quick_play, sort by join time (FIFO)
+    # For ranked, sort by MMR for skill-based matching
+    score = now if mode == "quick_play" else mmr
+    
+    try:
+        # Add to sorted set
+        redis.zadd(queue_key, {player_id: score})
+        # Store player data
+        redis.setex(data_key, QUEUE_EXPIRY_SECONDS, json.dumps(player_data))
+        # Set queue expiry
+        redis.expire(queue_key, QUEUE_EXPIRY_SECONDS)
+        
+        return {
+            "status": "queued",
+            "mode": mode,
+            "position": redis.zrank(queue_key, player_id) or 0,
+            "queue_size": redis.zcard(queue_key) or 0,
+        }
+    except Exception as e:
+        print(f"[QUEUE] Error joining queue: {e}")
+        return {"status": "error", "message": "Failed to join queue"}
+
+
+def leave_matchmaking_queue(mode: str, player_id: str) -> bool:
+    """Remove a player from the matchmaking queue."""
+    redis = get_redis()
+    
+    try:
+        queue_key = _queue_key(mode)
+        data_key = _queue_data_key(mode, player_id)
+        match_key = _queue_match_key(player_id)
+        
+        redis.zrem(queue_key, player_id)
+        redis.delete(data_key)
+        redis.delete(match_key)
+        return True
+    except Exception as e:
+        print(f"[QUEUE] Error leaving queue: {e}")
+        return False
+
+
+def get_queue_status(mode: str, player_id: str) -> dict:
+    """
+    Get a player's queue status and check for matches.
+    
+    This is called on poll and triggers the matching logic.
+    """
+    redis = get_redis()
+    now = time.time()
+    
+    # Check if player was matched
+    match_key = _queue_match_key(player_id)
+    try:
+        match_data = redis.get(match_key)
+        if match_data:
+            if isinstance(match_data, bytes):
+                match_data = match_data.decode()
+            match_info = json.loads(match_data)
+            # Clear the match notification
+            redis.delete(match_key)
+            return {
+                "status": "matched",
+                "game_code": match_info.get("game_code"),
+                "player_id": match_info.get("player_id"),
+                "session_token": match_info.get("session_token"),
+                "mode": mode,
+            }
+    except Exception as e:
+        print(f"[QUEUE] Error checking match: {e}")
+    
+    queue_key = _queue_key(mode)
+    data_key = _queue_data_key(mode, player_id)
+    
+    # Check if still in queue
+    try:
+        rank = redis.zrank(queue_key, player_id)
+        if rank is None:
+            return {"status": "not_in_queue", "mode": mode}
+    except Exception:
+        return {"status": "not_in_queue", "mode": mode}
+    
+    # Get player data
+    try:
+        raw_data = redis.get(data_key)
+        if not raw_data:
+            return {"status": "not_in_queue", "mode": mode}
+        if isinstance(raw_data, bytes):
+            raw_data = raw_data.decode()
+        player_data = json.loads(raw_data)
+    except Exception:
+        return {"status": "not_in_queue", "mode": mode}
+    
+    joined_at = player_data.get("joined_at", now)
+    wait_time = now - joined_at
+    queue_size = redis.zcard(queue_key) or 0
+    
+    # Try to find a match
+    match_result = try_create_match(mode, player_id, wait_time)
+    if match_result:
+        # Get our session token from the match notification
+        match_key = _queue_match_key(player_id)
+        try:
+            match_data = redis.get(match_key)
+            if match_data:
+                if isinstance(match_data, bytes):
+                    match_data = match_data.decode()
+                match_info = json.loads(match_data)
+                redis.delete(match_key)
+                return {
+                    "status": "matched",
+                    "game_code": match_info.get("game_code"),
+                    "player_id": match_info.get("player_id"),
+                    "session_token": match_info.get("session_token"),
+                    "mode": mode,
+                }
+        except Exception:
+            pass
+        # Fallback if notification not found
+        return {
+            "status": "matched",
+            "game_code": match_result.get("game_code"),
+            "mode": mode,
+        }
+    
+    # Still waiting
+    response = {
+        "status": "waiting",
+        "mode": mode,
+        "position": rank,
+        "queue_size": queue_size,
+        "wait_time": int(wait_time),
+    }
+    
+    # Add MMR range info for ranked
+    if mode == "ranked":
+        response["mmr_range"] = get_mmr_range_for_wait_time(wait_time)
+        response["player_mmr"] = player_data.get("mmr", 1000)
+    
+    return response
+
+
+def try_create_match(mode: str, requesting_player_id: str, wait_time: float) -> Optional[dict]:
+    """
+    Attempt to create a match from the queue.
+    
+    For quick_play: FIFO matching, fills with AI after timeout
+    For ranked: MMR-based matching, never adds AI
+    
+    Returns match info if created, None otherwise.
+    """
+    redis = get_redis()
+    now = time.time()
+    
+    queue_key = _queue_key(mode)
+    
+    if mode == "quick_play":
+        return _try_quick_play_match(redis, queue_key, requesting_player_id, wait_time, now)
+    elif mode == "ranked":
+        return _try_ranked_match(redis, queue_key, requesting_player_id, wait_time, now)
+    
+    return None
+
+
+def _get_queue_players(redis, queue_key: str, mode: str) -> list:
+    """Get all players in queue with their data."""
+    try:
+        # Get all player IDs from queue
+        if mode == "quick_play":
+            player_ids = redis.zrange(queue_key, 0, -1)
+        else:
+            # For ranked, get with scores (MMR)
+            player_ids = redis.zrange(queue_key, 0, -1)
+        
+        if not player_ids:
+            return []
+        
+        players = []
+        for pid in player_ids:
+            if isinstance(pid, bytes):
+                pid = pid.decode()
+            data_key = _queue_data_key(mode, pid)
+            raw = redis.get(data_key)
+            if raw:
+                if isinstance(raw, bytes):
+                    raw = raw.decode()
+                try:
+                    data = json.loads(raw)
+                    data["player_id"] = pid
+                    players.append(data)
+                except Exception:
+                    pass
+        
+        return players
+    except Exception as e:
+        print(f"[QUEUE] Error getting queue players: {e}")
+        return []
+
+
+def _try_quick_play_match(redis, queue_key: str, requesting_player_id: str, wait_time: float, now: float) -> Optional[dict]:
+    """
+    Try to create a quick play match.
+    
+    - If 4+ players: create match with first 4
+    - If 30s timeout with 2-3 players: fill with AI
+    - If 30s timeout with 1 player: fill with 3 AI
+    """
+    players = _get_queue_players(redis, queue_key, "quick_play")
+    
+    if len(players) >= QUEUE_MATCH_SIZE:
+        # Have enough players - create match with first 4 (FIFO)
+        players.sort(key=lambda p: p.get("joined_at", now))
+        match_players = players[:QUEUE_MATCH_SIZE]
+        return _create_match_from_queue(redis, "quick_play", match_players, ai_fill=0)
+    
+    # Check if timeout reached
+    if wait_time >= QUEUE_QUICK_PLAY_TIMEOUT and len(players) >= 1:
+        # Find the requesting player
+        requesting_player = next((p for p in players if p.get("player_id") == requesting_player_id), None)
+        if not requesting_player:
+            return None
+        
+        # Check if requesting player has been waiting long enough
+        player_wait = now - requesting_player.get("joined_at", now)
+        if player_wait >= QUEUE_QUICK_PLAY_TIMEOUT:
+            # Create match with available players + AI fill
+            players.sort(key=lambda p: p.get("joined_at", now))
+            match_players = players[:QUEUE_MATCH_SIZE]
+            ai_fill = QUEUE_MATCH_SIZE - len(match_players)
+            return _create_match_from_queue(redis, "quick_play", match_players, ai_fill=ai_fill)
+    
+    return None
+
+
+def _try_ranked_match(redis, queue_key: str, requesting_player_id: str, wait_time: float, now: float) -> Optional[dict]:
+    """
+    Try to create a ranked match.
+    
+    - Groups players by MMR range
+    - Expands range over time
+    - Never adds AI - waits until 4 humans found
+    """
+    players = _get_queue_players(redis, queue_key, "ranked")
+    
+    if len(players) < QUEUE_MATCH_SIZE:
+        return None
+    
+    # Find the requesting player
+    requesting_player = next((p for p in players if p.get("player_id") == requesting_player_id), None)
+    if not requesting_player:
+        return None
+    
+    player_mmr = requesting_player.get("mmr", 1000)
+    player_wait = now - requesting_player.get("joined_at", now)
+    mmr_range = get_mmr_range_for_wait_time(player_wait)
+    
+    # Find players within MMR range of the requesting player
+    candidates = []
+    for p in players:
+        p_mmr = p.get("mmr", 1000)
+        if abs(p_mmr - player_mmr) <= mmr_range:
+            candidates.append(p)
+    
+    if len(candidates) < QUEUE_MATCH_SIZE:
+        return None
+    
+    # Check if all candidates are within range of each other
+    # Find the best group of 4 with tightest MMR spread
+    best_group = None
+    best_spread = float('inf')
+    
+    # Simple greedy approach: sort by MMR and take consecutive groups
+    candidates.sort(key=lambda p: p.get("mmr", 1000))
+    
+    for i in range(len(candidates) - QUEUE_MATCH_SIZE + 1):
+        group = candidates[i:i + QUEUE_MATCH_SIZE]
+        mmrs = [p.get("mmr", 1000) for p in group]
+        spread = max(mmrs) - min(mmrs)
+        
+        # Check if requesting player is in this group
+        if requesting_player_id not in [p.get("player_id") for p in group]:
+            continue
+        
+        # Check if all players in group are within each other's expanded range
+        all_compatible = True
+        for p in group:
+            p_wait = now - p.get("joined_at", now)
+            p_range = get_mmr_range_for_wait_time(p_wait)
+            for other in group:
+                if abs(p.get("mmr", 1000) - other.get("mmr", 1000)) > p_range:
+                    all_compatible = False
+                    break
+            if not all_compatible:
+                break
+        
+        if all_compatible and spread < best_spread:
+            best_spread = spread
+            best_group = group
+    
+    if best_group:
+        return _create_match_from_queue(redis, "ranked", best_group, ai_fill=0)
+    
+    return None
+
+
+def _create_match_from_queue(redis, mode: str, players: list, ai_fill: int = 0) -> Optional[dict]:
+    """
+    Create a game from matched queue players.
+    
+    Args:
+        redis: Redis client
+        mode: 'quick_play' or 'ranked'
+        players: List of player data dicts
+        ai_fill: Number of AI players to add (quick_play only)
+    """
+    import random
+    
+    try:
+        # Generate game code
+        code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+        
+        # Select random themes for voting
+        available_themes = list(PREGENERATED_THEMES.keys())
+        theme_options = random.sample(available_themes, min(3, len(available_themes)))
+        
+        # Determine time control
+        is_ranked = mode == "ranked"
+        is_quickplay = mode == "quick_play"
+        time_control = get_time_control(is_ranked, "rapid", is_quickplay)
+        
+        # Create game
+        game = {
+            "code": code,
+            "status": "waiting",
+            "visibility": "public",
+            "is_ranked": is_ranked,
+            "is_singleplayer": False,
+            "players": [],
+            "current_turn": 0,
+            "history": [],
+            "theme": None,
+            "theme_options": theme_options,
+            "theme_votes": {},
+            "host_id": None,
+            "created_at": time.time(),
+            "time_control": time_control,
+            "word_selection_time": get_word_selection_time(is_ranked),
+            "from_matchmaking": True,
+            "matchmaking_mode": mode,
+        }
+        
+        # Add human players
+        for i, p_data in enumerate(players):
+            player_id = p_data.get("player_id")
+            session_token = generate_session_token(player_id, code)
+            
+            player = {
+                "id": player_id,
+                "name": p_data.get("player_name", f"Player{i+1}"),
+                "secret_word": None,
+                "is_alive": True,
+                "is_ai": False,
+                "is_ready": False,
+                "cosmetics": p_data.get("cosmetics", {}),
+                "time_remaining": time_control.get("initial_time", 0),
+                "session_token": session_token,
+            }
+            
+            # Add auth user ID if present
+            if p_data.get("auth_user_id"):
+                player["auth_user_id"] = p_data["auth_user_id"]
+            
+            game["players"].append(player)
+            
+            # First player is host
+            if i == 0:
+                game["host_id"] = player_id
+        
+        # Add AI players if needed (quick_play only)
+        if ai_fill > 0 and mode == "quick_play":
+            ai_difficulties = ["field-agent", "analyst", "spymaster", "rookie"]
+            for i in range(ai_fill):
+                difficulty = ai_difficulties[i % len(ai_difficulties)]
+                ai_id = f"ai_{difficulty}_{secrets.token_hex(4)}"
+                ai_config = AI_DIFFICULTY_CONFIG.get(difficulty, AI_DIFFICULTY_CONFIG.get("field-agent", {}))
+                ai_name = f"{ai_config.get('name_prefix', 'AI')} {secrets.token_hex(2).upper()}"
+                
+                ai_player = {
+                    "id": ai_id,
+                    "name": ai_name,
+                    "secret_word": None,
+                    "is_alive": True,
+                    "is_ai": True,
+                    "ai_difficulty": difficulty,
+                    "is_ready": False,
+                    "cosmetics": {},
+                    "time_remaining": time_control.get("initial_time", 0),
+                }
+                game["players"].append(ai_player)
+        
+        # Save game
+        save_game(code, game)
+        
+        # Notify all players of the match
+        queue_key = _queue_key(mode)
+        for p_data in players:
+            player_id = p_data.get("player_id")
+            match_key = _queue_match_key(player_id)
+            
+            # Find player's session token
+            player_in_game = next((p for p in game["players"] if p["id"] == player_id), None)
+            session_token = player_in_game.get("session_token", "") if player_in_game else ""
+            
+            match_info = {
+                "game_code": code,
+                "player_id": player_id,
+                "session_token": session_token,
+            }
+            redis.setex(match_key, 60, json.dumps(match_info))
+            
+            # Remove from queue
+            redis.zrem(queue_key, player_id)
+            data_key = _queue_data_key(mode, player_id)
+            redis.delete(data_key)
+        
+        print(f"[QUEUE] Created {mode} match {code} with {len(players)} players + {ai_fill} AI")
+        
+        return {"game_code": code}
+    
+    except Exception as e:
+        print(f"[QUEUE] Error creating match: {e}")
+        import traceback
+        print(f"[QUEUE] Traceback: {traceback.format_exc()}")
+        return None
+
+
+def check_ranked_eligibility(user: dict) -> tuple[bool, str]:
+    """
+    Check if a user is eligible for ranked matchmaking.
+    
+    Returns:
+        (is_eligible, error_message)
+    """
+    if not user:
+        return False, "Sign in with Google to play ranked"
+    
+    stats = get_user_stats(user)
+    mp_games = stats.get("mp_games_played", 0)
+    
+    if mp_games < QUEUE_MIN_CASUAL_GAMES_FOR_RANKED:
+        remaining = QUEUE_MIN_CASUAL_GAMES_FOR_RANKED - mp_games
+        return False, f"Play {remaining} more casual game{'s' if remaining != 1 else ''} to unlock ranked"
+    
+    return True, ""
+
+
 # ============== HANDLER ==============
 
 # Allowed origins for CORS
@@ -5584,6 +6143,25 @@ class handler(BaseHTTPRequestHandler):
                 "streak_info": streak_info,
             })
 
+        # GET /api/queue/status - Get queue status and check for matches
+        if path == '/api/queue/status':
+            mode = (query.get('mode', '') or '').strip().lower()
+            player_id = (query.get('player_id', '') or '').strip()
+            
+            if mode not in ('quick_play', 'ranked'):
+                return self._send_error("Invalid mode. Use 'quick_play' or 'ranked'", 400)
+            
+            if not player_id:
+                return self._send_error("player_id required", 400)
+            
+            # Validate player_id format
+            validated_id = sanitize_player_id(player_id)
+            if not validated_id:
+                return self._send_error("Invalid player_id format", 400)
+            
+            status = get_queue_status(mode, validated_id)
+            return self._send_json(status)
+
         # GET /api/lobbies - List open lobbies
         if path == '/api/lobbies':
             # Rate limit: 30/min for lobby listing
@@ -5839,9 +6417,25 @@ class handler(BaseHTTPRequestHandler):
             # Get cosmetics from user if available
             cosmetics = None
             badge = None
+            avatar = None
+            custom_avatar = None
             if user_data:
                 cosmetics = user_data.get('cosmetics', {})
                 badge = cosmetics.get('badge') if cosmetics.get('badge') != 'none' else None
+                # Check for custom emoji avatar
+                profile_avatar = cosmetics.get('profile_avatar', 'default')
+                if profile_avatar and profile_avatar != 'default':
+                    # Load avatar icon from cosmetics catalog
+                    try:
+                        with open(os.path.join(os.path.dirname(__file__), 'cosmetics.json'), 'r') as f:
+                            catalog = json.load(f)
+                        avatar_data = catalog.get('profile_avatars', {}).get(profile_avatar, {})
+                        custom_avatar = avatar_data.get('icon', '')
+                    except Exception:
+                        pass
+                # Fall back to Google avatar if no custom avatar
+                if not custom_avatar:
+                    avatar = user_data.get('avatar', '')
             
             return self._send_json({
                 "name": stats.get('name', player_name),
@@ -5853,7 +6447,8 @@ class handler(BaseHTTPRequestHandler):
                 "best_streak": stats.get('best_streak', 0),
                 "created_at": created_at,  # None if not a Google user
                 "has_google_account": user_data is not None,
-                "avatar": user_data.get('avatar', '') if user_data else None,
+                "avatar": avatar,
+                "custom_avatar": custom_avatar,  # Emoji avatar (takes precedence over Google avatar)
                 "badge": badge,
                 "cosmetics": cosmetics,
                 "ranked": ranked_stats,
@@ -6395,6 +6990,92 @@ class handler(BaseHTTPRequestHandler):
         # Get client IP for rate limiting
         client_ip = get_client_ip(self.headers)
 
+        # POST /api/queue/join - Join matchmaking queue
+        if path == '/api/queue/join':
+            # Rate limit: 10/min for queue joins
+            if not check_rate_limit(get_ratelimit_general(), f"queue_join:{client_ip}"):
+                return self._send_error("Too many requests. Please wait.", 429)
+            
+            mode = (body.get('mode', '') or '').strip().lower()
+            player_name = (body.get('player_name', '') or '').strip()
+            
+            if mode not in ('quick_play', 'ranked'):
+                return self._send_error("Invalid mode. Use 'quick_play' or 'ranked'", 400)
+            
+            if not player_name:
+                return self._send_error("player_name required", 400)
+            
+            # Sanitize player name
+            sanitized_name = sanitize_player_name(player_name)
+            if not sanitized_name:
+                return self._send_error("Invalid player name", 400)
+            
+            # Generate a player ID for this queue session
+            player_id = secrets.token_hex(16)
+            
+            # Get auth info
+            auth_user_id = self._get_auth_user_id()
+            auth_user = None
+            mmr = RANKED_INITIAL_MMR
+            cosmetics = {}
+            
+            if auth_user_id:
+                auth_user = get_user_by_id(auth_user_id)
+                if auth_user:
+                    stats = get_user_stats(auth_user)
+                    mmr = stats.get('mmr', RANKED_INITIAL_MMR)
+                    cosmetics = get_user_cosmetics(auth_user)
+            
+            # Ranked eligibility check
+            if mode == 'ranked':
+                if not auth_user_id:
+                    return self._send_error("Sign in with Google to play ranked", 401)
+                
+                if not auth_user:
+                    return self._send_error("User not found", 404)
+                
+                is_eligible, error_msg = check_ranked_eligibility(auth_user)
+                if not is_eligible:
+                    return self._send_json({
+                        "status": "ineligible",
+                        "message": error_msg,
+                        "games_required": QUEUE_MIN_CASUAL_GAMES_FOR_RANKED,
+                        "games_played": get_user_stats(auth_user).get('mp_games_played', 0),
+                    }, 403)
+            
+            # Join queue
+            result = join_matchmaking_queue(
+                mode=mode,
+                player_id=player_id,
+                player_name=sanitized_name,
+                auth_user_id=auth_user_id,
+                mmr=mmr,
+                cosmetics=cosmetics,
+            )
+            
+            # Include player_id in response so client can poll status
+            result["player_id"] = player_id
+            
+            return self._send_json(result)
+
+        # POST /api/queue/leave - Leave matchmaking queue
+        if path == '/api/queue/leave':
+            mode = (body.get('mode', '') or '').strip().lower()
+            player_id = (body.get('player_id', '') or '').strip()
+            
+            if mode not in ('quick_play', 'ranked'):
+                return self._send_error("Invalid mode", 400)
+            
+            if not player_id:
+                return self._send_error("player_id required", 400)
+            
+            validated_id = sanitize_player_id(player_id)
+            if not validated_id:
+                return self._send_error("Invalid player_id format", 400)
+            
+            success = leave_matchmaking_queue(mode, validated_id)
+            return self._send_json({"status": "left" if success else "error"})
+
         # POST /api/games - Create lobby with theme voting
         if path == '/api/games':
             # Rate limit: 5 games/min per IP
@@ -6751,8 +7432,19 @@ class handler(BaseHTTPRequestHandler):
                 game['theme_votes'][theme] = []
             game['theme_votes'][theme].append(player_id)
             
-            save_game(code, game)
-            return self._send_json({"status": "voted", "theme_votes": game['theme_votes']})
+            # Return immediately with updated votes, save in background
+            response_votes = game['theme_votes']
+            
+            # Fire-and-forget save (don't block response)
+            import threading
+            def save_async():
+                try:
+                    save_game(code, game)
+                except Exception as e:
+                    print(f"Async vote save error: {e}")
+            threading.Thread(target=save_async, daemon=True).start()
+            
+            return self._send_json({"status": "voted", "theme_votes": response_votes})
 
         # POST /api/games/{code}/theme - Set the theme (creator chooses)
         if '/theme' in path and path.startswith('/api/games/') and path.count('/') == 4:
@@ -7458,8 +8150,17 @@ class handler(BaseHTTPRequestHandler):
                 except Exception as e:
                     print(f"Theme embedding pre-cache error (start): {e}")
             
-            save_game(code, game)
-            return self._send_json({"status": "word_selection", "theme": game['theme']['name']})
+            # Save game state (fire-and-forget to reduce latency)
+            theme_name = game['theme']['name']
+            import threading
+            def save_async():
+                try:
+                    save_game(code, game)
+                except Exception as e:
+                    print(f"Async start save error: {e}")
+            threading.Thread(target=save_async, daemon=True).start()
+            
+            return self._send_json({"status": "word_selection", "theme": theme_name})
 
         # POST /api/games/{code}/begin - Start the actual game after word selection
         if '/begin' in path:

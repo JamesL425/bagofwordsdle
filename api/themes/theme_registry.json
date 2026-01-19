@@ -1,3 +1,26 @@
 {
-  "themes": []
+  "themes": [
+    {"name": "The Great Outdoors", "file": "the_great_outdoors.json"},
+    {"name": "Food & Flavors", "file": "food_flavors.json"},
+    {"name": "Moods & Emotions", "file": "moods_emotions.json"},
+    {"name": "Sports & Athletes", "file": "sports_athletes.json"},
+    {"name": "Music & Instruments", "file": "music_instruments.json"},
+    {"name": "Planes, Trains & Automobiles", "file": "planes_trains_automobiles.json"},
+    {"name": "The Lab", "file": "the_lab.json"},
+    {"name": "History & Ancient Times", "file": "history_ancient_times.json"},
+    {"name": "Screens & Machines", "file": "screens_machines.json"},
+    {"name": "Gods & Monsters", "file": "gods_monsters.json"},
+    {"name": "Creatures of the Deep", "file": "creatures_of_the_deep.json"},
+    {"name": "Books & Authors", "file": "books_authors.json"},
+    {"name": "Movies & Hollywood", "file": "movies_hollywood.json"},
+    {"name": "Health & Anatomy", "file": "health_anatomy.json"},
+    {"name": "Animals & Wildlife", "file": "animals_wildlife.json"},
+    {"name": "Space & Sci-Fi", "file": "space_scifi.json"},
+    {"name": "Cities & Civilization", "file": "cities_civilization.json"},
+    {"name": "Clothes & Fashion", "file": "clothes_fashion.json"},
+    {"name": "Holidays & Parties", "file": "holidays_parties.json"},
+    {"name": "Love & Romance", "file": "love_romance.json"},
+    {"name": "Video Games & Gaming", "file": "video_games_gaming.json"},
+    {"name": "Fantasy & Magic", "file": "fantasy_magic.json"}
+  ]
 }

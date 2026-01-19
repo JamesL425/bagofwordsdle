@@ -6,7 +6,7 @@
     "lobby_expiry_seconds": 600,
     "words_per_player": 16,
     "theme_words_per_category": 100,
-    "word_change_sample_size": 20
+    "word_change_sample_size": 16
   },
   "embedding": {
     "model": "text-embedding-3-large",

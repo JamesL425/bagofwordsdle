@@ -30,129 +30,119 @@ from wordfreq import zipf_frequency
 WORD_PATTERN = re.compile(r"^[a-zA-Z]{2,30}$")
 
 
-# Fun, high-signal theme roster. Each theme is expected to end up with exactly 120 words.
+# Fun, high-signal theme roster. Each theme is expected to end up with exactly 100 words.
 DEFAULT_THEME_ROSTER: List[Dict[str, str]] = [
-    # === EXISTING THEMES ===
     {
-        "name": "Internet & Memes",
-        "prompt": "internet culture, social media, streaming, memes, online slang (clean, non-sexual, non-violent).",
+        "name": "The Great Outdoors",
+        "prompt": "camping, hiking, nature, weather, mountains, forests, wildlife, outdoor adventure.",
     },
     {
-        "name": "Video Games",
-        "prompt": "video games and gaming concepts (no franchise names, no trademarks).",
+        "name": "Food & Flavors",
+        "prompt": "cooking, ingredients, tastes, dishes, restaurants, cuisine, kitchen, recipes.",
     },
     {
-        "name": "Spycraft & Espionage",
-        "prompt": "spies, heists, codes, surveillance, disguises, gadgets, and intrigue.",
+        "name": "Moods & Emotions",
+        "prompt": "feelings, expressions, states of mind, emotional vocabulary, psychology.",
     },
     {
-        "name": "Pirates & Treasure",
-        "prompt": "pirates, ships, treasure, islands, sea adventure, swashbuckling.",
+        "name": "Sports & Athletes",
+        "prompt": "games, equipment, actions, competitions, teams, athletics, famous sports.",
     },
     {
-        "name": "Monsters & Creatures",
-        "prompt": "classic monsters and spooky creatures (not too obscure).",
+        "name": "Music & Instruments",
+        "prompt": "genres, instruments, performance terms, concerts, bands, musical vocabulary.",
     },
     {
-        "name": "Space Adventure",
-        "prompt": "space exploration, sci fi adventure, astronauts, aliens, planets, starships.",
+        "name": "Planes, Trains & Automobiles",
+        "prompt": "vehicles, travel, transportation, roads, airports, trains, cars, journeys.",
     },
     {
-        "name": "Fantasy & Magic",
-        "prompt": "fantasy adventure, magic, wizards, quests, castles, enchanted items.",
+        "name": "The Lab",
+        "prompt": "chemistry, physics, lab equipment, scientific method, biology, experiments.",
     },
     {
-        "name": "Mythology & Legends",
-        "prompt": "mythology and legends (keep only widely-known names, avoid niche proper nouns).",
+        "name": "History & Ancient Times",
+        "prompt": "historical periods, famous figures, artifacts, civilizations, wars, empires.",
     },
     {
-        "name": "Superheroes & Comics",
-        "prompt": "superheroes and comic-book concepts (no specific character names).",
+        "name": "Screens & Machines",
+        "prompt": "technology, gadgets, computing, internet, devices, digital, software, hardware.",
+    },
+    {
+        "name": "Gods & Monsters",
+        "prompt": "mythology, deities, legendary creatures, folklore, ancient gods, mythical beasts.",
+    },
+    {
+        "name": "Creatures of the Deep",
+        "prompt": "ocean life, marine biology, sea creatures, underwater, fish, coral, diving.",
+    },
+    {
+        "name": "Books & Authors",
+        "prompt": "literature, famous authors, writing, novels, genres, storytelling, publishing.",
+    },
+    {
+        "name": "Art & Artists",
+        "prompt": "painting, sculpture, famous artists, art movements, galleries, creative techniques.",
+    },
+    {
+        "name": "Movies & Hollywood",
+        "prompt": "cinema, actors, film terms, directors, genres, awards, movie making.",
+    },
+    {
+        "name": "Health & Anatomy",
+        "prompt": "body parts, medical terms, wellness, fitness, doctors, hospitals, health.",
     },
     {
         "name": "Crime & Mystery",
-        "prompt": "mystery stories, detectives, clues, investigations, courtroom drama.",
+        "prompt": "detective work, clues, investigations, police, courts, criminals, mysteries.",
     },
     {
-        "name": "Halloween & Spooky",
-        "prompt": "halloween, haunted houses, spooky vibes, costumes, scares (clean).",
+        "name": "Wizards & Spells",
+        "prompt": "magic, fantasy, enchantment, sorcery, wizards, witches, magical creatures.",
     },
     {
-        "name": "Kitchen Chaos",
-        "prompt": "cooking, kitchen tools, recipes, snacks, restaurants, food chaos.",
+        "name": "Animals & Wildlife",
+        "prompt": "creatures, habitats, animal behavior, mammals, birds, reptiles, insects.",
     },
     {
-        "name": "Music & Concerts",
-        "prompt": "music genres, instruments, concerts, festivals, DJs, band life.",
-    },
-    # === NEW THEMES ===
-    {
-        "name": "Dinosaurs & Prehistory",
-        "prompt": "dinosaurs, prehistoric creatures, fossils, cavemen, ice age, volcanoes, evolution, paleontology.",
+        "name": "Space & Sci-Fi",
+        "prompt": "astronomy, sci-fi concepts, exploration, planets, aliens, rockets, future technology.",
     },
     {
-        "name": "Heist & Casino",
-        "prompt": "casino games, heists, gambling, poker, blackjack, vaults, disguises, con artists, Ocean's Eleven vibes.",
+        "name": "Cities & Civilization",
+        "prompt": "urban life, landmarks, society, buildings, infrastructure, city living.",
     },
     {
-        "name": "Survival Horror",
-        "prompt": "survival horror video games, escape rooms, bunkers, flashlights, monsters, tension, hiding, running.",
+        "name": "Clothes & Fashion",
+        "prompt": "garments, style, accessories, designers, fabrics, trends, wardrobe.",
     },
     {
-        "name": "Wild West",
-        "prompt": "cowboys, western frontier, saloons, sheriffs, outlaws, duels, horses, gold rush, tumbleweeds.",
+        "name": "Holidays & Parties",
+        "prompt": "celebrations, festivities, traditions, decorations, gifts, seasonal events.",
     },
     {
-        "name": "Anime & Manga",
-        "prompt": "anime and manga tropes, shonen, training arcs, tournaments, sensei, power levels, transformation (no character names).",
+        "name": "Love & Romance",
+        "prompt": "relationships, affection, dating, weddings, emotions, romantic vocabulary.",
     },
     {
-        "name": "Cryptids & Conspiracies",
-        "prompt": "cryptids, conspiracy theories, bigfoot, UFOs, aliens, area 51, mothman, loch ness, paranormal investigation.",
+        "name": "Horror & Haunts",
+        "prompt": "scary things, monsters, spooky vibes, haunted places, fear, supernatural horror.",
     },
     {
-        "name": "Reality TV & Drama",
-        "prompt": "reality TV shows, drama, eliminations, alliances, confessionals, rose ceremonies, tribal council, competitions.",
+        "name": "Superheroes & Villains",
+        "prompt": "superheroes, villains, comic books, powers, secret identities, capes, battles, justice.",
     },
     {
-        "name": "Pro Wrestling",
-        "prompt": "professional wrestling, WWE concepts, finishers, heels, faces, tag teams, championships, entrances, promos.",
+        "name": "Dinosaurs & Fossils",
+        "prompt": "dinosaurs, fossils, prehistoric creatures, paleontology, extinction, excavation, ancient life.",
     },
     {
-        "name": "Retro Arcade",
-        "prompt": "classic arcade games, 80s/90s gaming, joysticks, high scores, tokens, pixel art, chiptunes, cabinets.",
+        "name": "Video Games & Gaming",
+        "prompt": "video games, gaming culture, consoles, characters, levels, achievements, multiplayer.",
     },
     {
-        "name": "Zombies & Apocalypse",
-        "prompt": "zombie apocalypse, survival, outbreaks, barricades, hordes, undead, bunkers, last survivors, cure.",
-    },
-    {
-        "name": "Time Travel",
-        "prompt": "time travel, paradoxes, flux capacitors, timelines, portals, future, past, alternate realities, temporal.",
-    },
-    {
-        "name": "Ninja & Samurai",
-        "prompt": "ninjas, samurai, feudal Japan, katanas, dojos, stealth, honor, martial arts, shadows, clans.",
-    },
-    {
-        "name": "Mad Science",
-        "prompt": "mad scientists, experiments, laboratories, mutations, Tesla coils, formulas, inventions, Frankenstein vibes.",
-    },
-    {
-        "name": "Kaiju & Giant Monsters",
-        "prompt": "kaiju, giant monsters, Godzilla-style destruction, titans, rampage, cities, military, atomic breath (no character names).",
-    },
-    {
-        "name": "Fairy Tales & Fables",
-        "prompt": "classic fairy tales, fables, wolves, witches, towers, curses, happily ever after, enchanted forests, princes.",
-    },
-    {
-        "name": "Extreme Sports",
-        "prompt": "extreme sports, skateboarding, snowboarding, surfing, BMX, halfpipes, tricks, wipeouts, adrenaline, gnarly.",
-    },
-    {
-        "name": "Haunted House",
-        "prompt": "haunted houses, seances, poltergeists, ouija boards, creaking floors, attics, basements, paranormal, ghosts.",
+        "name": "Fantasy & Magic",
+        "prompt": "magic, fantasy, enchantment, sorcery, wizards, witches, magical creatures, spells.",
     },
 ]
 
@@ -316,7 +306,7 @@ def theme_name_to_filename(name: str) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default=os.getenv("THEME_MODEL", "gpt-4o-mini"))
-    parser.add_argument("--count", type=int, default=120, help="Final words per theme")
+    parser.add_argument("--count", type=int, default=100, help="Final words per theme")
     parser.add_argument("--candidates", type=int, default=260, help="Raw candidates per theme (before filtering)")
     parser.add_argument("--min-zipf", type=float, default=3.0, help="Minimum zipf_frequency for a word to be kept")
     parser.add_argument("--seed", type=int, default=0)
@@ -324,7 +314,6 @@ def main() -> int:
     parser.add_argument("--legacy-out", default=str(Path(__file__).parent / "themes.json"), help="Legacy single-file output")
     parser.add_argument("--overrides", default=str(Path(__file__).parent / "theme_overrides.json"))
     parser.add_argument("--validate-only", action="store_true", help="Validate existing themes and exit")
-    parser.add_argument("--themes-per-day", type=int, default=12, help="Number of themes to show per day in rotation")
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[1]
@@ -461,7 +450,6 @@ def main() -> int:
     # Write theme registry
     registry = {
         "themes": registry_entries,
-        "themes_per_day": int(args.themes_per_day),
     }
     registry_path = out_dir / "theme_registry.json"
     registry_path.write_text(json.dumps(registry, indent=2) + "\n")
