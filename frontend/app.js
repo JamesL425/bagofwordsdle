@@ -4118,6 +4118,15 @@ function showWordSelectionScreen(data) {
             document.getElementById('selected-word-display').textContent = el.dataset.word.toUpperCase();
             document.getElementById('selected-word-display').dataset.word = el.dataset.word;
         });
+        el.addEventListener('dblclick', () => {
+            // Select the word
+            poolContainer.querySelectorAll('.word-option').forEach(w => w.classList.remove('selected'));
+            el.classList.add('selected');
+            document.getElementById('selected-word-display').textContent = el.dataset.word.toUpperCase();
+            document.getElementById('selected-word-display').dataset.word = el.dataset.word;
+            // Lock it in
+            lockWordSelection();
+        });
     });
     
     // Reset state
@@ -4364,8 +4373,8 @@ function stopWordSelectionTimer() {
     }
 }
 
-// Lock in word button
-document.getElementById('lock-word-btn')?.addEventListener('click', async () => {
+// Lock word selection function (used by button and double-click)
+async function lockWordSelection() {
     const wordDisplay = document.getElementById('selected-word-display');
     const word = wordDisplay.dataset.word;
     if (!word) {
@@ -4398,7 +4407,10 @@ document.getElementById('lock-word-btn')?.addEventListener('click', async () => 
     } catch (error) {
         showError(error.message);
     }
-});
+}
+
+// Lock in word button
+document.getElementById('lock-word-btn')?.addEventListener('click', lockWordSelection);
 
 // Begin game button (host only)
 document.getElementById('begin-game-btn')?.addEventListener('click', async () => {
