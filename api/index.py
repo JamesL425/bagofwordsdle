@@ -5405,7 +5405,28 @@ def _try_quick_play_match(redis, queue_key: str, requesting_player_id: str, wait
         all_accept = all(p_min_size <= target_size for _, p_min_size in group_candidates)
         if all_accept:
             match_players = [p for p, _ in group_candidates]
-            return _create_match_from_queue(redis, "quick_play", match_players, ai_fill=0)
+            
+            # Use distributed lock to prevent race conditions
+            lock_key = f"queue_lock:quick_play:{':'.join(sorted(p.get('player_id', '') for p in match_players))}"
+            
+            # Try to acquire lock (SET NX with expiry)
+            lock_acquired = redis.set(lock_key, "1", nx=True, ex=10)  # 10 second lock
+            if not lock_acquired:
+                # Another process is creating this match
+                return None
+            
+            try:
+                # Double-check all players are still in queue
+                for p in match_players:
+                    pid = p.get("player_id")
+                    if redis.zrank(queue_key, pid) is None:
+                        # Player already matched, abort
+                        return None
+                
+                return _create_match_from_queue(redis, "quick_play", match_players, ai_fill=0)
+            finally:
+                # Release lock
+                redis.delete(lock_key)
     
     return None
 
@@ -5476,7 +5497,27 @@ def _try_ranked_match(redis, queue_key: str, requesting_player_id: str, wait_tim
             best_group = group
     
     if best_group:
-        return _create_match_from_queue(redis, "ranked", best_group, ai_fill=0)
+        # Use distributed lock to prevent race conditions
+        lock_key = f"queue_lock:ranked:{':'.join(sorted(p.get('player_id', '') for p in best_group))}"
+        
+        # Try to acquire lock (SET NX with expiry)
+        lock_acquired = redis.set(lock_key, "1", nx=True, ex=10)  # 10 second lock
+        if not lock_acquired:
+            # Another process is creating this match
+            return None
+        
+        try:
+            # Double-check all players are still in queue (they might have been matched by another group)
+            for p in best_group:
+                pid = p.get("player_id")
+                if redis.zrank(queue_key, pid) is None:
+                    # Player already matched, abort
+                    return None
+            
+            return _create_match_from_queue(redis, "ranked", best_group, ai_fill=0)
+        finally:
+            # Release lock
+            redis.delete(lock_key)
     
     return None
 

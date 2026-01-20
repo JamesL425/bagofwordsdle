@@ -2920,6 +2920,9 @@ async function onMatchFound(matchData) {
     gameState.queueMode = null;
     gameState.queuePlayerId = null;
     gameState.queueStartTime = null;
+    
+    // Start music when joining a game (user has interacted by clicking queue button)
+    applyMusicPreference();
 
     // If we have session info from the match, use it directly
     if (playerId && sessionToken) {
@@ -3667,6 +3670,9 @@ async function joinSingleplayerLobby(code, name) {
         // Save session for persistence
         saveGameSession();
         
+        // Start music when joining a game
+        applyMusicPreference();
+        
         showScreen('singleplayerLobby');
         startSingleplayerLobbyPolling();
     } catch (error) {
@@ -3935,6 +3941,9 @@ async function joinLobby(code, name) {
         // Save session for persistence
         saveGameSession();
         
+        // Start music when joining a game
+        applyMusicPreference();
+        
         // Go to lobby screen
         document.getElementById('lobby-code').textContent = code;
         showScreen('lobby');
@@ -4074,6 +4083,12 @@ function updateThemeVoting(options, votes) {
 }
 
 async function voteForTheme(theme) {
+    // Immediately update UI to show selection (optimistic update)
+    const allBtns = document.querySelectorAll('.theme-vote-btn');
+    allBtns.forEach(btn => {
+        btn.classList.toggle('voted', btn.dataset.theme === theme);
+    });
+    
     try {
         await apiCall(`/api/games/${gameState.code}/vote`, 'POST', {
             player_id: gameState.playerId,
@@ -4083,6 +4098,8 @@ async function voteForTheme(theme) {
         gameState.myVote = theme;
     } catch (error) {
         showError(error.message);
+        // Revert optimistic update on error
+        allBtns.forEach(btn => btn.classList.remove('voted'));
     }
 }
 
