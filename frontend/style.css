@@ -1470,7 +1470,7 @@ header h1 {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     overflow-y: auto;
-    max-height: calc(100vh - 320px);
+    max-height: 75%;
 }
 
 .guess-word {
@@ -1537,16 +1537,11 @@ header h1 {
     display: flex;
     align-items: center;
     gap: 1rem;
-    padding: 1rem 1.25rem;
-    background: var(--bg-card);
-    border: 2px solid var(--border);
-    border-radius: var(--radius);
-    transition: all 0.2s ease;
     flex-shrink: 0;
 }
 
 /* Highlight selection bar when word is selected */
-.guess-selection-bar.has-selection {
+.guess-selection-bar.has-selection .guess-selected-word {
     border-color: var(--accent-primary);
     background: linear-gradient(135deg, rgba(0, 255, 65, 0.1), rgba(0, 255, 65, 0.05));
 }
@@ -1556,6 +1551,11 @@ header h1 {
     font-size: 1rem;
     color: var(--text-muted);
     font-style: italic;
+    padding: 1rem 1.25rem;
+    background: var(--bg-card);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    transition: all 0.2s ease;
 }
 
 .guess-selected-word.has-selection {
@@ -1568,9 +1568,10 @@ header h1 {
 
 #guess-submit-btn {
     min-width: 120px;
-    padding: 0.75rem 1.5rem;
+    padding: 1rem 1.5rem;
     font-size: 1rem;
     transition: all 0.2s ease;
+    flex-shrink: 0;
 }
 
 #guess-submit-btn:not(:disabled) {
