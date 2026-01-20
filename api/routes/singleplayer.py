@@ -302,8 +302,6 @@ def _handle_ai_turn(
     player_id: str
 ) -> Tuple[int, Any]:
     """Process an AI player's turn."""
-    from ..services.embedding_service import get_embedding, cosine_similarity
-    
     if game['status'] != 'playing':
         return 400, {"detail": "Game not in playing state"}
     
@@ -320,7 +318,7 @@ def _handle_ai_turn(
         save_game(game['code'], game)
         return 200, {"skipped": True, "reason": "ai_eliminated"}
     
-    # AI chooses a guess
+    # AI chooses a guess (always from theme words)
     guess_word = ai_choose_guess(current_player, game)
     
     if not guess_word:
@@ -331,10 +329,15 @@ def _handle_ai_turn(
     
     guess_lower = guess_word.lower()
     
-    # Calculate similarities using pre-computed matrix (fast path)
+    # Calculate similarities using pre-computed matrix
     similarities = {}
     eliminations = []
     matrix = game.get('theme_similarity_matrix')
+    
+    if not matrix:
+        _advance_turn(game)
+        save_game(game['code'], game)
+        return 200, {"skipped": True, "reason": "no_similarity_matrix"}
     
     for p in game['players']:
         if not p.get('is_alive', True):
@@ -346,29 +349,13 @@ def _handle_ai_turn(
         
         secret_lower = secret_word.lower()
         
-        # Fast path: use pre-computed similarity matrix
-        if matrix and guess_lower in matrix:
-            sim = matrix[guess_lower].get(secret_lower)
-            if sim is not None:
-                similarities[p['id']] = round(sim, 4)
-                if guess_lower == secret_lower or sim >= 0.99:
-                    eliminations.append(p['id'])
-                    p['is_alive'] = False
-                continue
-        
-        # Fallback: compute from embeddings (rare)
-        try:
-            guess_embedding = get_embedding(guess_word)
-            secret_embedding = get_embedding(secret_word)
-            sim = cosine_similarity(guess_embedding, secret_embedding)
+        # Use pre-computed similarity matrix (guaranteed to have all theme words)
+        sim = matrix.get(guess_lower, {}).get(secret_lower)
+        if sim is not None:
             similarities[p['id']] = round(sim, 4)
-            
-            # Check for elimination (exact match or very high similarity)
             if guess_lower == secret_lower or sim >= 0.99:
                 eliminations.append(p['id'])
                 p['is_alive'] = False
-        except Exception:
-            continue
     
     # Update AI memory
     ai_update_memory(current_player, guess_word, similarities, game)

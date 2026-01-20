@@ -188,10 +188,19 @@ def handle_game_action(handler, method: str, code: str, action: Optional[str], b
         if game["current_player_id"] != player_id:
             return 400, {"detail": "Not your turn"}
         
-        # Calculate similarities using pre-computed matrix (fast path)
+        # Validate word is in theme (required - all guesses must be theme words)
+        theme_words = game.get('theme', {}).get('words', [])
+        theme_words_lower = {w.lower() for w in theme_words}
+        if word not in theme_words_lower:
+            return 400, {"detail": "Please select a word from the theme"}
+        
+        # Calculate similarities using pre-computed matrix
         similarities = {}
         eliminations = []
         matrix = game.get('theme_similarity_matrix')
+        
+        if not matrix:
+            return 500, {"detail": "Game not properly initialized"}
         
         for player in game["players"]:
             if not player.get("is_alive", True):
@@ -202,38 +211,13 @@ def handle_game_action(handler, method: str, code: str, action: Optional[str], b
             
             secret_lower = secret_word.lower()
             
-            # Fast path: use pre-computed similarity matrix
-            if matrix and word in matrix:
-                sim = matrix[word].get(secret_lower)
-                if sim is not None:
-                    similarities[player["id"]] = round(sim, 4)
-                    if sim >= 0.9:
-                        eliminations.append(player["id"])
-                        eliminate_player(game, player["id"])
-                    continue
-            
-            # Fallback: compute from embeddings (rare - only if matrix not available)
-            try:
-                guess_embedding = get_embedding(word)
-                secret_emb = get_embedding(secret_word)
-                sim = cosine_similarity(guess_embedding, secret_emb)
+            # Use pre-computed similarity matrix (guaranteed to have all theme words)
+            sim = matrix.get(word, {}).get(secret_lower)
+            if sim is not None:
                 similarities[player["id"]] = round(sim, 4)
                 if sim >= 0.9:
                     eliminations.append(player["id"])
                     eliminate_player(game, player["id"])
-            except Exception:
-                # Legacy fallback
-                secret_emb = player.get("secret_embedding")
-                if secret_emb:
-                    try:
-                        guess_embedding = get_embedding(word)
-                        sim = cosine_similarity(guess_embedding, secret_emb)
-                        similarities[player["id"]] = round(sim, 4)
-                        if sim >= 0.9:
-                            eliminations.append(player["id"])
-                            eliminate_player(game, player["id"])
-                    except Exception:
-                        continue
         
         # Add to history
         guesser = next((p for p in game["players"] if p["id"] == player_id), None)

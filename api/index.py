@@ -8660,13 +8660,19 @@ class handler(BaseHTTPRequestHandler):
             if current_player['id'] != player_id:
                 return self._send_error("It's not your turn", 400)
             
-            if not is_valid_word(word):
-                return self._send_error("Please enter a valid English word", 400)
-            
-            # Calculate similarities using pre-computed matrix (fast path)
+            # Validate word is in theme (required - all guesses must be theme words)
             word_lower = word.lower()
+            theme_words = game.get('theme', {}).get('words', [])
+            theme_words_lower = {w.lower() for w in theme_words}
+            if word_lower not in theme_words_lower:
+                return self._send_error("Please select a word from the theme", 400)
+            
+            # Calculate similarities using pre-computed matrix
             similarities = {}
             matrix = game.get('theme_similarity_matrix')
+            
+            if not matrix:
+                return self._send_error("Game not properly initialized", 500)
             
             for p in game['players']:
                 secret_word = p.get('secret_word')
@@ -8674,28 +8680,10 @@ class handler(BaseHTTPRequestHandler):
                     continue
                 secret_lower = secret_word.lower()
                 
-                # Fast path: use pre-computed similarity matrix
-                if matrix and word_lower in matrix:
-                    sim = matrix[word_lower].get(secret_lower)
-                    if sim is not None:
-                        similarities[p['id']] = round(sim, 4)
-                        continue
-                
-                # Fallback: compute from embeddings (rare - only if matrix not available)
-                try:
-                    guess_embedding = get_embedding(word)
-                    secret_emb = get_embedding(secret_word)
-                    sim = cosine_similarity(guess_embedding, secret_emb)
+                # Use pre-computed similarity matrix (guaranteed to have all theme words)
+                sim = matrix.get(word_lower, {}).get(secret_lower)
+                if sim is not None:
                     similarities[p['id']] = round(sim, 4)
-                except Exception:
-                    # Fallback to stored embedding if cache miss (legacy games)
-                    if p.get('secret_embedding'):
-                        try:
-                            guess_embedding = get_embedding(word)
-                            sim = cosine_similarity(guess_embedding, p['secret_embedding'])
-                            similarities[p['id']] = round(sim, 4)
-                        except Exception:
-                            pass
             
             # Eliminate players whose exact word was guessed
             eliminations = []

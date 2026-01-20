@@ -1392,34 +1392,6 @@ function ensurePlayerName(callback) {
     return false;
 }
 
-// ============ MORE OPTIONS COLLAPSIBLE ============
-
-function initMoreOptionsToggle() {
-    const toggle = document.getElementById('more-options-toggle');
-    const content = document.getElementById('more-options-content');
-    
-    if (!toggle || !content) return;
-    
-    // Set initial state based on screen size (collapsed on mobile, expanded on desktop)
-    const isDesktop = window.innerWidth >= 1100;
-    if (isDesktop) {
-        content.classList.remove('collapsed');
-        toggle.setAttribute('aria-expanded', 'true');
-    } else {
-        content.classList.add('collapsed');
-        toggle.setAttribute('aria-expanded', 'false');
-    }
-    
-    toggle.addEventListener('click', () => {
-        const isCollapsed = content.classList.contains('collapsed');
-        content.classList.toggle('collapsed');
-        toggle.setAttribute('aria-expanded', isCollapsed ? 'true' : 'false');
-    });
-}
-
-// Initialize on load
-initMoreOptionsToggle();
-
 // Logout button in profile modal
 document.getElementById('profile-logout-btn')?.addEventListener('click', logout);
 
@@ -4600,11 +4572,9 @@ function updateGame(game) {
             </span>
         `;
         
-        // Disable guessing
-        const guessInput = document.getElementById('guess-input');
-        const guessForm = document.getElementById('guess-form');
-        guessInput.disabled = true;
-        guessForm.querySelector('button').disabled = true;
+        // Disable guessing during word selection
+        const submitBtn = document.getElementById('guess-submit-btn');
+        if (submitBtn) submitBtn.disabled = true;
         
         updatePlayersGrid(game);
         return;
@@ -4761,27 +4731,9 @@ function updateGame(game) {
     
     // Disable guessing if waiting for word change
     const isMyTurn = !isSpectator && game.current_player_id === gameState.playerId && myPlayer?.is_alive && !game.waiting_for_word_change;
-    const guessInput = document.getElementById('guess-input');
-    const guessForm = document.getElementById('guess-form');
-    guessInput.disabled = isSpectator || !isMyTurn;
-    guessForm.querySelector('button').disabled = isSpectator || !isMyTurn;
     
-    if (isMyTurn && !game.waiting_for_word_change) {
-        // Only auto-focus guess input on desktop (not mobile/touch devices)
-        // On mobile, auto-focus is annoying because it opens the keyboard unexpectedly
-        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-        if (!isTouchDevice) {
-            const activeEl = document.activeElement;
-            const isTypingElsewhere = activeEl && (
-                activeEl.tagName === 'INPUT' ||
-                activeEl.tagName === 'TEXTAREA' ||
-                activeEl.isContentEditable
-            );
-            if (!isTypingElsewhere) {
-                guessInput.focus();
-            }
-        }
-    }
+    // Update guess word grid
+    updateGuessWordGrid(game, isMyTurn, isSpectator);
     
     // Only re-render history if it has actually changed (avoid flicker)
     const historyLength = game.history?.length || 0;
@@ -4895,15 +4847,6 @@ function updateSidebarWordList(game) {
             wordEl.classList.add('guessed');
             wordEl.title = 'This word was guessed';
         }
-        
-        // Click to fill guess input
-        wordEl.addEventListener('click', () => {
-            const guessInput = document.getElementById('guess-input');
-            if (guessInput && !guessInput.disabled) {
-                guessInput.value = word;
-                guessInput.focus();
-            }
-        });
         
         wordlist.appendChild(wordEl);
     });
@@ -5610,45 +5553,160 @@ function updateHistory(game) {
     gameState.prevHistoryLength = currentHistoryLength;
 }
 
-// Guess form - handles both button click and Enter key
-document.getElementById('guess-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
+// Track selected guess word
+let selectedGuessWord = null;
+
+// Guess submit button click handler
+document.getElementById('guess-submit-btn').addEventListener('click', async () => {
     await submitGuess();
 });
 
-// Also handle Enter key explicitly on the input
-document.getElementById('guess-input').addEventListener('keydown', async (e) => {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        await submitGuess();
+/**
+ * Update the guess word grid with theme words
+ */
+function updateGuessWordGrid(game, isMyTurn, isSpectator) {
+    const grid = document.getElementById('guess-word-grid');
+    const submitBtn = document.getElementById('guess-submit-btn');
+    const selectedDisplay = document.getElementById('guess-selected-word');
+    
+    if (!grid) return;
+    
+    const allWords = game.theme?.words || gameState.allThemeWords || [];
+    if (allWords.length === 0) return;
+    
+    // Get guessed words
+    const guessedWords = new Set();
+    game.history.forEach(entry => {
+        if (entry.word) {
+            guessedWords.add(entry.word.toLowerCase());
+        }
+    });
+    
+    // Get eliminated words (words that caused eliminations)
+    const eliminatedWords = new Set();
+    game.history.forEach(entry => {
+        if (entry.eliminations && entry.eliminations.length > 0 && entry.word) {
+            eliminatedWords.add(entry.word.toLowerCase());
+        }
+    });
+    
+    // Get my secret word
+    const myPlayer = game.players.find(p => p.id === gameState.playerId);
+    const myWord = myPlayer?.secret_word?.toLowerCase();
+    
+    // Check if we can interact
+    const canSelect = isMyTurn && !isSpectator && !game.waiting_for_word_change;
+    
+    // Clear selection if turn changed
+    if (!canSelect && selectedGuessWord) {
+        selectedGuessWord = null;
     }
-});
+    
+    // Sort words alphabetically
+    const sortedWords = [...allWords].sort();
+    
+    // Build grid HTML
+    grid.innerHTML = '';
+    sortedWords.forEach(word => {
+        const wordEl = document.createElement('button');
+        wordEl.type = 'button';
+        wordEl.className = 'guess-word';
+        wordEl.textContent = word;
+        
+        const wordLower = word.toLowerCase();
+        
+        // Add state classes
+        if (wordLower === myWord) {
+            wordEl.classList.add('your-word');
+            wordEl.disabled = true;
+            wordEl.title = 'Your secret word';
+        } else if (eliminatedWords.has(wordLower)) {
+            wordEl.classList.add('eliminated');
+            wordEl.title = 'This word eliminated a player';
+        } else if (guessedWords.has(wordLower)) {
+            wordEl.classList.add('guessed');
+            wordEl.title = 'This word was guessed';
+        }
+        
+        // Selection state
+        if (selectedGuessWord && wordLower === selectedGuessWord.toLowerCase()) {
+            wordEl.classList.add('selected');
+        }
+        
+        // Interactivity
+        if (canSelect && wordLower !== myWord) {
+            wordEl.classList.add('selectable');
+            wordEl.addEventListener('click', () => {
+                // Deselect others
+                grid.querySelectorAll('.guess-word').forEach(w => w.classList.remove('selected'));
+                // Select this one
+                wordEl.classList.add('selected');
+                selectedGuessWord = word;
+                // Update display
+                selectedDisplay.textContent = word.toUpperCase();
+                selectedDisplay.classList.add('has-selection');
+                submitBtn.disabled = false;
+            });
+        } else {
+            wordEl.disabled = !canSelect || wordLower === myWord;
+        }
+        
+        grid.appendChild(wordEl);
+    });
+    
+    // Update selection bar state
+    if (!canSelect) {
+        submitBtn.disabled = true;
+        if (isSpectator) {
+            selectedDisplay.textContent = 'Spectating';
+        } else if (game.waiting_for_word_change) {
+            selectedDisplay.textContent = 'Waiting...';
+        } else {
+            selectedDisplay.textContent = 'Not your turn';
+        }
+        selectedDisplay.classList.remove('has-selection');
+    } else if (!selectedGuessWord) {
+        submitBtn.disabled = true;
+        selectedDisplay.textContent = 'Click a word above';
+        selectedDisplay.classList.remove('has-selection');
+    }
+}
 
 async function submitGuess() {
-    const guessInput = document.getElementById('guess-input');
-    const word = guessInput.value.trim();
+    const submitBtn = document.getElementById('guess-submit-btn');
+    const selectedDisplay = document.getElementById('guess-selected-word');
     
-    if (!word) return;
-    if (guessInput.disabled) return;
+    if (!selectedGuessWord) return;
+    if (submitBtn.disabled) return;
     
-    const originalPlaceholder = guessInput.placeholder;
-
-    // Immediately clear input and disable for responsive feel
-    guessInput.value = '';
-    guessInput.disabled = true;
-    guessInput.placeholder = 'Submitting...';
+    const word = selectedGuessWord;
+    
+    // Disable button immediately
+    submitBtn.disabled = true;
+    selectedDisplay.textContent = 'Submitting...';
     
     // Set flag IMMEDIATELY to prevent timeout race condition
     gameState.isSubmittingGuess = true;
     
     // Play guess effect immediately for responsive feedback
     const guessEffect = cosmeticsState?.userCosmetics?.guess_effect || 'classic';
-    if (typeof playGuessEffect === 'function') {
-        playGuessEffect(guessEffect);
+    const selectionBar = document.getElementById('guess-selection-bar');
+    if (selectionBar) {
+        // Remove any existing effect classes
+        selectionBar.className = selectionBar.className.replace(/guess-\S+/g, '').trim();
+        // Add the effect class
+        selectionBar.classList.add(`guess-${guessEffect}`);
+        // Remove after animation
+        setTimeout(() => {
+            selectionBar.classList.remove(`guess-${guessEffect}`);
+        }, 600);
     }
     
     // Optimistic UI: show pending guess in history immediately
     addPendingGuessToHistory(word, gameState.playerName || 'You');
+    
+    // Clear selection
+    selectedGuessWord = null;
     
     try {
         // Submit guess - server returns updated game state
@@ -5680,7 +5738,6 @@ async function submitGuess() {
             // ignore secondary fetch error
         }
     } finally {
-        guessInput.placeholder = originalPlaceholder;
         gameState.isSubmittingGuess = false;
     }
 }
@@ -7106,15 +7163,61 @@ function createConfetti(targetEl = null) {
 
 // Back to lobby button
 document.getElementById('back-to-lobby-btn')?.addEventListener('click', () => {
-    // TODO: Implement returning to same lobby for rematch
     stopPolling();
     clearGameSession();
     gameState.code = null;
     gameState.playerId = null;
     gameState.cachedReplayCode = null;
+    gameState.lastGameMode = null;
     showScreen('home');
     loadLobbies();
 });
+
+// Play Again button - smart mode detection
+document.getElementById('play-again-btn')?.addEventListener('click', playAgain);
+
+async function playAgain() {
+    const btn = document.getElementById('play-again-btn');
+    const originalText = btn?.textContent;
+    
+    // Show loading state
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'JOINING...';
+    }
+    
+    try {
+        // Determine game mode from last game
+        const lastGame = gameState.game;
+        const wasRanked = lastGame?.is_ranked;
+        const wasSingleplayer = gameState.isSingleplayer;
+        
+        // Clean up current game state
+        stopPolling();
+        clearGameSession();
+        gameState.code = null;
+        gameState.playerId = null;
+        gameState.cachedReplayCode = null;
+        
+        if (wasSingleplayer) {
+            // Start new singleplayer game
+            await startSingleplayer();
+        } else if (wasRanked && gameState.authToken) {
+            // Queue for ranked if eligible
+            await quickPlay({ ranked: true });
+        } else {
+            // Default to casual quick play
+            await quickPlay({ ranked: false });
+        }
+    } catch (error) {
+        showError(error.message || 'Failed to start new game');
+        // Restore button state on error
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+    }
+}
 
 // Leave game (in-match) with confirmation
 function openLeaveGameModal() {

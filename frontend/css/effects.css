@@ -111,7 +111,7 @@
 
 /* ============ GUESS EFFECTS ============ */
 
-#guess-form.guess-classic {
+.guess-selection-bar.guess-classic {
     animation: guessClassic 0.3s ease;
 }
 
@@ -121,7 +121,7 @@
     100% { transform: scale(1); }
 }
 
-#guess-form.guess-pulse {
+.guess-selection-bar.guess-pulse {
     animation: guessPulse 0.4s ease;
 }
 
@@ -2615,8 +2615,8 @@ body.accent-singularity [style*="--profile-accent"] {
     .player-card.elim-classic,
     .player-card.elim-glitch,
     .player-card.elim-shatter,
-    #guess-form.guess-classic,
-    #guess-form.guess-pulse {
+    .guess-selection-bar.guess-classic,
+    .guess-selection-bar.guess-pulse {
         animation: none !important;
     }
     

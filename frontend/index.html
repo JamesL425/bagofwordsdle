@@ -208,7 +208,7 @@
                 <p class="info-desc-small"><strong>Nerd mode</strong> (in options) shows the original raw cosine similarity alongside the transformed display value.</p>
                 
                 <h4>The Model</h4>
-                <p class="info-desc-small">We use OpenAI's <strong>text-embedding-3-large</strong> model, providing high-quality semantic embeddings for robust word similarity comparisons.</p>
+                <p class="info-desc-small">We use AI-powered semantic embeddings for robust word similarity comparisons.</p>
             </div>
 
             <hr class="info-divider">
@@ -433,8 +433,47 @@
         <div id="home-screen" class="screen active home-screen">
             <div class="card hero-card">
                 <div class="hero-content">
-                    <h2>INITIALISE BREACH</h2>
-                    <p class="hero-description">Encrypt your codeword. Probe enemy systems. Decode their secrets. Eliminate targets. Last operative standing wins.</p>
+                    <p class="hero-description">A word-guessing game where you hide your secret word while trying to figure out everyone else's.</p>
+                </div>
+                
+                <!-- Main Action Buttons - Side by Side -->
+                <div class="home-actions">
+                    <div class="home-actions-main">
+                        <button id="quickplay-btn" class="btn btn-primary btn-large home-action">
+                            <span class="btn-text">&gt; QUICK_PLAY</span>
+                            <span id="quickplay-queue-count" class="queue-count hidden">0 in queue</span>
+                        </button>
+                        <button id="ranked-btn" class="btn btn-rank btn-large home-action">
+                            <span class="btn-text">&gt; RANKED</span>
+                            <span id="ranked-queue-count" class="queue-count hidden">0 in queue</span>
+                        </button>
+                    </div>
+                    <p id="ranked-signin-note" class="home-note-center">Ranked requires Google sign-in + 5 casual games</p>
+                    
+                    <!-- Secondary Options Row -->
+                    <div class="home-secondary-row">
+                        <button id="singleplayer-btn" class="btn btn-ghost btn-small home-action">Solo Practice</button>
+                        <span class="secondary-divider">|</span>
+                        <button id="create-lobby-btn" class="btn btn-ghost btn-small home-action">Custom Lobby</button>
+                        <span class="secondary-divider">|</span>
+                        <div class="join-code-inline">
+                            <span>Join:</span>
+                            <input type="text" id="join-code-input" maxlength="6" placeholder="CODE">
+                            <button id="join-code-btn" class="btn btn-ghost btn-tiny">→</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- How It Works Section -->
+                <div class="how-it-works">
+                    <h3>// HOW_IT_WORKS</h3>
+                    <ol class="how-it-works-steps">
+                        <li><strong>Pick</strong> a secret word from a themed list</li>
+                        <li><strong>Guess</strong> words to see similarity scores for each player</li>
+                        <li><strong>Deduce</strong> others' words while hiding your own</li>
+                        <li><strong>Eliminate</strong> players by guessing their exact word</li>
+                    </ol>
+                    <p class="how-it-works-footer">Last one standing wins!</p>
                 </div>
                 
                 <!-- Compact Stats Bar (shown when logged in) -->
@@ -455,50 +494,15 @@
                     </div>
                 </div>
                 
-                <div class="home-actions">
-                    <div class="home-actions-hero">
-                        <button id="quickplay-btn" class="btn btn-primary btn-hero home-action">
-                            <span class="btn-text">&gt; QUICK_PLAY</span>
-                            <span class="btn-subtitle">Jump into a game with other players</span>
-                            <span id="quickplay-queue-count" class="queue-count hidden">0 in queue</span>
-                        </button>
-                    </div>
-                    <div class="home-actions-ranked">
-                        <button id="ranked-btn" class="btn btn-rank btn-block home-action">
-                            <span class="btn-text">&gt; RANKED</span>
-                            <span id="ranked-queue-count" class="queue-count hidden">0 in queue</span>
-                        </button>
-                        <span id="ranked-signin-note" class="home-note">Requires Google sign-in + 5 casual games</span>
-                    </div>
-                    <div class="home-more-options">
-                        <button id="more-options-toggle" class="more-options-toggle" type="button">
-                            <span class="more-options-icon">▼</span>
-                            <span>More Options</span>
-                        </button>
-                        <div id="more-options-content" class="more-options-content collapsed">
-                            <div class="home-actions-secondary">
-                                <button id="create-lobby-btn" class="btn btn-secondary btn-block home-action">&gt; CUSTOM_LOBBY</button>
-                                <button id="singleplayer-btn" class="btn btn-secondary btn-block home-action">&gt; SOLO_MISSION</button>
-                            </div>
-                            <div class="home-join-row">
-                                <input type="text" id="join-code-input" maxlength="6" placeholder="SERVER_ID">
-                                <button id="join-code-btn" class="btn btn-small btn-secondary">JOIN</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="home-support-row">
-                        <a href="https://ko-fi.com/embeddle" target="_blank" rel="noopener" class="home-support-link">
-                            ☕ Enjoying Embeddle? Support development
-                        </a>
-                    </div>
-                    <div class="home-opensource-row">
-                        <a href="https://github.com/JamesL425/Embeddle" target="_blank" rel="noopener" class="home-github-link">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                            </svg>
-                            Open Source – Contribute on GitHub
-                        </a>
-                    </div>
+                <!-- Footer Links -->
+                <div class="home-footer-links">
+                    <a href="https://ko-fi.com/embeddle" target="_blank" rel="noopener" class="home-support-link">
+                        ☕ Support
+                    </a>
+                    <span class="secondary-divider">|</span>
+                    <a href="https://github.com/JamesL425/Embeddle" target="_blank" rel="noopener" class="home-github-link">
+                        Open Source
+                    </a>
                 </div>
             </div>
 
@@ -952,10 +956,14 @@
                     </div>
 
                     <div class="guess-section" id="guess-section">
-                        <form id="guess-form">
-                            <input type="text" id="guess-input" placeholder="Enter probe query..." maxlength="30">
-                            <button type="submit" class="btn btn-primary">&gt; TRANSMIT</button>
-                        </form>
+                        <div id="guess-word-grid" class="guess-word-grid">
+                            <!-- Theme words will be rendered here by JS -->
+                        </div>
+                        <div class="guess-selection-bar" id="guess-selection-bar">
+                            <span class="guess-selected-label">Selected:</span>
+                            <span class="guess-selected-word" id="guess-selected-word">Click a word above</span>
+                            <button type="button" class="btn btn-primary" id="guess-submit-btn" disabled>&gt; TRANSMIT</button>
+                        </div>
                     </div>
                 </main>
 
@@ -980,6 +988,12 @@
                 <div class="trophy-icon" id="trophy-icon">◈</div>
                 <h2 id="gameover-title">MISSION COMPLETE</h2>
                 <p id="gameover-message"></p>
+                
+                <!-- Action Buttons - Moved up for quick access -->
+                <div class="gameover-actions">
+                    <button id="play-again-btn" class="btn btn-primary btn-large">&gt; PLAY_AGAIN</button>
+                    <button id="back-to-lobby-btn" class="btn btn-ghost">&lt; RETURN_TO_BASE</button>
+                </div>
                 
                 <!-- MMR Change Display (Ranked Games Only) -->
                 <div id="mmr-change-widget" class="mmr-change-widget hidden">
@@ -1024,19 +1038,13 @@
                     <!-- All secret words revealed -->
                 </div>
                 
-                <!-- Share Results Section -->
-                <div class="share-results-section">
-                    <h3 class="share-title">// SHARE_RESULTS</h3>
-                    <div id="share-preview" class="share-preview">
-                        <!-- Generated share text preview -->
-                    </div>
-                    <div class="share-buttons">
-                        <button id="copy-results-btn" class="btn btn-secondary btn-small">📋 COPY</button>
-                        <button id="share-twitter-btn" class="btn btn-secondary btn-small">𝕏 SHARE</button>
-                    </div>
-                    <div class="share-buttons" style="margin-top: 0.75rem;">
-                        <button id="watch-replay-btn" class="btn btn-secondary btn-small">🎬 WATCH REPLAY</button>
-                        <button id="share-replay-btn" class="btn btn-secondary btn-small">🔗 SHARE REPLAY</button>
+                <!-- Share Results Section - Compact -->
+                <div class="share-results-section share-results-compact">
+                    <div class="share-buttons-row">
+                        <button id="copy-results-btn" class="btn btn-ghost btn-small">📋 Copy</button>
+                        <button id="share-twitter-btn" class="btn btn-ghost btn-small">𝕏 Share</button>
+                        <button id="watch-replay-btn" class="btn btn-ghost btn-small">🎬 Replay</button>
+                        <button id="share-replay-btn" class="btn btn-ghost btn-small">🔗 Link</button>
                     </div>
                 </div>
                 
@@ -1045,10 +1053,6 @@
                     <p>☕ Enjoying Embeddle? Your support keeps it free!</p>
                     <a href="https://ko-fi.com/embeddle" target="_blank" rel="noopener" class="btn btn-small btn-support">Support on Ko-fi</a>
                     <button id="dismiss-support-prompt" class="btn btn-ghost btn-tiny" title="Dismiss">×</button>
-                </div>
-                
-                <div class="gameover-buttons">
-                    <button id="back-to-lobby-btn" class="btn btn-primary">&gt; RETURN_TO_BASE</button>
                 </div>
             </div>
         </div>
