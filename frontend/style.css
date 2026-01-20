@@ -1470,7 +1470,7 @@ header h1 {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     overflow-y: auto;
-    max-height: 75%;
+    max-height: 70%;
 }
 
 .guess-word {
@@ -1536,6 +1536,7 @@ header h1 {
 .guess-selection-bar {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 1rem;
     flex-shrink: 0;
 }
