@@ -4936,6 +4936,11 @@ def update_game_stats(game: dict):
                     if other_sims:
                         stats['total_similarity'] += max(other_sims)
             
+            # Link player stats to their Google account if authenticated
+            auth_user_id = player.get('auth_user_id')
+            if auth_user_id:
+                stats['auth_user_id'] = auth_user_id
+            
             save_player_stats(player['name'], stats)
 
         # Update authenticated user's mp_* stats for cosmetics unlocks (for ALL multiplayer games)
@@ -6519,34 +6524,43 @@ class handler(BaseHTTPRequestHandler):
             # Get casual stats by name
             stats = get_player_stats(player_name)
             
-            # Check if this player has a linked Google account (search users)
+            # Check if this player has a linked Google account
             redis = get_redis()
             user_data = None
             ranked_stats = None
             created_at = None
             
-            # Try to find a Google user with this name
-            all_user_ids = redis.smembers('users:all') or []
-            for uid in all_user_ids:
-                if isinstance(uid, bytes):
-                    try:
-                        uid = uid.decode()
-                    except Exception:
-                        continue
-                user = get_user_by_id(uid)
-                if user and user.get('name', '').lower() == player_name.lower():
-                    user_data = user
-                    created_at = user.get('created_at')
-                    u_stats = get_user_stats(user)
-                    if u_stats.get('ranked_games', 0) > 0:
-                        ranked_stats = {
-                            "mmr": int(u_stats.get('mmr', 1000) or 1000),
-                            "peak_mmr": int(u_stats.get('peak_mmr', 1000) or 1000),
-                            "ranked_games": int(u_stats.get('ranked_games', 0) or 0),
-                            "ranked_wins": int(u_stats.get('ranked_wins', 0) or 0),
-                            "ranked_losses": int(u_stats.get('ranked_losses', 0) or 0),
-                        }
-                    break
+            # First, check if player stats have a linked auth_user_id
+            auth_user_id = stats.get('auth_user_id')
+            if auth_user_id:
+                user_data = get_user_by_id(auth_user_id)
+            
+            # Fallback: search for a Google user with matching name
+            if not user_data:
+                all_user_ids = redis.smembers('users:all') or []
+                for uid in all_user_ids:
+                    if isinstance(uid, bytes):
+                        try:
+                            uid = uid.decode()
+                        except Exception:
+                            continue
+                    user = get_user_by_id(uid)
+                    if user and user.get('name', '').lower() == player_name.lower():
+                        user_data = user
+                        break
+            
+            # Get created_at and ranked stats from user if found
+            if user_data:
+                created_at = user_data.get('created_at')
+                u_stats = get_user_stats(user_data)
+                if u_stats.get('ranked_games', 0) > 0:
+                    ranked_stats = {
+                        "mmr": int(u_stats.get('mmr', 1000) or 1000),
+                        "peak_mmr": int(u_stats.get('peak_mmr', 1000) or 1000),
+                        "ranked_games": int(u_stats.get('ranked_games', 0) or 0),
+                        "ranked_wins": int(u_stats.get('ranked_wins', 0) or 0),
+                        "ranked_losses": int(u_stats.get('ranked_losses', 0) or 0),
+                    }
             
             # Calculate win rate
             games = stats.get('games_played', 0)
