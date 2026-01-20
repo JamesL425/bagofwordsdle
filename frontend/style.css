@@ -5141,6 +5141,22 @@ body.on-home-screen .site-footer {
     display: none;
 }
 
+/* Hide footer and prevent scrolling during game */
+body.in-game .site-footer {
+    display: none;
+}
+
+body.in-game {
+    overflow: hidden;
+}
+
+/* Allow scrolling on mobile during game */
+@media (max-width: 768px) {
+    body.in-game {
+        overflow: auto;
+    }
+}
+
 .footer-content {
     display: flex;
     justify-content: space-between;
