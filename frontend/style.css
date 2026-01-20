@@ -1550,9 +1550,8 @@ header h1 {
 }
 
 .guess-selected-word {
-    flex: 1 1 auto;
-    min-width: 150px;
-    max-width: calc(100% - 140px);
+    flex: 1 1 0;
+    min-width: 0;
     font-size: 1rem;
     color: var(--text-muted);
     font-style: italic;
@@ -1581,7 +1580,6 @@ header h1 {
     transition: all 0.2s ease;
     flex: 0 0 auto;
     display: flex;
-    margin-left: auto;
 }
 
 #guess-submit-btn:not(:disabled) {
