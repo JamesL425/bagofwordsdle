@@ -3202,7 +3202,7 @@ def get_user_by_email(email: str) -> Optional[dict]:
     return None
 
 
-def get_user_cosmetics(user: dict) -> dict:
+def get_user_cosmetics(user: dict, persist_changes: bool = True) -> dict:
     """
     Get user's equipped cosmetics with defaults for missing fields.
 
@@ -3210,6 +3210,11 @@ def get_user_cosmetics(user: dict) -> dict:
     - removed/renamed cosmetics are mapped or reset
     - premium cosmetics can't be used by non-donors when paywall is enabled
     - grind-locked cosmetics can't be used without meeting requirements
+    
+    Args:
+        user: User dictionary
+        persist_changes: If True, save user when cosmetics are reset due to validation.
+                        Set to False for read-only operations.
     """
     if not isinstance(user, dict):
         return DEFAULT_COSMETICS.copy()
@@ -3297,7 +3302,7 @@ def get_user_cosmetics(user: dict) -> dict:
                     changed = True
                 continue
 
-    if changed:
+    if changed and persist_changes:
         user['cosmetics'] = result
         save_user(user)
 
@@ -6232,7 +6237,7 @@ class handler(BaseHTTPRequestHandler):
             return self._send_json({
                 'is_donor': user.get('is_donor', False),
                 'is_admin': user.get('is_admin', False),
-                'cosmetics': get_user_cosmetics(user),
+                'cosmetics': get_user_cosmetics(user, persist_changes=False),
                 'owned_cosmetics': econ.get('owned_cosmetics') or {},
                 'paywall_enabled': COSMETICS_PAYWALL_ENABLED,
                 'unlock_all': COSMETICS_UNLOCK_ALL,
@@ -6530,10 +6535,24 @@ class handler(BaseHTTPRequestHandler):
             ranked_stats = None
             created_at = None
             
-            # First, check if player stats have a linked auth_user_id
-            auth_user_id = stats.get('auth_user_id')
-            if auth_user_id:
-                user_data = get_user_by_id(auth_user_id)
+            # If the requester is authenticated, check if they're viewing their own profile
+            auth_header = self.headers.get('Authorization', '')
+            requesting_user_id = None
+            if auth_header.startswith('Bearer '):
+                token = auth_header[7:]
+                payload = verify_jwt_token(token)
+                if payload:
+                    requesting_user_id = payload.get('sub')
+                    # Check if the authenticated user's name matches the profile being viewed
+                    auth_user = get_user_by_id(requesting_user_id)
+                    if auth_user and auth_user.get('name', '').lower() == player_name.lower():
+                        user_data = auth_user
+            
+            # If not found via auth name match, check player stats for linked auth_user_id
+            if not user_data:
+                auth_user_id = stats.get('auth_user_id')
+                if auth_user_id:
+                    user_data = get_user_by_id(auth_user_id)
             
             # Fallback: search for a Google user with matching name
             if not user_data:

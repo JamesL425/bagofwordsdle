@@ -1765,10 +1765,19 @@ async function openProfileModal(playerName) {
         const placeholderEl = document.getElementById('profile-avatar-placeholder');
         const emojiAvatarEl = document.getElementById('profile-avatar-emoji');
         
-        if (data.custom_avatar) {
+        // For own profile, prefer local cosmeticsState (more up-to-date after equipping)
+        let avatarToShow = data.custom_avatar;
+        if (isOwnProfile && cosmeticsState?.userCosmetics?.profile_avatar && cosmeticsState.userCosmetics.profile_avatar !== 'default') {
+            // Get the icon from the catalog
+            const avatarId = cosmeticsState.userCosmetics.profile_avatar;
+            const catalog = cosmeticsState?.catalog?.profile_avatars || avatarPickerCatalog || {};
+            avatarToShow = catalog[avatarId]?.icon || data.custom_avatar;
+        }
+        
+        if (avatarToShow) {
             // Show emoji avatar
             if (emojiAvatarEl) {
-                emojiAvatarEl.textContent = data.custom_avatar;
+                emojiAvatarEl.textContent = avatarToShow;
                 emojiAvatarEl.classList.remove('hidden');
             }
             avatarEl.classList.add('hidden');
