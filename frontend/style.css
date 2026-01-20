@@ -1354,8 +1354,6 @@ header h1 {
     gap: 1rem;
     overflow: hidden;
     min-height: 0;
-    max-height: 100%;
-    position: relative;
 }
 
 /* Log column */
@@ -1460,12 +1458,9 @@ header h1 {
     gap: 0.75rem;
     min-height: 0;
     overflow: hidden;
-    padding-bottom: 70px; /* Space for the fixed selection bar */
-    position: relative;
 }
 
 .guess-word-grid {
-    flex: 1 1 auto;
     display: flex;
     flex-wrap: wrap;
     gap: 0.625rem;
@@ -1475,7 +1470,7 @@ header h1 {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     overflow-y: auto;
-    min-height: 0;
+    max-height: 75vh;
 }
 
 .guess-word {
@@ -1547,10 +1542,8 @@ header h1 {
     border: 2px solid var(--border);
     border-radius: var(--radius);
     transition: all 0.2s ease;
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    flex-shrink: 0;
+    position: relative;
 }
 
 /* Highlight selection bar when word is selected */
@@ -1579,7 +1572,8 @@ header h1 {
     padding: 0.75rem 1.5rem;
     font-size: 1rem;
     transition: all 0.2s ease;
-    margin-left: auto;
+    position: absolute;
+    right: 1.25rem;
 }
 
 #guess-submit-btn:not(:disabled) {
