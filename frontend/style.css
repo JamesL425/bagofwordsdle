@@ -1536,9 +1536,9 @@ header h1 {
 .guess-selection-bar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 1rem;
     flex-shrink: 0;
+    width: 100%;
 }
 
 /* Highlight selection bar when word is selected */
@@ -1548,7 +1548,8 @@ header h1 {
 }
 
 .guess-selected-word {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 0;
     font-size: 1rem;
     color: var(--text-muted);
     font-style: italic;
@@ -1572,7 +1573,7 @@ header h1 {
     padding: 1rem 1.5rem;
     font-size: 1rem;
     transition: all 0.2s ease;
-    flex-shrink: 0;
+    flex: 0 0 auto;
 }
 
 #guess-submit-btn:not(:disabled) {
