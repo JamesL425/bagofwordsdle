@@ -1538,7 +1538,7 @@ header h1 {
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
-    align-items: center;
+    align-items: stretch;
     gap: 1rem;
     flex-shrink: 0;
     width: 100%;
@@ -1551,6 +1551,7 @@ header h1 {
 }
 
 .guess-selected-word {
+    display: block;
     flex: 1 1 0;
     min-width: 0;
     font-size: 1rem;
@@ -1580,7 +1581,7 @@ header h1 {
     font-size: 1rem;
     transition: all 0.2s ease;
     flex: 0 0 auto;
-    display: flex;
+    align-self: center;
 }
 
 #guess-submit-btn:not(:disabled) {
