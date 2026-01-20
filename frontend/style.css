@@ -1573,7 +1573,8 @@ header h1 {
     padding: 1rem 1.5rem;
     font-size: 1rem;
     transition: all 0.2s ease;
-    flex: 0 0 auto;
+    flex: 0 0 120px;
+    display: flex;
 }
 
 #guess-submit-btn:not(:disabled) {
