@@ -1535,10 +1535,11 @@ header h1 {
 
 /* Selection bar */
 .guess-selection-bar {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    align-items: stretch;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
     gap: 1rem;
     flex-shrink: 0;
     width: 100%;
@@ -1551,8 +1552,9 @@ header h1 {
 }
 
 .guess-selected-word {
-    display: block;
-    flex: 1 1 0;
+    display: inline-flex !important;
+    align-items: center;
+    flex: 1 1 0 !important;
     min-width: 0;
     font-size: 1rem;
     color: var(--text-muted);
@@ -1580,7 +1582,7 @@ header h1 {
     padding: 1rem 1.5rem;
     font-size: 1rem;
     transition: all 0.2s ease;
-    flex: 0 0 auto;
+    flex: 0 0 auto !important;
     align-self: center;
 }
 
