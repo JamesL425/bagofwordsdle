@@ -6069,6 +6069,21 @@ body.in-game .site-footer {
     text-align: center;
 }
 
+.premium-unlock-note {
+    font-size: 0.75rem;
+    color: var(--info);
+    margin: 0.75rem 0 0 0;
+    text-align: center;
+    padding: 0.5rem;
+    background: rgba(75, 0, 130, 0.15);
+    border-radius: 4px;
+    border: 1px solid rgba(75, 0, 130, 0.3);
+}
+
+.premium-unlock-note strong {
+    color: #8b5cf6;
+}
+
 .premium-perks ul {
     margin: 0;
     padding-left: 1.25rem;

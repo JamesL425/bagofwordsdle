@@ -43,7 +43,7 @@
       "name": "Galaxy",
       "description": "Starfield with nebula glow",
       "premium": false,
-      "requirements": [{"metric": "peak_mmr", "min": 1600}]
+      "requirements": [{"metric": "peak_mmr", "min": 2000}]
     },
     "godframe": {
       "name": "Godframe",
