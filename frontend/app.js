@@ -2321,7 +2321,7 @@ function applyResponsiveGamePanelsLayout() {
     const guessSection = document.getElementById('guess-section');
     const historySection = document.getElementById('history-section');
 
-    const gameMain = document.querySelector('#game-screen .game-main');
+    const gameCenter = document.querySelector('#game-screen .game-center');
     const logHost = document.getElementById('game-log-host');
 
     const mobileWordsPanel = document.getElementById('mobile-words-panel');
@@ -2343,10 +2343,8 @@ function applyResponsiveGamePanelsLayout() {
     }
 
     // Desktop/tablet: move panels back to their primary homes
-    // Guess section goes back before mobile tabs in game-main
-    const mobileTabs = document.getElementById('game-mobile-tabs');
-    if (guessSection && gameMain && mobileTabs) {
-        gameMain.insertBefore(guessSection, mobileTabs);
+    if (guessSection && gameCenter) {
+        gameCenter.appendChild(guessSection);
     }
     moveElementTo(historySection, logHost);
 }

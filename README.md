@@ -2,7 +2,7 @@
 
 A multiplayer word deduction game where players try to guess each other's secret words using semantic similarity powered by AI embeddings.
 
-**Play now at [embeddle.vercel.app](https://embeddle.vercel.app)**
+**Play now at [embeddle.vercel.app](https://www.embeddle.io)**
 
 ![Embeddle Screenshot](frontend/og-image.png)
 
