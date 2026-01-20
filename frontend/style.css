@@ -987,7 +987,7 @@ header h1 {
 }
 
 .game-code-display .code {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     font-size: 1.5rem;
     font-weight: 700;
     color: var(--accent-primary);
@@ -1019,7 +1019,7 @@ header h1 {
     background: var(--bg-tertiary);
     color: var(--text-secondary);
     border: 1px solid var(--border);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
 }
 
 .time-badge.hidden {
@@ -1121,7 +1121,7 @@ header h1 {
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     font-size: 1rem;
     font-weight: 700;
     color: var(--warning);
@@ -1237,7 +1237,7 @@ header h1 {
     border: 1px solid var(--success);
     border-radius: var(--radius-sm);
     color: var(--text-primary);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     width: 150px;
 }
 
@@ -1765,7 +1765,7 @@ header h1 {
 
 .player-ranked-info .player-mmr {
     color: var(--text-secondary);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
 }
 
 .player-ranked-info.placement {
@@ -1790,7 +1790,7 @@ header h1 {
 
 /* Player Time (Chess Clock) */
 .player-time {
-    font-family: 'JetBrains Mono', 'Courier Prime', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     font-size: 0.9rem;
     font-weight: 600;
     color: var(--text-secondary);
@@ -1845,7 +1845,7 @@ header h1 {
 
 .player-card .similarity {
     margin-top: 0.75rem;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     font-size: 1.5rem;
     font-weight: 700;
 }
@@ -1861,24 +1861,26 @@ header h1 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.375rem 0.5rem;
+    padding: 0.375rem 0.625rem;
     background: var(--bg-secondary);
-    border-radius: 4px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
     font-size: 0.8rem;
 }
 
 .player-card .guess-word {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     color: var(--text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 70%;
+    max-width: 65%;
 }
 
 .player-card .guess-sim {
-    font-family: 'JetBrains Mono', monospace;
-    font-weight: 600;
+    font-family: 'Courier Prime', 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 0.85rem;
 }
 
 .similarity.low, .guess-sim.low { color: var(--info); }
@@ -1900,7 +1902,7 @@ header h1 {
 
 /* Turn Timer */
 .turn-timer {
-    font-family: 'JetBrains Mono', 'Courier Prime', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     font-size: 1.3rem;
     font-weight: 700;
     padding: 0.35rem 0.75rem;
@@ -2050,7 +2052,7 @@ header h1 {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     color: var(--text-primary);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
 }
 
 .chat-form input:focus {
@@ -2168,7 +2170,7 @@ header h1 {
 }
 
 .history-entry .word {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     color: var(--accent-primary);
     font-weight: 600;
 }
@@ -2190,7 +2192,7 @@ header h1 {
 }
 
 .history-entry .sim-badge .score {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     font-weight: 600;
 }
 
@@ -2242,7 +2244,7 @@ header h1 {
 }
 
 .revealed-word .word {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     color: var(--accent-primary);
 }
 
@@ -2415,7 +2417,7 @@ header h1 {
 .replay-turn-counter {
     color: var(--accent-primary);
     font-weight: 700;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
 }
 
 .replay-players {
@@ -2456,7 +2458,7 @@ header h1 {
     font-size: 0.75rem;
     color: var(--text-muted);
     margin-bottom: 0.5rem;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
 }
 
 .replay-player-danger {
@@ -2508,7 +2510,7 @@ header h1 {
 
 .replay-word {
     color: var(--text-secondary);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
 }
 
 .replay-elimination {
@@ -2644,7 +2646,7 @@ header h1 {
 }
 
 .replay-screen-player-word {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     color: var(--accent-secondary);
     font-size: 0.85rem;
     margin-bottom: 0.75rem;
@@ -2692,7 +2694,7 @@ header h1 {
 }
 
 .replay-screen-turn-counter {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     color: var(--accent-primary);
     font-weight: 700;
     font-size: 1.1rem;
@@ -2724,7 +2726,7 @@ header h1 {
 
 .replay-screen-current-turn .replay-word {
     color: var(--text-secondary);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     font-size: 1.1rem;
 }
 
@@ -2813,7 +2815,7 @@ header h1 {
     border-radius: var(--radius-sm);
     padding: 0.6rem 0.75rem;
     color: var(--text-primary);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     font-size: 0.85rem;
 }
 
@@ -2845,7 +2847,7 @@ header h1 {
     font-size: 0.65rem;
     color: var(--text-muted);
     margin-left: 0.25rem;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
 }
 
 body.nerd-mode .nerd-sim {
@@ -2917,7 +2919,7 @@ body.nerd-mode .nerd-sim {
 }
 
 .ml-formula code {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     color: var(--accent-primary);
     font-size: 0.9rem;
 }
@@ -3431,7 +3433,7 @@ body.nerd-mode .nerd-sim {
     font-size: 1.25rem;
     font-weight: bold;
     color: var(--text-primary);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
 }
 
 .profile-stat-label {
@@ -3991,7 +3993,7 @@ body.nerd-mode .nerd-sim {
 }
 
 .leaderboard-table .stat {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
 }
 
 .rank-badge {
@@ -4125,14 +4127,14 @@ body.nerd-mode .nerd-sim {
 }
 
 .revealed-word-item .player-word {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     font-weight: 700;
     color: var(--accent-primary);
     font-size: 1.1rem;
 }
 
 .revealed-word-item .player-mmr {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     font-weight: 600;
     color: var(--warning);
     margin-left: 0.75rem;
@@ -4151,7 +4153,7 @@ body.nerd-mode .nerd-sim {
 
 .theme-select-subtitle strong {
     color: var(--accent-primary);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
 }
 
 .theme-options-container {
@@ -4224,7 +4226,7 @@ body.nerd-mode .nerd-sim {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     font-size: 0.8rem;
     color: var(--text-secondary);
     cursor: pointer;
@@ -4394,7 +4396,7 @@ body.nerd-mode .nerd-sim {
 }
 
 .lobby-code {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     font-weight: 700;
     font-size: 0.9rem;
     color: var(--accent-primary);
@@ -4572,7 +4574,7 @@ body.nerd-mode .nerd-sim {
 
 /* Word Selection Timer */
 .word-selection-timer {
-    font-family: 'JetBrains Mono', 'Courier Prime', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     font-size: 1.5rem;
     font-weight: 700;
     padding: 0.5rem 1rem;
@@ -4898,7 +4900,7 @@ body.nerd-mode .nerd-sim {
     border-radius: var(--radius-sm);
     padding: 0.75rem;
     margin-bottom: 1rem;
-    font-family: 'JetBrains Mono', 'Courier Prime', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     font-size: 0.75rem;
     line-height: 1.4;
     white-space: pre-wrap;
@@ -5853,7 +5855,7 @@ body.nerd-mode .nerd-sim {
 }
 
 .rank-tier-range {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     font-size: 0.75rem;
     color: var(--text-secondary);
     letter-spacing: 0.02em;
