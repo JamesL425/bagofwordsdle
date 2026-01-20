@@ -1338,6 +1338,7 @@ header h1 {
     flex-direction: column;
     gap: 1rem;
     overflow: hidden;
+    min-height: 0;
 }
 
 /* Log column */
@@ -1441,6 +1442,7 @@ header h1 {
     flex-direction: column;
     gap: 0.75rem;
     min-height: 0;
+    overflow: hidden;
 }
 
 .guess-word-grid {
@@ -1454,6 +1456,7 @@ header h1 {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     overflow-y: auto;
+    min-height: 0;
 }
 
 .guess-word {
@@ -1525,6 +1528,7 @@ header h1 {
     border: 2px solid var(--border);
     border-radius: var(--radius);
     transition: all 0.2s ease;
+    flex-shrink: 0;
 }
 
 /* Highlight selection bar when word is selected */
