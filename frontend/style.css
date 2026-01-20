@@ -5127,9 +5127,14 @@ body.nerd-mode .nerd-sim {
 
 /* Footer */
 .site-footer {
-    margin-top: 3rem;
-    padding: 1.5rem 0;
+    margin-top: 2rem;
+    padding: 1rem 0;
     border-top: 1px solid var(--border);
+}
+
+/* Hide site footer when home screen is active (home has its own footer links) */
+body.on-home-screen .site-footer {
+    display: none;
 }
 
 .footer-content {

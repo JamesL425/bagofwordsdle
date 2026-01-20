@@ -63,6 +63,10 @@ function renderWordOptions(words) {
     // Add click handlers
     container.querySelectorAll('.word-option').forEach(el => {
         el.addEventListener('click', () => selectWord(el.dataset.word));
+        el.addEventListener('dblclick', () => {
+            selectWord(el.dataset.word);
+            lockWord();
+        });
     });
 }
 

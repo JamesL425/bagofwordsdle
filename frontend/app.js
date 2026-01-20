@@ -2376,6 +2376,9 @@ function showScreen(screenName) {
 
     // Allow CSS to widen/adjust layout when actively in a match
     document.body.classList.toggle('in-game', screenName === 'game');
+    
+    // Toggle home screen class for hiding site footer
+    document.body.classList.toggle('on-home-screen', screenName === 'home');
 
     // Ensure the in-game word list / log live in the correct containers for this viewport
     applyResponsiveGamePanelsLayout();
