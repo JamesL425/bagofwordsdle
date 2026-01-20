@@ -1470,7 +1470,7 @@ header h1 {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     overflow-y: auto;
-    max-height: 75vh;
+    max-height: calc(100vh - 320px);
 }
 
 .guess-word {
@@ -1543,7 +1543,6 @@ header h1 {
     border-radius: var(--radius);
     transition: all 0.2s ease;
     flex-shrink: 0;
-    position: relative;
 }
 
 /* Highlight selection bar when word is selected */
@@ -1572,8 +1571,6 @@ header h1 {
     padding: 0.75rem 1.5rem;
     font-size: 1rem;
     transition: all 0.2s ease;
-    position: absolute;
-    right: 1.25rem;
 }
 
 #guess-submit-btn:not(:disabled) {
