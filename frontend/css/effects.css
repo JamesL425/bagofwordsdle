@@ -126,9 +126,124 @@
 }
 
 @keyframes guessPulse {
-    0% { box-shadow: 0 0 0 0 var(--accent-glow); }
-    50% { box-shadow: 0 0 20px 10px var(--accent-glow); }
-    100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+    0% { box-shadow: 0 0 0 0 var(--accent-glow, rgba(0, 255, 136, 0.5)); }
+    50% { box-shadow: 0 0 20px 10px var(--accent-glow, rgba(0, 255, 136, 0.5)); }
+    100% { box-shadow: 0 0 0 0 var(--accent-glow, rgba(0, 255, 136, 0.5)); }
+}
+
+/* Neon Flash - Unlockable (10 wins) */
+.guess-selection-bar.guess-neon_flash {
+    animation: guessNeonFlash 0.5s ease;
+}
+
+@keyframes guessNeonFlash {
+    0% { 
+        filter: brightness(1);
+        box-shadow: 0 0 5px var(--accent, #00ff88);
+    }
+    30% { 
+        filter: brightness(1.5);
+        box-shadow: 0 0 30px var(--accent, #00ff88), 0 0 60px var(--accent, #00ff88);
+    }
+    100% { 
+        filter: brightness(1);
+        box-shadow: 0 0 5px var(--accent, #00ff88);
+    }
+}
+
+/* Glitch - Unlockable (25 eliminations) */
+.guess-selection-bar.guess-glitch {
+    animation: guessGlitch 0.4s ease;
+}
+
+@keyframes guessGlitch {
+    0%, 100% { transform: translateX(0); filter: none; }
+    10% { transform: translateX(-3px); filter: hue-rotate(90deg); }
+    20% { transform: translateX(3px); filter: hue-rotate(180deg); }
+    30% { transform: translateX(-3px); filter: hue-rotate(270deg); }
+    40% { transform: translateX(3px); filter: none; }
+    50% { transform: translateX(0); }
+}
+
+/* Shockwave - Unlockable (50 games) */
+.guess-selection-bar.guess-shockwave {
+    animation: guessShockwave 0.6s ease-out;
+}
+
+@keyframes guessShockwave {
+    0% { 
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.8);
+    }
+    50% { 
+        transform: scale(1.03);
+        box-shadow: 0 0 0 15px rgba(255, 255, 255, 0);
+    }
+    100% { 
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+    }
+}
+
+/* Fire Burst - Shop (400 credits) */
+.guess-selection-bar.guess-fire_burst {
+    animation: guessFireBurst 0.5s ease;
+}
+
+@keyframes guessFireBurst {
+    0% { 
+        box-shadow: 0 0 5px #ff4500;
+    }
+    40% { 
+        box-shadow: 0 0 20px #ff4500, 0 0 40px #ff8c00, 0 0 60px #ffd700;
+    }
+    100% { 
+        box-shadow: 0 0 5px #ff4500;
+    }
+}
+
+/* Electric - Premium */
+.guess-selection-bar.guess-electric {
+    animation: guessElectric 0.5s ease;
+}
+
+@keyframes guessElectric {
+    0%, 100% { 
+        filter: brightness(1);
+        box-shadow: 0 0 5px #00d4ff;
+    }
+    15% { 
+        filter: brightness(2);
+        box-shadow: 0 0 20px #00d4ff, 0 0 40px #87ceeb;
+    }
+    30% { 
+        filter: brightness(1);
+        box-shadow: 0 0 5px #00d4ff;
+    }
+    45% { 
+        filter: brightness(1.8);
+        box-shadow: 0 0 25px #00d4ff, 0 0 50px #87ceeb;
+    }
+    60% { 
+        filter: brightness(1);
+    }
+}
+
+/* Rainbow Wave - Premium */
+.guess-selection-bar.guess-rainbow_wave {
+    animation: guessRainbowWave 0.6s ease;
+}
+
+@keyframes guessRainbowWave {
+    0% { 
+        filter: hue-rotate(0deg) brightness(1);
+    }
+    50% { 
+        filter: hue-rotate(180deg) brightness(1.3);
+    }
+    100% { 
+        filter: hue-rotate(360deg) brightness(1);
+    }
 }
 
 /* ============ VICTORY EFFECTS ============ */
@@ -290,277 +405,89 @@
 }
 
 /* Frost - Premium (Ko-fi supporter) */
-/* Icy crystalline border with frozen particle effects */
+/* Clean icy border with subtle glow */
 .player-card.border-frost {
-    border: 2px solid transparent;
-    background: 
-        linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
-        linear-gradient(135deg, #00d4ff, #87ceeb, #ffffff, #b0e0e6, #00d4ff) border-box;
-    background-size: 100% 100%, 300% 300%;
+    border: 2px solid #87ceeb;
     box-shadow: 
-        0 0 20px rgba(0, 212, 255, 0.6),
-        0 0 40px rgba(135, 206, 235, 0.3),
-        inset 0 0 25px rgba(200, 230, 255, 0.15);
-    animation: frostShimmer 4s ease-in-out infinite, frostBorderFlow 6s linear infinite;
-    position: relative;
-    overflow: visible;
+        0 0 12px rgba(135, 206, 235, 0.6),
+        0 0 24px rgba(0, 212, 255, 0.3),
+        inset 0 0 8px rgba(135, 206, 235, 0.1);
+    animation: frostPulse 3s ease-in-out infinite;
 }
 
-/* Ice crystal sparkles */
-.player-card.border-frost::before {
-    content: '❄ ❅ ❆';
-    position: absolute;
-    top: -15px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 10px;
-    color: #87ceeb;
-    text-shadow: 0 0 8px #00d4ff, 0 0 16px #ffffff;
-    animation: frostSparkle 2s ease-in-out infinite;
-    letter-spacing: 8px;
-    opacity: 0.9;
-}
-
-/* Frozen mist effect */
-.player-card.border-frost::after {
-    content: '';
-    position: absolute;
-    top: -10px;
-    left: -10px;
-    right: -10px;
-    bottom: -10px;
-    background: radial-gradient(ellipse at 50% 100%, rgba(135, 206, 235, 0.2) 0%, transparent 50%);
-    pointer-events: none;
-    animation: frostMist 3s ease-in-out infinite;
-    z-index: -1;
-    border-radius: inherit;
-}
-
-@keyframes frostShimmer {
+@keyframes frostPulse {
     0%, 100% { 
+        border-color: #87ceeb;
         box-shadow: 
-            0 0 20px rgba(0, 212, 255, 0.6),
-            0 0 40px rgba(135, 206, 235, 0.3),
-            inset 0 0 25px rgba(200, 230, 255, 0.15);
-        filter: brightness(1);
+            0 0 12px rgba(135, 206, 235, 0.6),
+            0 0 24px rgba(0, 212, 255, 0.3),
+            inset 0 0 8px rgba(135, 206, 235, 0.1);
     }
     50% { 
+        border-color: #b0e0e6;
         box-shadow: 
-            0 0 30px rgba(135, 206, 235, 0.8),
-            0 0 60px rgba(255, 255, 255, 0.5),
-            inset 0 0 35px rgba(200, 230, 255, 0.25);
-        filter: brightness(1.1);
+            0 0 18px rgba(176, 224, 230, 0.8),
+            0 0 32px rgba(135, 206, 235, 0.5),
+            inset 0 0 12px rgba(135, 206, 235, 0.15);
     }
-}
-
-@keyframes frostBorderFlow {
-    0% { background-position: 100% 100%, 0% 0%; }
-    100% { background-position: 100% 100%, 300% 300%; }
-}
-
-@keyframes frostSparkle {
-    0%, 100% { opacity: 0.7; transform: translateX(-50%) scale(1); }
-    50% { opacity: 1; transform: translateX(-50%) scale(1.1); }
-}
-
-@keyframes frostMist {
-    0%, 100% { opacity: 0.4; transform: translateY(0); }
-    50% { opacity: 0.7; transform: translateY(-5px); }
 }
 
 /* Galaxy - Unlockable (2000 MMR) */
-/* Starfield with nebula glow and twinkling stars */
+/* Deep space purple border with starfield glow */
 .player-card.border-galaxy {
-    border: 2px solid transparent;
-    background: 
-        linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
-        linear-gradient(45deg, #4b0082, #8b00ff, #00008b, #4b0082) border-box;
-    background-size: 100% 100%, 400% 400%;
+    border: 2px solid #8b00ff;
     box-shadow: 
-        0 0 25px rgba(75, 0, 130, 0.7),
-        0 0 50px rgba(138, 43, 226, 0.4),
-        inset 0 0 20px rgba(138, 43, 226, 0.1);
-    animation: galaxyPulse 4s ease-in-out infinite, galaxyBorderFlow 8s linear infinite;
-    position: relative;
-    overflow: visible;
-}
-
-/* Twinkling star field */
-.player-card.border-galaxy::before {
-    content: '';
-    position: absolute;
-    top: -5px;
-    left: -5px;
-    right: -5px;
-    bottom: -5px;
-    background-image: 
-        radial-gradient(2px 2px at 10% 20%, rgba(255, 255, 255, 0.9), transparent),
-        radial-gradient(2px 2px at 30% 60%, rgba(255, 255, 255, 0.7), transparent),
-        radial-gradient(1px 1px at 50% 10%, rgba(255, 255, 255, 0.8), transparent),
-        radial-gradient(2px 2px at 70% 40%, rgba(255, 255, 255, 0.6), transparent),
-        radial-gradient(1px 1px at 90% 80%, rgba(255, 255, 255, 0.9), transparent),
-        radial-gradient(2px 2px at 20% 90%, rgba(255, 200, 255, 0.7), transparent),
-        radial-gradient(1px 1px at 80% 15%, rgba(200, 200, 255, 0.8), transparent),
-        radial-gradient(2px 2px at 45% 75%, rgba(255, 255, 200, 0.6), transparent);
-    animation: galaxyStarsTwinkle 3s ease-in-out infinite;
-    pointer-events: none;
-    border-radius: inherit;
-    z-index: 1;
-}
-
-/* Nebula glow effect */
-.player-card.border-galaxy::after {
-    content: '✦';
-    position: absolute;
-    top: -20px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 16px;
-    color: #8b00ff;
-    text-shadow: 
-        0 0 10px #8b00ff,
-        0 0 20px #4b0082,
-        0 0 30px #00008b;
-    animation: galaxyStar 2s ease-in-out infinite;
-    z-index: 2;
+        0 0 15px rgba(138, 43, 226, 0.7),
+        0 0 30px rgba(75, 0, 130, 0.4),
+        inset 0 0 10px rgba(138, 43, 226, 0.1);
+    animation: galaxyPulse 4s ease-in-out infinite;
 }
 
 @keyframes galaxyPulse {
     0%, 100% { 
+        border-color: #8b00ff;
         box-shadow: 
-            0 0 25px rgba(75, 0, 130, 0.7),
-            0 0 50px rgba(138, 43, 226, 0.4),
-            inset 0 0 20px rgba(138, 43, 226, 0.1);
+            0 0 15px rgba(138, 43, 226, 0.7),
+            0 0 30px rgba(75, 0, 130, 0.4),
+            inset 0 0 10px rgba(138, 43, 226, 0.1);
     }
     50% { 
+        border-color: #9932cc;
         box-shadow: 
-            0 0 35px rgba(138, 43, 226, 0.8),
-            0 0 70px rgba(75, 0, 130, 0.5),
-            inset 0 0 30px rgba(138, 43, 226, 0.2);
-    }
-}
-
-@keyframes galaxyBorderFlow {
-    0% { background-position: 100% 100%, 0% 0%; }
-    100% { background-position: 100% 100%, 400% 400%; }
-}
-
-@keyframes galaxyStarsTwinkle {
-    0%, 100% { opacity: 0.6; }
-    25% { opacity: 1; }
-    50% { opacity: 0.7; }
-    75% { opacity: 0.9; }
-}
-
-@keyframes galaxyStar {
-    0%, 100% { 
-        transform: translateX(-50%) rotate(0deg) scale(1);
-        opacity: 0.8;
-    }
-    50% { 
-        transform: translateX(-50%) rotate(180deg) scale(1.2);
-        opacity: 1;
+            0 0 25px rgba(138, 43, 226, 0.9),
+            0 0 45px rgba(75, 0, 130, 0.6),
+            inset 0 0 15px rgba(138, 43, 226, 0.2);
     }
 }
 
 /* Godframe - Admin only */
-/* Divine golden aura with celestial particles - the ultimate border */
+/* Divine golden border with radiant glow */
 .player-card.border-godframe {
     border: 3px solid #ffd700;
-    background: var(--bg-card);
     box-shadow: 
-        0 0 25px rgba(255, 215, 0, 1),
-        0 0 50px rgba(255, 215, 0, 0.7),
-        0 0 75px rgba(255, 215, 0, 0.5),
-        0 0 100px rgba(255, 255, 255, 0.3),
-        inset 0 0 30px rgba(255, 215, 0, 0.2);
-    animation: godframeAura 2s ease-in-out infinite;
-    position: relative;
-    overflow: visible;
-    z-index: 1;
+        0 0 20px rgba(255, 215, 0, 0.9),
+        0 0 40px rgba(255, 215, 0, 0.6),
+        0 0 60px rgba(255, 215, 0, 0.3),
+        inset 0 0 15px rgba(255, 215, 0, 0.15);
+    animation: godframeGlow 2s ease-in-out infinite;
 }
 
-/* Divine halo - outer ethereal glow ring */
-.player-card.border-godframe::before {
-    content: '';
-    position: absolute;
-    top: -25px;
-    left: -25px;
-    right: -25px;
-    bottom: -25px;
-    border: 2px solid rgba(255, 215, 0, 0.4);
-    border-radius: inherit;
-    background: 
-        radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.5) 0%, transparent 40%),
-        radial-gradient(ellipse at 50% 100%, rgba(255, 215, 0, 0.4) 0%, transparent 40%);
-    animation: godframeHalo 3s ease-in-out infinite;
-    pointer-events: none;
-    z-index: -1;
-}
-
-/* Celestial star ornaments */
-.player-card.border-godframe::after {
-    content: '✦ ✧ ★ ✧ ✦';
-    position: absolute;
-    top: -30px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 12px;
-    color: #ffd700;
-    text-shadow: 
-        0 0 10px #ffd700, 
-        0 0 20px #ffffff,
-        0 0 30px rgba(255, 215, 0, 0.8);
-    animation: godframeStars 4s ease-in-out infinite;
-    letter-spacing: 6px;
-    opacity: 0.95;
-    z-index: 10;
-}
-
-@keyframes godframeAura {
+@keyframes godframeGlow {
     0%, 100% { 
-        box-shadow: 
-            0 0 25px rgba(255, 215, 0, 1),
-            0 0 50px rgba(255, 215, 0, 0.7),
-            0 0 75px rgba(255, 215, 0, 0.5),
-            0 0 100px rgba(255, 255, 255, 0.3),
-            inset 0 0 30px rgba(255, 215, 0, 0.2);
         border-color: #ffd700;
-        filter: brightness(1);
-    }
-    50% { 
         box-shadow: 
-            0 0 40px rgba(255, 215, 0, 1),
-            0 0 80px rgba(255, 215, 0, 0.8),
-            0 0 120px rgba(255, 215, 0, 0.6),
-            0 0 160px rgba(255, 255, 255, 0.4),
-            inset 0 0 50px rgba(255, 215, 0, 0.3);
+            0 0 20px rgba(255, 215, 0, 0.9),
+            0 0 40px rgba(255, 215, 0, 0.6),
+            0 0 60px rgba(255, 215, 0, 0.3),
+            inset 0 0 15px rgba(255, 215, 0, 0.15);
+    }
+    50% { 
         border-color: #fff8dc;
-        filter: brightness(1.15);
-    }
-}
-
-@keyframes godframeHalo {
-    0%, 100% { 
-        opacity: 0.6; 
-        transform: scale(1);
-    }
-    50% { 
-        opacity: 0.9; 
-        transform: scale(1.03);
-    }
-}
-
-@keyframes godframeStars {
-    0%, 100% { 
-        opacity: 0.8;
-        transform: translateX(-50%) scale(1);
-        letter-spacing: 6px;
-    }
-    50% { 
-        opacity: 1;
-        transform: translateX(-50%) scale(1.05);
-        letter-spacing: 8px;
+        box-shadow: 
+            0 0 30px rgba(255, 215, 0, 1),
+            0 0 60px rgba(255, 215, 0, 0.8),
+            0 0 90px rgba(255, 215, 0, 0.5),
+            inset 0 0 25px rgba(255, 215, 0, 0.25);
     }
 }
 
@@ -606,20 +533,20 @@
 }
 
 /* Omniscient - Admin only */
-/* All-seeing cosmic eye glow - the divine admin name */
+/* Cosmic rainbow text with subtle glow */
 .name.name-omniscient {
     background: linear-gradient(90deg, #ff00ff, #00ffff, #ffd700, #ff00ff);
-    background-size: 400% 100%;
+    background-size: 300% 100%;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
     animation: omniscientShift 4s linear infinite;
-    filter: drop-shadow(0 0 8px rgba(255, 0, 255, 0.6));
+    font-weight: bold;
 }
 
 @keyframes omniscientShift {
     0% { background-position: 0% 50%; }
-    100% { background-position: 400% 50%; }
+    100% { background-position: 300% 50%; }
 }
 
 /* ============ PROFILE TITLES ============ */
@@ -1622,13 +1549,11 @@
     position: absolute;
     top: -30px;
     font-size: var(--size, 1.5rem);
-    animation: sakuraFall var(--duration, 4s) ease-in-out forwards;
+    animation: sakuraFall var(--duration, 4s) ease-out forwards;
     animation-delay: var(--delay, 0s);
-    filter: 
-        drop-shadow(0 0 6px rgba(255, 182, 193, 0.9))
-        drop-shadow(0 0 12px rgba(255, 105, 180, 0.6));
     opacity: 0;
     z-index: 10;
+    text-shadow: 0 0 8px rgba(255, 182, 193, 0.8);
 }
 
 @keyframes sakuraFall {
@@ -1636,11 +1561,11 @@
         transform: translateY(0) rotate(0deg) translateX(0); 
         opacity: 0; 
     }
-    5% { 
+    10% { 
         opacity: 1; 
     }
-    90% {
-        opacity: 0.8;
+    85% {
+        opacity: 0.9;
     }
     100% { 
         transform: translateY(var(--fall-distance, 100vh)) rotate(var(--rotation, 720deg)) translateX(var(--drift, 50px)); 
@@ -1654,17 +1579,14 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: 
-        radial-gradient(ellipse at 30% 20%, rgba(255, 182, 193, 0.25) 0%, transparent 50%),
-        radial-gradient(ellipse at 70% 40%, rgba(255, 105, 180, 0.2) 0%, transparent 45%),
-        radial-gradient(ellipse at 50% 80%, rgba(255, 192, 203, 0.15) 0%, transparent 55%);
+    background: radial-gradient(ellipse at 50% 30%, rgba(255, 182, 193, 0.2) 0%, transparent 60%);
     animation: sakuraGlow 3s ease-in-out infinite;
     pointer-events: none;
 }
 
 @keyframes sakuraGlow {
-    0%, 100% { opacity: 0.5; }
-    50% { opacity: 0.9; }
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.8; }
 }
 
 /* ============ NEW PARTICLE OVERLAYS ============ */
@@ -1860,34 +1782,6 @@ body[data-particles="runes"]::before {
     50% { box-shadow: 0 0 50px rgba(255, 215, 0, 0.8), 0 0 80px rgba(255, 255, 255, 0.5); }
 }
 
-/* Card Borders - Legendary Admin: GODFRAME */
-/* Main godframe styles defined earlier in this file */
-
-/* Godframe particles - spawned via JS but styled here */
-.godframe-particle {
-    position: absolute;
-    width: 4px;
-    height: 4px;
-    background: radial-gradient(circle, #ffffff 0%, #ffd700 50%, transparent 100%);
-    border-radius: 50%;
-    pointer-events: none;
-    animation: godframeParticleFloat var(--duration, 3s) ease-in-out infinite;
-    animation-delay: var(--delay, 0s);
-    opacity: var(--opacity, 0.8);
-    box-shadow: 0 0 6px #ffd700, 0 0 12px rgba(255, 215, 0, 0.5);
-}
-
-@keyframes godframeParticleFloat {
-    0%, 100% {
-        transform: translate(var(--start-x, 0), var(--start-y, 0)) scale(1);
-        opacity: var(--opacity, 0.8);
-    }
-    50% {
-        transform: translate(var(--end-x, 10px), var(--end-y, -20px)) scale(1.5);
-        opacity: 1;
-    }
-}
-
 /* Card Backgrounds - Expensive Shop */
 .player-card.bg-ancient_temple {
     background: 
@@ -1994,47 +1888,6 @@ body[data-particles="runes"]::before {
 @keyframes supernovaGlow {
     0%, 100% { text-shadow: 0 0 10px #ffffff, 0 0 20px #ffd700, 0 0 30px #ff8c00; }
     50% { text-shadow: 0 0 20px #ffffff, 0 0 40px #ffd700, 0 0 60px #ff8c00, 0 0 80px #ff4500; }
-}
-
-/* Name Colors - Legendary Admin: OMNISCIENT */
-/* The all-seeing cosmic name - pulses with universal knowledge */
-.name.name-omniscient {
-    background: linear-gradient(90deg, 
-        #ff00ff, #00ffff, #ffd700, #ff00ff, 
-        #00ff88, #ff3366, #00ffff, #ffd700, #ff00ff);
-    background-size: 800% 100%;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    animation: 
-        omniscientShift 6s linear infinite,
-        omniscientPulse 2s ease-in-out infinite;
-    filter: 
-        drop-shadow(0 0 6px rgba(255, 0, 255, 1))
-        drop-shadow(0 0 12px rgba(0, 255, 255, 0.8))
-        drop-shadow(0 0 18px rgba(255, 215, 0, 0.6));
-    font-weight: bold;
-    letter-spacing: 0.5px;
-}
-
-@keyframes omniscientShift {
-    0% { background-position: 0% 50%; }
-    100% { background-position: 800% 50%; }
-}
-
-@keyframes omniscientPulse {
-    0%, 100% { 
-        filter: 
-            drop-shadow(0 0 6px rgba(255, 0, 255, 1))
-            drop-shadow(0 0 12px rgba(0, 255, 255, 0.8))
-            drop-shadow(0 0 18px rgba(255, 215, 0, 0.6));
-    }
-    50% { 
-        filter: 
-            drop-shadow(0 0 10px rgba(255, 0, 255, 1))
-            drop-shadow(0 0 20px rgba(0, 255, 255, 1))
-            drop-shadow(0 0 30px rgba(255, 215, 0, 0.8));
-    }
 }
 
 /* Elimination Effects - Expensive Shop */
@@ -3139,4 +2992,176 @@ body.accent-singularity [style*="--profile-accent"] {
     }
 }
 
+/* ============ CUSTOM BACKGROUNDS ============ */
 
+/* Starfield - Unlockable (25 games) */
+body[data-background="starfield"]::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: -2;
+    background-image: 
+        radial-gradient(1px 1px at 10% 15%, rgba(255, 255, 255, 0.6), transparent),
+        radial-gradient(1px 1px at 25% 45%, rgba(255, 255, 255, 0.5), transparent),
+        radial-gradient(2px 2px at 40% 20%, rgba(255, 255, 255, 0.7), transparent),
+        radial-gradient(1px 1px at 55% 60%, rgba(255, 255, 255, 0.4), transparent),
+        radial-gradient(2px 2px at 70% 30%, rgba(255, 255, 255, 0.6), transparent),
+        radial-gradient(1px 1px at 85% 70%, rgba(255, 255, 255, 0.5), transparent),
+        radial-gradient(1px 1px at 15% 80%, rgba(255, 255, 255, 0.4), transparent),
+        radial-gradient(2px 2px at 90% 10%, rgba(255, 255, 255, 0.6), transparent);
+    animation: starfieldTwinkle 4s ease-in-out infinite;
+}
+
+@keyframes starfieldTwinkle {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+/* Circuit - Unlockable (50 games) */
+body[data-background="circuit"]::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: -2;
+    background: 
+        linear-gradient(90deg, transparent 49%, rgba(0, 255, 136, 0.05) 49%, rgba(0, 255, 136, 0.05) 51%, transparent 51%) 0 0 / 60px 60px,
+        linear-gradient(0deg, transparent 49%, rgba(0, 255, 136, 0.05) 49%, rgba(0, 255, 136, 0.05) 51%, transparent 51%) 0 0 / 60px 60px;
+    animation: circuitPulse 3s ease-in-out infinite;
+}
+
+@keyframes circuitPulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.6; }
+}
+
+/* Nebula - Shop (500 credits) */
+body[data-background="nebula"]::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: -2;
+    background: 
+        radial-gradient(ellipse at 20% 30%, rgba(138, 43, 226, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 70%, rgba(0, 191, 255, 0.12) 0%, transparent 45%),
+        radial-gradient(ellipse at 50% 50%, rgba(255, 0, 128, 0.08) 0%, transparent 60%);
+    animation: nebulaDrift 8s ease-in-out infinite;
+}
+
+@keyframes nebulaDrift {
+    0%, 100% { 
+        background-position: 0% 0%, 100% 100%, 50% 50%;
+    }
+    50% { 
+        background-position: 5% 5%, 95% 95%, 55% 45%;
+    }
+}
+
+/* Cyber Grid - Shop (600 credits) */
+body[data-background="cyber_grid"]::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: -2;
+    background: 
+        linear-gradient(0deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px) 0 0 / 40px 40px,
+        linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px) 0 0 / 40px 40px,
+        radial-gradient(ellipse at 50% 100%, rgba(0, 255, 255, 0.1) 0%, transparent 50%);
+    perspective: 500px;
+}
+
+/* Aurora - Premium */
+body[data-background="aurora"]::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: -2;
+    background: 
+        linear-gradient(180deg, 
+            rgba(0, 255, 127, 0.08) 0%, 
+            rgba(138, 43, 226, 0.06) 30%, 
+            rgba(0, 191, 255, 0.05) 60%, 
+            transparent 100%
+        );
+    animation: auroraBg 6s ease-in-out infinite;
+}
+
+@keyframes auroraBg {
+    0%, 100% { 
+        opacity: 0.5;
+        filter: hue-rotate(0deg);
+    }
+    50% { 
+        opacity: 0.8;
+        filter: hue-rotate(30deg);
+    }
+}
+
+/* Void - Premium */
+body[data-background="void"]::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: -2;
+    background: 
+        radial-gradient(ellipse at 50% 50%, rgba(75, 0, 130, 0.2) 0%, transparent 60%),
+        radial-gradient(ellipse at 30% 70%, rgba(138, 43, 226, 0.1) 0%, transparent 40%),
+        radial-gradient(ellipse at 70% 30%, rgba(148, 0, 211, 0.1) 0%, transparent 40%);
+    animation: voidPulse 5s ease-in-out infinite;
+}
+
+@keyframes voidPulse {
+    0%, 100% { 
+        opacity: 0.6;
+        transform: scale(1);
+    }
+    50% { 
+        opacity: 0.9;
+        transform: scale(1.02);
+    }
+}
+
+/* Sakura - Premium */
+body[data-background="sakura_bg"]::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: -2;
+    background: 
+        radial-gradient(ellipse at 20% 20%, rgba(255, 182, 193, 0.12) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(255, 105, 180, 0.08) 0%, transparent 45%),
+        radial-gradient(ellipse at 50% 50%, rgba(255, 192, 203, 0.06) 0%, transparent 60%);
+    animation: sakuraBgDrift 7s ease-in-out infinite;
+}
+
+@keyframes sakuraBgDrift {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.8; }
+}

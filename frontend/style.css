@@ -6355,6 +6355,13 @@ body.in-game .site-footer {
     font-size: 0.85rem;
     letter-spacing: 0.05em;
     user-select: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.cosmetics-guess-form:hover {
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
 }
 
 .cosmetics-victory-preview {
@@ -7971,6 +7978,83 @@ body.in-game .site-footer {
     50% { filter: hue-rotate(180deg); box-shadow: 0 0 30px rgba(255, 0, 255, 0.5); }
     75% { filter: hue-rotate(270deg); box-shadow: 0 0 20px rgba(255, 255, 0, 0.5); }
     100% { filter: hue-rotate(360deg); box-shadow: none; }
+}
+
+/* Neon Flash guess effect (Unlockable) */
+.guess-selection-bar.guess-neon_flash,
+#cosmetics-guess-form.guess-neon_flash {
+    animation: neon-flash-guess 0.5s ease;
+}
+
+@keyframes neon-flash-guess {
+    0% { filter: brightness(1); box-shadow: 0 0 5px var(--accent, #00ff88); }
+    30% { filter: brightness(1.5); box-shadow: 0 0 30px var(--accent, #00ff88), 0 0 60px var(--accent, #00ff88); }
+    100% { filter: brightness(1); box-shadow: 0 0 5px var(--accent, #00ff88); }
+}
+
+/* Glitch guess effect (Unlockable) */
+.guess-selection-bar.guess-glitch,
+#cosmetics-guess-form.guess-glitch {
+    animation: glitch-guess 0.4s ease;
+}
+
+@keyframes glitch-guess {
+    0%, 100% { transform: translateX(0); filter: none; }
+    10% { transform: translateX(-3px); filter: hue-rotate(90deg); }
+    20% { transform: translateX(3px); filter: hue-rotate(180deg); }
+    30% { transform: translateX(-3px); filter: hue-rotate(270deg); }
+    40% { transform: translateX(3px); filter: none; }
+    50% { transform: translateX(0); }
+}
+
+/* Fire Burst guess effect (Shop) */
+.guess-selection-bar.guess-fire_burst,
+#cosmetics-guess-form.guess-fire_burst {
+    animation: fire-burst-guess 0.5s ease;
+}
+
+@keyframes fire-burst-guess {
+    0% { box-shadow: 0 0 5px #ff4500; }
+    40% { box-shadow: 0 0 20px #ff4500, 0 0 40px #ff8c00, 0 0 60px #ffd700; }
+    100% { box-shadow: 0 0 5px #ff4500; }
+}
+
+/* Electric guess effect (Premium) */
+.guess-selection-bar.guess-electric,
+#cosmetics-guess-form.guess-electric {
+    animation: electric-guess 0.5s ease;
+}
+
+@keyframes electric-guess {
+    0%, 100% { filter: brightness(1); box-shadow: 0 0 5px #00d4ff; }
+    15% { filter: brightness(2); box-shadow: 0 0 20px #00d4ff, 0 0 40px #87ceeb; }
+    30% { filter: brightness(1); box-shadow: 0 0 5px #00d4ff; }
+    45% { filter: brightness(1.8); box-shadow: 0 0 25px #00d4ff, 0 0 50px #87ceeb; }
+    60% { filter: brightness(1); }
+}
+
+/* Rainbow Wave guess effect (Premium) */
+.guess-selection-bar.guess-rainbow_wave,
+#cosmetics-guess-form.guess-rainbow_wave {
+    animation: rainbow-wave-guess 0.6s ease;
+}
+
+@keyframes rainbow-wave-guess {
+    0% { filter: hue-rotate(0deg) brightness(1); }
+    50% { filter: hue-rotate(180deg) brightness(1.3); }
+    100% { filter: hue-rotate(360deg) brightness(1); }
+}
+
+/* Pulse guess effect */
+.guess-selection-bar.guess-pulse,
+#cosmetics-guess-form.guess-pulse {
+    animation: pulse-guess 0.4s ease;
+}
+
+@keyframes pulse-guess {
+    0% { box-shadow: 0 0 0 0 var(--accent-glow, rgba(0, 255, 136, 0.5)); }
+    50% { box-shadow: 0 0 20px 10px var(--accent-glow, rgba(0, 255, 136, 0.5)); }
+    100% { box-shadow: 0 0 0 0 var(--accent-glow, rgba(0, 255, 136, 0.5)); }
 }
 
 /* ============ VICTORY EFFECTS ============ */

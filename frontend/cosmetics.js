@@ -142,11 +142,13 @@ function updateCosmeticsPanel() {
         html += `<div class="cosmetics-banner donor">✓ Thank you for supporting Embeddle!</div>`;
     }
     
-    // All 6 categories (simplified)
+    // All 8 categories (including new guess effects and backgrounds)
     const categories = [
         ['card_border', 'card_borders', 'Card Border'],
         ['badge', 'badges', 'Badge'],
         ['name_color', 'name_colors', 'Name Color'],
+        ['guess_effect', 'guess_effects', 'Guess Effect'],
+        ['custom_background', 'custom_backgrounds', 'Background'],
         ['victory_effect', 'victory_effects', 'Victory Effect'],
         ['profile_title', 'profile_titles', 'Profile Title'],
         ['profile_avatar', 'profile_avatars', 'Profile Avatar'],
@@ -270,6 +272,36 @@ function updateCosmeticsPreview() {
     const badgeHtml = typeof getBadgeHtml === 'function' ? getBadgeHtml(c) : '';
     const titleHtml = typeof getTitleHtml === 'function' ? getTitleHtml(c) : '';
     nameEl.innerHTML = `YOU${badgeHtml}${titleHtml}`;
+    
+    // Apply custom background
+    applyCustomBackground(c.custom_background || 'default');
+}
+
+// Apply custom background to body
+function applyCustomBackground(backgroundId) {
+    document.body.dataset.background = backgroundId || 'default';
+}
+
+// Get the guess effect class for the guess bar
+function getGuessEffectClass(cosmetics) {
+    const effect = cosmetics?.guess_effect || 'classic';
+    return `guess-${effect}`;
+}
+
+// Play guess effect animation
+function playGuessEffect(guessBar, cosmetics) {
+    if (!guessBar) return;
+    const effectClass = getGuessEffectClass(cosmetics);
+    // Remove any existing guess effect classes
+    guessBar.classList.forEach(cls => {
+        if (cls.startsWith('guess-')) guessBar.classList.remove(cls);
+    });
+    // Add the new effect class
+    guessBar.classList.add(effectClass);
+    // Remove after animation completes
+    setTimeout(() => {
+        guessBar.classList.remove(effectClass);
+    }, 700);
 }
 
 function renderCosmeticCategory(key, catalogKey, label, equipped, hasFullAccess, userStats) {
@@ -775,105 +807,24 @@ if (!document.getElementById('big-bang-dynamic-styles')) {
 // Initialize cosmetics
 loadCosmeticsCatalog();
 
-// ============ GODFRAME PARTICLE SYSTEM ============
-// Spawns celestial particles around godframe borders
-
-let godframeParticleInterval = null;
-
-function initGodframeParticles() {
-    // Clear any existing interval
-    if (godframeParticleInterval) {
-        clearInterval(godframeParticleInterval);
-    }
-    
-    // Check for godframe cards periodically and spawn particles
-    godframeParticleInterval = setInterval(() => {
-        const godframeCards = document.querySelectorAll('.player-card.border-godframe');
-        godframeCards.forEach(card => {
-            // Only spawn if not too many particles already
-            const existingParticles = card.querySelectorAll('.godframe-particle');
-            if (existingParticles.length < 12) {
-                spawnGodframeParticle(card);
-            }
-        });
-    }, 400);
-}
-
-function spawnGodframeParticle(card) {
-    const particle = document.createElement('div');
-    particle.className = 'godframe-particle';
-    
-    // Random position around the card edges
-    const side = Math.floor(Math.random() * 4);
-    const rect = card.getBoundingClientRect();
-    let x, y;
-    
-    switch (side) {
-        case 0: // top
-            x = Math.random() * 100;
-            y = -10;
-            break;
-        case 1: // right
-            x = 105;
-            y = Math.random() * 100;
-            break;
-        case 2: // bottom
-            x = Math.random() * 100;
-            y = 105;
-            break;
-        case 3: // left
-            x = -5;
-            y = Math.random() * 100;
-            break;
-    }
-    
-    // Movement direction - float upward and slightly to the side
-    const startX = `${x}%`;
-    const startY = `${y}%`;
-    const endX = `${x + (Math.random() - 0.5) * 30}%`;
-    const endY = `${y - 20 - Math.random() * 30}%`;
-    
-    const duration = 2 + Math.random() * 2;
-    const delay = Math.random() * 0.5;
-    const opacity = 0.6 + Math.random() * 0.4;
-    const size = 3 + Math.random() * 4;
-    
-    particle.style.cssText = `
-        position: absolute;
-        left: ${startX};
-        top: ${startY};
-        width: ${size}px;
-        height: ${size}px;
-        --start-x: 0;
-        --start-y: 0;
-        --end-x: ${(Math.random() - 0.5) * 40}px;
-        --end-y: ${-30 - Math.random() * 40}px;
-        --duration: ${duration}s;
-        --delay: ${delay}s;
-        --opacity: ${opacity};
-    `;
-    
-    card.appendChild(particle);
-    
-    // Remove after animation completes
-    setTimeout(() => {
-        particle.remove();
-    }, (duration + delay) * 1000);
-}
-
-// Start the particle system when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initGodframeParticles);
-} else {
-    initGodframeParticles();
-}
-
 // Preview/test harness
 document.getElementById('cosmetics-test-turn')?.addEventListener('click', () => {
     const card = document.getElementById('cosmetics-preview-card');
     if (!card) return;
     card.classList.toggle('current-turn');
     updateCosmeticsPreview();
+});
+document.getElementById('cosmetics-test-guess')?.addEventListener('click', () => {
+    const guessForm = document.getElementById('cosmetics-guess-form');
+    const c = cosmeticsState.userCosmetics || {};
+    playGuessEffect(guessForm, c);
+});
+document.getElementById('cosmetics-test-elim')?.addEventListener('click', () => {
+    const card = document.getElementById('cosmetics-preview-card');
+    if (!card) return;
+    // Briefly add elimination effect class
+    card.classList.add('elim-glitch');
+    setTimeout(() => card.classList.remove('elim-glitch'), 800);
 });
 document.getElementById('cosmetics-test-victory')?.addEventListener('click', () => {
     const c = cosmeticsState.userCosmetics || {};

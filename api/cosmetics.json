@@ -47,7 +47,7 @@
     },
     "godframe": {
       "name": "Godframe",
-      "description": "Divine golden aura with celestial particles",
+      "description": "Divine golden aura",
       "premium": false,
       "admin_only": true
     }
@@ -145,9 +145,102 @@
     },
     "omniscient": {
       "name": "Omniscient",
-      "description": "All-seeing cosmic eye glow",
+      "description": "Cosmic rainbow glow",
       "premium": false,
       "admin_only": true
+    }
+  },
+  "guess_effects": {
+    "classic": {
+      "name": "Classic",
+      "description": "Default subtle pulse",
+      "premium": false
+    },
+    "pulse": {
+      "name": "Pulse",
+      "description": "Glowing pulse effect",
+      "premium": false,
+      "requirements": [{"metric": "mp_games_played", "min": 5}]
+    },
+    "neon_flash": {
+      "name": "Neon Flash",
+      "description": "Bright neon flash",
+      "premium": false,
+      "requirements": [{"metric": "mp_wins", "min": 10}]
+    },
+    "glitch": {
+      "name": "Glitch",
+      "description": "Digital glitch effect",
+      "premium": false,
+      "requirements": [{"metric": "mp_eliminations", "min": 25}]
+    },
+    "shockwave": {
+      "name": "Shockwave",
+      "description": "Expanding shockwave",
+      "premium": false,
+      "requirements": [{"metric": "mp_games_played", "min": 50}]
+    },
+    "fire_burst": {
+      "name": "Fire Burst",
+      "description": "Fiery explosion",
+      "premium": false,
+      "price": 400
+    },
+    "electric": {
+      "name": "Electric",
+      "description": "Electric lightning flash",
+      "premium": true
+    },
+    "rainbow_wave": {
+      "name": "Rainbow Wave",
+      "description": "Colorful rainbow sweep",
+      "premium": true
+    }
+  },
+  "custom_backgrounds": {
+    "default": {
+      "name": "Default",
+      "description": "Standard background",
+      "premium": false
+    },
+    "starfield": {
+      "name": "Starfield",
+      "description": "Twinkling stars",
+      "premium": false,
+      "requirements": [{"metric": "mp_games_played", "min": 25}]
+    },
+    "circuit": {
+      "name": "Circuit",
+      "description": "Digital circuit grid",
+      "premium": false,
+      "requirements": [{"metric": "mp_games_played", "min": 50}]
+    },
+    "nebula": {
+      "name": "Nebula",
+      "description": "Cosmic nebula clouds",
+      "premium": false,
+      "price": 500
+    },
+    "cyber_grid": {
+      "name": "Cyber Grid",
+      "description": "Cyberpunk grid lines",
+      "premium": false,
+      "price": 600
+    },
+    "aurora": {
+      "name": "Aurora",
+      "description": "Northern lights shimmer",
+      "premium": true
+    },
+    "void": {
+      "name": "Void",
+      "description": "Dark void energy",
+      "premium": true
+    },
+    "sakura_bg": {
+      "name": "Sakura",
+      "description": "Cherry blossom pink",
+      "premium": true
     }
   },
   "victory_effects": {
