@@ -474,56 +474,23 @@ header h1 {
 
 /* ============ HOME SCREEN LAYOUT ============ */
 
-/* Mobile-first: single column, everything stacked */
+/* Simple centered layout */
 #home-screen.active.home-screen {
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: var(--space-lg);
-    max-width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
 }
 
 #home-screen.active.home-screen .card {
     margin-bottom: 0;
+    width: 100%;
 }
 
-#home-screen.active.home-screen .lobbies-card,
-#home-screen.active.home-screen .protocol-section {
-    margin-top: 0;
-}
-
-/* Tablet and up: two columns for hero + lobbies, protocol below */
-@media (min-width: 768px) {
-    #home-screen.active.home-screen {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        grid-template-rows: auto auto;
-        grid-template-areas:
-            "hero lobbies"
-            "protocol protocol";
-        gap: var(--space-lg);
-    }
-    
-    /* Hero card in left column */
-    #home-screen.active.home-screen .hero-card {
-        grid-area: hero;
-    }
-    
-    /* Home columns (lobbies/leaderboard) in right column */
-    #home-screen.active.home-screen .home-columns {
-        grid-area: lobbies;
-    }
-    
-    /* Protocol section spans full width below */
-    #home-screen.active.home-screen .protocol-section {
-        grid-area: protocol;
-    }
-}
-
-/* Desktop: slightly larger gap */
-@media (min-width: 1100px) {
-    #home-screen.active.home-screen {
-        gap: var(--space-xl);
-    }
+#home-screen.active.home-screen .hero-card {
+    text-align: center;
 }
 
 .home-actions {
@@ -531,40 +498,36 @@ header h1 {
     flex-direction: column;
     gap: var(--space-md);
     align-items: center;
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
 }
 
 .home-actions .home-action {
     white-space: nowrap;
 }
 
-/* Main Action Buttons - Side by Side */
-.home-actions-main {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-md);
-    width: 100%;
-    max-width: 500px;
-}
-
-.home-actions-main .btn {
+/* Big Action Buttons - Full Width Stacked */
+.btn-xlarge {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 1.25rem 1.5rem;
-    font-size: 1.1rem;
+    width: 100%;
+    padding: 1.5rem 2rem;
+    font-size: 1.3rem;
     font-weight: 700;
-    min-height: 70px;
+    min-height: 80px;
     gap: 0.25rem;
 }
 
-.home-actions-main .btn .btn-text {
-    font-size: 1.1rem;
-    letter-spacing: 0.05em;
+.btn-xlarge .btn-text {
+    font-size: 1.3rem;
+    letter-spacing: 0.08em;
 }
 
-.home-actions-main .queue-count {
-    font-size: 0.65rem;
+.btn-xlarge .queue-count {
+    font-size: 0.7rem;
     opacity: 0.8;
 }
 
@@ -582,7 +545,7 @@ header h1 {
     justify-content: center;
     gap: var(--space-sm);
     flex-wrap: wrap;
-    margin-top: var(--space-sm);
+    margin-top: var(--space-md);
 }
 
 .secondary-divider {
@@ -590,7 +553,8 @@ header h1 {
     font-size: 0.8rem;
 }
 
-.join-code-inline {
+.join-code-inline,
+.replay-code-inline {
     display: flex;
     align-items: center;
     gap: 0.25rem;
@@ -598,10 +562,11 @@ header h1 {
     color: var(--text-muted);
 }
 
-.join-code-inline input {
-    width: 60px;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
+.join-code-inline input,
+.replay-code-inline input {
+    width: 55px;
+    padding: 0.25rem 0.4rem;
+    font-size: 0.7rem;
     text-transform: uppercase;
     background: var(--bg-tertiary);
     border: 1px solid var(--border);
@@ -609,14 +574,20 @@ header h1 {
     color: var(--text-primary);
 }
 
-.join-code-inline input:focus {
+.replay-code-inline input {
+    width: 50px;
+}
+
+.join-code-inline input:focus,
+.replay-code-inline input:focus {
     outline: none;
     border-color: var(--accent-primary);
 }
 
-.join-code-inline .btn-tiny {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.8rem;
+.join-code-inline .btn-tiny,
+.replay-code-inline .btn-tiny {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.75rem;
     min-height: auto;
 }
 
@@ -681,11 +652,21 @@ header h1 {
     color: var(--accent-primary);
 }
 
-/* Responsive: Stack buttons on small screens */
+/* Responsive: Adjust for small screens */
 @media (max-width: 480px) {
-    .home-actions-main {
-        grid-template-columns: 1fr;
-        max-width: 280px;
+    .home-actions {
+        max-width: 100%;
+        padding: 0 var(--space-sm);
+    }
+    
+    .btn-xlarge {
+        padding: 1.25rem 1.5rem;
+        font-size: 1.1rem;
+        min-height: 70px;
+    }
+    
+    .btn-xlarge .btn-text {
+        font-size: 1.1rem;
     }
     
     .home-secondary-row {
@@ -1497,26 +1478,16 @@ header h1 {
         -webkit-overflow-scrolling: touch;
     }
 
-    /* Word list readability + tap targets on mobile */
-    #mobile-words-panel #game-wordlist {
-        overflow: visible;
+    /* Guess section in mobile panel */
+    #mobile-words-panel .guess-section {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    #mobile-words-panel .guess-word-grid {
         max-height: none;
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.5rem;
-        align-content: start;
-    }
-
-    #mobile-words-panel #game-wordlist .word-item {
-        font-size: 0.95rem;
-        padding: 0.6rem 0.75rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    #mobile-words-panel #game-wordlist .word-item:not(.guessed):not(.eliminated):not(.your-word) {
-        color: var(--text-secondary);
+        overflow: visible;
     }
 
     /* Let the panel be the scroll container (avoid nested scrollbars) */
@@ -4231,27 +4202,6 @@ body.nerd-mode .nerd-sim {
 
 .game-theme-header strong {
     color: var(--accent-primary);
-}
-
-.game-wordlist {
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.375rem;
-    max-height: 200px;
-    overflow-y: auto;
-}
-
-.game-wordlist .theme-word {
-    padding: 0.25rem 0.5rem;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem;
-    color: var(--text-muted);
 }
 
 /* Scrollbar */

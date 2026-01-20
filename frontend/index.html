@@ -48,6 +48,7 @@
         <div class="topbar-content">
             <img id="user-avatar" class="user-avatar hidden" src="" alt="">
             <span id="logged-in-name">OPERATIVE</span>
+            <button id="view-full-leaderboard-btn" class="btn btn-ghost btn-tiny" title="Leaderboard">🏆</button>
             <button id="daily-btn" class="btn btn-ghost btn-tiny" title="Daily Ops">🎯</button>
             <button id="cosmetics-btn" class="btn btn-ghost btn-tiny" title="Cosmetics">🎨</button>
             <button id="chat-btn" class="btn btn-ghost btn-tiny" title="Chat">💬<span id="chat-unread-dot" class="unread-dot hidden"></span></button>
@@ -436,30 +437,32 @@
                     <p class="hero-description">A word-guessing game where you hide your secret word while trying to figure out everyone else's.</p>
                 </div>
                 
-                <!-- Main Action Buttons - Side by Side -->
+                <!-- Main Action Buttons - Big Stacked -->
                 <div class="home-actions">
-                    <div class="home-actions-main">
-                        <button id="quickplay-btn" class="btn btn-primary btn-large home-action">
-                            <span class="btn-text">&gt; QUICK_PLAY</span>
-                            <span id="quickplay-queue-count" class="queue-count hidden">0 in queue</span>
-                        </button>
-                        <button id="ranked-btn" class="btn btn-rank btn-large home-action">
-                            <span class="btn-text">&gt; RANKED</span>
-                            <span id="ranked-queue-count" class="queue-count hidden">0 in queue</span>
-                        </button>
-                    </div>
+                    <button id="quickplay-btn" class="btn btn-primary btn-xlarge home-action">
+                        <span class="btn-text">&gt; QUICK_PLAY</span>
+                        <span id="quickplay-queue-count" class="queue-count hidden">0 in queue</span>
+                    </button>
+                    <button id="ranked-btn" class="btn btn-rank btn-xlarge home-action">
+                        <span class="btn-text">&gt; RANKED</span>
+                        <span id="ranked-queue-count" class="queue-count hidden">0 in queue</span>
+                    </button>
                     <p id="ranked-signin-note" class="home-note-center">Ranked requires Google sign-in + 5 casual games</p>
                     
                     <!-- Secondary Options Row -->
                     <div class="home-secondary-row">
-                        <button id="singleplayer-btn" class="btn btn-ghost btn-small home-action">Solo Practice</button>
+                        <button id="singleplayer-btn" class="btn btn-ghost btn-small home-action">Solo</button>
                         <span class="secondary-divider">|</span>
-                        <button id="create-lobby-btn" class="btn btn-ghost btn-small home-action">Custom Lobby</button>
+                        <button id="create-lobby-btn" class="btn btn-ghost btn-small home-action">Custom</button>
                         <span class="secondary-divider">|</span>
                         <div class="join-code-inline">
-                            <span>Join:</span>
                             <input type="text" id="join-code-input" maxlength="6" placeholder="CODE">
-                            <button id="join-code-btn" class="btn btn-ghost btn-tiny">→</button>
+                            <button id="join-code-btn" class="btn btn-ghost btn-tiny">Join</button>
+                        </div>
+                        <span class="secondary-divider">|</span>
+                        <div class="replay-code-inline">
+                            <input type="text" id="home-replay-input" maxlength="100" placeholder="Replay">
+                            <button id="home-replay-btn" class="btn btn-ghost btn-tiny">🎬</button>
                         </div>
                     </div>
                 </div>
@@ -476,24 +479,6 @@
                     <p class="how-it-works-footer">Last one standing wins!</p>
                 </div>
                 
-                <!-- Compact Stats Bar (shown when logged in) -->
-                <div id="home-stats-bar" class="home-stats-bar hidden">
-                    <div class="stat-item stat-streak" title="Daily login streak">
-                        <span class="stat-icon">🔥</span>
-                        <span id="stats-streak-count" class="stat-value">0</span>
-                        <span class="stat-label">days</span>
-                    </div>
-                    <div class="stat-item stat-credits" title="Credits">
-                        <span class="stat-icon">💰</span>
-                        <span id="stats-credits" class="stat-value">0</span>
-                        <span class="stat-label">credits</span>
-                    </div>
-                    <div class="stat-item stat-rank" title="Your rank">
-                        <span class="stat-icon">🏆</span>
-                        <span id="stats-rank" class="stat-value">—</span>
-                    </div>
-                </div>
-                
                 <!-- Footer Links -->
                 <div class="home-footer-links">
                     <a href="https://ko-fi.com/embeddle" target="_blank" rel="noopener" class="home-support-link">
@@ -505,110 +490,22 @@
                     </a>
                 </div>
             </div>
-
-            <!-- Middle section: Sessions and Lobbies -->
-            <div class="home-columns">
-                <div class="home-column home-column-left">
-                    <!-- Recent / Active Games -->
-                    <div class="card card-compact lobbies-card">
-                        <h3>// YOUR_SESSIONS</h3>
-                        <div id="recent-games" class="open-lobbies">
-                            <p class="loading-lobbies">No recent games.</p>
-                        </div>
-                    </div>
-
-                    <!-- Open Lobbies Section -->
-                    <div class="card card-compact lobbies-card">
-                        <h3>// ACTIVE_SERVERS</h3>
-                        <div id="open-lobbies" class="open-lobbies">
-                            <p class="loading-lobbies">Scanning network...</p>
-                        </div>
-                        <button id="refresh-lobbies-btn" class="btn btn-ghost btn-small">↻ RESCAN</button>
-                    </div>
-
-                    <!-- Spectate Section -->
-                    <div class="card card-compact lobbies-card">
-                        <h3>// LIVE_MATCHES</h3>
-                        <div id="spectate-games" class="open-lobbies">
-                            <p class="loading-lobbies">Scanning network...</p>
-                        </div>
-                        <button id="refresh-spectate-btn" class="btn btn-ghost btn-small">↻ RESCAN</button>
-                    </div>
-                </div>
-
-                <!-- Right Column: Mini Leaderboard and Stats -->
-                <div class="home-column home-column-right">
-                    <!-- Mini Leaderboard -->
-                    <div class="card card-compact lobbies-card mini-leaderboard-card">
-                        <h3>// TOP_OPERATIVES</h3>
-                        <div id="mini-leaderboard" class="mini-leaderboard">
-                            <p class="loading-lobbies">Loading...</p>
-                        </div>
-                        <button id="view-full-leaderboard-btn" class="btn btn-ghost btn-small">VIEW_ALL →</button>
-                    </div>
-
-                    <!-- Your Stats Preview -->
-                    <div id="home-your-stats" class="card card-compact lobbies-card your-stats-card hidden">
-                        <h3>// YOUR_STATS</h3>
-                        <div class="your-stats-grid">
-                            <div class="your-stat">
-                                <span class="your-stat-value" id="home-stat-games">0</span>
-                                <span class="your-stat-label">Games</span>
-                            </div>
-                            <div class="your-stat">
-                                <span class="your-stat-value" id="home-stat-wins">0</span>
-                                <span class="your-stat-label">Wins</span>
-                            </div>
-                            <div class="your-stat">
-                                <span class="your-stat-value" id="home-stat-elims">0</span>
-                                <span class="your-stat-label">Elims</span>
-                            </div>
-                            <div class="your-stat">
-                                <span class="your-stat-value" id="home-stat-mmr">—</span>
-                                <span class="your-stat-label">MMR</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Watch Replay -->
-                    <div class="card card-compact lobbies-card replay-card">
-                        <h3>// WATCH_REPLAY</h3>
-                        <div class="home-replay-row">
-                            <input type="text" id="home-replay-input" placeholder="Paste replay code..." class="replay-code-input">
-                            <button id="home-replay-btn" class="btn btn-small btn-secondary">🎬</button>
-                        </div>
-                    </div>
-                </div>
+            
+            <!-- Hidden elements needed for JS functionality -->
+            <div id="recent-games" class="hidden"></div>
+            <div id="open-lobbies" class="hidden"></div>
+            <div id="spectate-games" class="hidden"></div>
+            <div id="mini-leaderboard" class="hidden"></div>
+            <div id="home-your-stats" class="hidden">
+                <span id="home-stat-games">0</span>
+                <span id="home-stat-wins">0</span>
+                <span id="home-stat-elims">0</span>
+                <span id="home-stat-mmr">—</span>
             </div>
-
-            <!-- Protocol Section -->
-            <div class="protocol-section">
-                <h3 class="protocol-header" id="rules-toggle">
-                    // PROTOCOL
-                    <span class="rules-toggle-icon">▼</span>
-                </h3>
-                <div id="rules-content" class="protocol-cards collapsed">
-                    <div class="card card-compact protocol-card">
-                        <span class="rule-number">01</span>
-                        <strong>ENCRYPT</strong>
-                        <p>Each operative picks a secret word from a shared theme</p>
-                    </div>
-                    <div class="card card-compact protocol-card">
-                        <span class="rule-number">02</span>
-                        <strong>PROBE</strong>
-                        <p>On your turn, guess a word. Everyone sees how similar it is to each player's secret word</p>
-                    </div>
-                    <div class="card card-compact protocol-card">
-                        <span class="rule-number">03</span>
-                        <strong>ANALYSE</strong>
-                        <p>Use similarity scores to deduce enemy words while hiding your own</p>
-                    </div>
-                    <div class="card card-compact protocol-card">
-                        <span class="rule-number">04</span>
-                        <strong>ELIMINATE</strong>
-                        <p>Guess someone's exact word to eliminate them. Last one standing wins</p>
-                    </div>
-                </div>
+            <div id="home-stats-bar" class="hidden">
+                <span id="stats-streak-count">0</span>
+                <span id="stats-credits">0</span>
+                <span id="stats-rank">—</span>
             </div>
         </div>
 
