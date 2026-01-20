@@ -1,4 +1,38 @@
-"""Vercel serverless function for Embeddle API with Upstash Redis storage."""
+"""
+Embeddle API - Main Serverless Handler
+
+This is the main entry point for the Embeddle backend API, deployed as a
+Vercel serverless function. It handles all game logic, authentication,
+and real-time game state management.
+
+Architecture:
+- Single serverless function handling all API routes
+- Upstash Redis for persistent game state storage
+- OpenAI embeddings for word similarity calculations
+- JWT-based authentication with Google OAuth
+
+Key Components:
+- Game Management: Create, join, and manage multiplayer games
+- Word Embeddings: Calculate semantic similarity between words
+- Authentication: Google OAuth + JWT tokens
+- Rate Limiting: Protect against abuse
+- Ranked System: ELO-based matchmaking and leaderboards
+
+API Routes:
+- /api/games/* - Game CRUD and gameplay actions
+- /api/auth/* - Authentication endpoints
+- /api/leaderboard/* - Leaderboard data
+- /api/singleplayer/* - Solo mode with AI opponents
+
+Environment Variables Required:
+- OPENAI_API_KEY: For embedding calculations
+- UPSTASH_REDIS_REST_URL: Redis connection
+- UPSTASH_REDIS_REST_TOKEN: Redis auth
+- JWT_SECRET: For signing auth tokens (optional for dev)
+- GOOGLE_CLIENT_ID/SECRET: For OAuth (optional)
+
+For more details, see README.md
+"""
 
 import json
 import hashlib
