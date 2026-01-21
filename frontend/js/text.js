@@ -17,8 +17,8 @@ const TEXT = {
     nav: {
         leaderboard: '[LB]',
         replay: '[REC]',
-        cosmetics: '[COS]',
-        games: '[GAM]',
+        cosmetics: '[STYLE]',
+        games: '[GAME]',
         chat: '[TXT]',
         info: '[INFO]',
         options: '[CFG]',

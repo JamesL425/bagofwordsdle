@@ -1563,6 +1563,8 @@ function joinLobbyFromPanel(code) {
 // Make functions globally accessible
 window.rejoinGame = rejoinGame;
 window.joinLobbyFromPanel = joinLobbyFromPanel;
+window.toggleGamesPanel = toggleGamesPanel;
+window.closeGamesPanel = closeGamesPanel;
 
 document.getElementById('games-btn')?.addEventListener('click', toggleGamesPanel);
 document.getElementById('close-games-btn')?.addEventListener('click', closeGamesPanel);
