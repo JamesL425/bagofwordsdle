@@ -14,8 +14,8 @@ let bgmInitStarted = false;
 let sfxAudioCtx = null;
 
 // Volume state (0-100 scale from UI, converted to 0-1 internally)
-let musicVolume = 12;  // Default 12%
-let sfxVolume = 50;    // Default 50%
+let musicVolume = 5;   // Default 5%
+let sfxVolume = 25;    // Default 25%
 
 /**
  * Clamp a number between 0 and 1

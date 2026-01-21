@@ -106,12 +106,12 @@ async function startBackgroundMusic() {
         bgmAudio = new Audio(bgmConfig.track);
         bgmAudio.loop = true;
         // Apply user's saved volume preference combined with config base volume
-        const musicVol = typeof optionsState?.musicVolume === 'number' ? optionsState.musicVolume : 12;
+        const musicVol = typeof optionsState?.musicVolume === 'number' ? optionsState.musicVolume : 5;
         bgmAudio.volume = clamp01((musicVol / 100) * bgmConfig.volume * (100 / 12));
         bgmAudio.preload = 'auto';
 
         const tryPlay = async () => {
-            const musicVol = typeof optionsState?.musicVolume === 'number' ? optionsState.musicVolume : 12;
+            const musicVol = typeof optionsState?.musicVolume === 'number' ? optionsState.musicVolume : 5;
             if (musicVol <= 0) return;
             try {
                 await bgmAudio.play();
@@ -145,7 +145,7 @@ async function applyMusicPreference() {
     }
     if (!bgmAudio) return;
     
-    const musicVol = typeof optionsState.musicVolume === 'number' ? optionsState.musicVolume : 12;
+    const musicVol = typeof optionsState.musicVolume === 'number' ? optionsState.musicVolume : 5;
     // Update volume: combine user volume with config base volume
     bgmAudio.volume = clamp01((musicVol / 100) * bgmConfig.volume * (100 / 12));
     
@@ -213,8 +213,8 @@ let gameState = {
 
 const DEFAULT_OPTIONS = {
     chatEnabled: true,
-    musicVolume: 12,      // 0-100, default 12%
-    sfxVolume: 50,        // 0-100, default 50%
+    musicVolume: 5,       // 0-100, default 5%
+    sfxVolume: 25,        // 0-100, default 25%
     turnNotificationsEnabled: true,
     nerdMode: false,  // Show embedding details for ML enthusiasts
 };
@@ -228,15 +228,15 @@ function loadOptions() {
         if (parsed && typeof parsed === 'object') {
             // Migrate old boolean options to volume
             if (typeof parsed.musicEnabled === 'boolean') {
-                parsed.musicVolume = parsed.musicEnabled ? 12 : 0;
+                parsed.musicVolume = parsed.musicEnabled ? 5 : 0;
                 delete parsed.musicEnabled;
             }
-            // Migrate old SFX toggles - default to 50% for new system
+            // Migrate old SFX toggles - default to 25% for new system
             // (old clickSfxEnabled was false by default, so we ignore it for migration)
             if (typeof parsed.clickSfxEnabled !== 'undefined' || typeof parsed.eliminationSfxEnabled !== 'undefined') {
-                // If elimination SFX was on (the main one), enable SFX at 50%
+                // If elimination SFX was on (the main one), enable SFX at 25%
                 const hadSfx = parsed.eliminationSfxEnabled !== false;
-                parsed.sfxVolume = hadSfx ? 50 : 0;
+                parsed.sfxVolume = hadSfx ? 25 : 0;
                 delete parsed.clickSfxEnabled;
                 delete parsed.eliminationSfxEnabled;
             }
@@ -274,12 +274,12 @@ function applyOptionsToUI() {
     if (chatCb) chatCb.checked = Boolean(optionsState.chatEnabled);
     
     // Music volume
-    const musicVol = typeof optionsState.musicVolume === 'number' ? optionsState.musicVolume : 12;
+    const musicVol = typeof optionsState.musicVolume === 'number' ? optionsState.musicVolume : 5;
     if (musicSlider) musicSlider.value = musicVol;
     if (musicDisplay) musicDisplay.textContent = `${musicVol}%`;
     
     // SFX volume
-    const sfxVol = typeof optionsState.sfxVolume === 'number' ? optionsState.sfxVolume : 50;
+    const sfxVol = typeof optionsState.sfxVolume === 'number' ? optionsState.sfxVolume : 25;
     if (sfxSlider) sfxSlider.value = sfxVol;
     if (sfxDisplay) sfxDisplay.textContent = `${sfxVol}%`;
     
@@ -328,7 +328,7 @@ async function resumeSfxContext() {
 }
 
 function getEffectiveSfxVolume() {
-    const vol = typeof optionsState.sfxVolume === 'number' ? optionsState.sfxVolume : 50;
+    const vol = typeof optionsState.sfxVolume === 'number' ? optionsState.sfxVolume : 25;
     return vol / 100;
 }
 
