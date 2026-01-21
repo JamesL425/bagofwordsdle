@@ -159,5 +159,80 @@
       "admin_only": true,
       "text": "Admin"
     }
+  },
+  "profile_avatars": {
+    "default": {
+      "name": "Default",
+      "description": "No avatar",
+      "icon": "",
+      "premium": false
+    },
+    "ghost": {
+      "name": "Ghost",
+      "description": "Spectral operative",
+      "icon": "👻",
+      "premium": false
+    },
+    "skull": {
+      "name": "Skull",
+      "description": "Deadly presence",
+      "icon": "💀",
+      "premium": false,
+      "requirements": [{"metric": "mp_eliminations", "min": 10}]
+    },
+    "robot": {
+      "name": "Robot",
+      "description": "Machine precision",
+      "icon": "🤖",
+      "premium": false,
+      "requirements": [{"metric": "mp_games_played", "min": 25}]
+    },
+    "alien": {
+      "name": "Alien",
+      "description": "Otherworldly intelligence",
+      "icon": "👽",
+      "premium": false,
+      "requirements": [{"metric": "mp_wins", "min": 15}]
+    },
+    "ninja": {
+      "name": "Ninja",
+      "description": "Silent and deadly",
+      "icon": "🥷",
+      "premium": false,
+      "requirements": [{"metric": "mp_eliminations", "min": 25}]
+    },
+    "detective": {
+      "name": "Detective",
+      "description": "Master investigator",
+      "icon": "🕵️",
+      "premium": false,
+      "requirements": [{"metric": "mp_wins", "min": 25}]
+    },
+    "crown": {
+      "name": "Crown",
+      "description": "Royalty",
+      "icon": "👑",
+      "premium": false,
+      "requirements": [{"metric": "peak_mmr", "min": 1600}]
+    },
+    "fire": {
+      "name": "Fire",
+      "description": "On a hot streak",
+      "icon": "🔥",
+      "premium": false,
+      "requirements": [{"metric": "mp_wins", "min": 50}]
+    },
+    "star": {
+      "name": "Star",
+      "description": "Supporter exclusive",
+      "icon": "⭐",
+      "premium": true
+    },
+    "gem": {
+      "name": "Gem",
+      "description": "Supporter exclusive",
+      "icon": "💎",
+      "premium": true
+    }
   }
 }
