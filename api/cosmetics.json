@@ -177,50 +177,43 @@
       "name": "Skull",
       "description": "Deadly presence",
       "icon": "💀",
-      "premium": false,
-      "requirements": [{"metric": "mp_eliminations", "min": 10}]
+      "premium": false
     },
     "robot": {
       "name": "Robot",
       "description": "Machine precision",
       "icon": "🤖",
-      "premium": false,
-      "requirements": [{"metric": "mp_games_played", "min": 25}]
+      "premium": false
     },
     "alien": {
       "name": "Alien",
       "description": "Otherworldly intelligence",
       "icon": "👽",
-      "premium": false,
-      "requirements": [{"metric": "mp_wins", "min": 15}]
+      "premium": false
     },
     "ninja": {
       "name": "Ninja",
       "description": "Silent and deadly",
       "icon": "🥷",
-      "premium": false,
-      "requirements": [{"metric": "mp_eliminations", "min": 25}]
+      "premium": false
     },
     "detective": {
       "name": "Detective",
       "description": "Master investigator",
       "icon": "🕵️",
-      "premium": false,
-      "requirements": [{"metric": "mp_wins", "min": 25}]
+      "premium": false
     },
     "crown": {
       "name": "Crown",
       "description": "Royalty",
       "icon": "👑",
-      "premium": false,
-      "requirements": [{"metric": "peak_mmr", "min": 1600}]
+      "premium": false
     },
     "fire": {
       "name": "Fire",
       "description": "On a hot streak",
       "icon": "🔥",
-      "premium": false,
-      "requirements": [{"metric": "mp_wins", "min": 50}]
+      "premium": false
     },
     "star": {
       "name": "Star",

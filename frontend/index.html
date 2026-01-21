@@ -51,7 +51,6 @@
             <span id="logged-in-name">OPERATIVE</span>
             <button id="view-full-leaderboard-btn" class="btn btn-ghost btn-tiny" title="Leaderboard">[LB]</button>
             <button id="topbar-replay-btn" class="btn btn-ghost btn-tiny" title="Watch Replay">[REC]</button>
-            <button id="daily-btn" class="btn btn-ghost btn-tiny" title="Daily Contracts">[OPS]</button>
             <button id="cosmetics-btn" class="btn btn-ghost btn-tiny" title="Customise">[COS]</button>
             <button id="chat-btn" class="btn btn-ghost btn-tiny" title="Chat">[MSG]<span id="chat-unread-dot" class="unread-dot hidden"></span></button>
             <button id="info-btn" class="btn btn-ghost btn-tiny" title="Info">[?]</button>
@@ -75,43 +74,6 @@
         </div>
         <div class="cosmetics-content">
             <!-- Content populated by JS -->
-        </div>
-    </div>
-
-    <!-- Daily Contracts Panel -->
-    <div id="daily-panel" class="drawer-panel daily-panel">
-        <div class="daily-header">
-            <h2>// CONTRACTS</h2>
-            <button id="close-daily-btn" class="btn btn-ghost btn-tiny">×</button>
-        </div>
-        <div class="daily-content">
-            <div class="daily-balance">
-                <span>CRED:</span>
-                <span id="daily-credits">0</span>
-            </div>
-
-            <h3 class="daily-section-title">STREAK</h3>
-            <div id="daily-streak" class="daily-streak">
-                <div class="streak-display">
-                    <span class="streak-icon">&gt;</span>
-                    <span class="streak-count">0</span>
-                </div>
-            </div>
-
-            <h3 class="daily-section-title">DAILY QUESTS</h3>
-            <div id="daily-quests" class="daily-quests">
-                <div class="daily-empty">Loading...</div>
-            </div>
-
-            <h3 class="daily-section-title">WEEKLY QUESTS</h3>
-            <div id="weekly-quests" class="daily-quests weekly-quests">
-                <div class="daily-empty">Loading...</div>
-            </div>
-
-            <h3 class="daily-section-title">SHOP</h3>
-            <div id="daily-shop" class="daily-shop">
-                <div class="daily-empty">Loading...</div>
-            </div>
         </div>
     </div>
 
@@ -1105,7 +1067,6 @@
 
     <script src="/js/text.js"></script>
     <script src="/cosmetics.js"></script>
-    <script src="/daily.js"></script>
     <script src="/app.js"></script>
 </body>
 </html>

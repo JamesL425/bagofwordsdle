@@ -17,7 +17,6 @@ const TEXT = {
     nav: {
         leaderboard: '[LB]',
         replay: '[REC]',
-        daily: '[OPS]',
         cosmetics: '[COS]',
         chat: '[MSG]',
         info: '[?]',
@@ -27,7 +26,6 @@ const TEXT = {
     // ============ PANEL HEADERS ============
     panels: {
         cosmetics: '// CUSTOMISE',
-        daily: '// CONTRACTS',
         options: '// CONFIG',
         info: '// INTEL',
         chat: '// COMMS',
@@ -214,16 +212,6 @@ const TEXT = {
         sfx: 'SFX',
         turnNotifications: 'Turn notifications',
         nerdMode: 'Nerd mode (show raw cosine similarity)',
-    },
-
-    // ============ DAILY PANEL ============
-    daily: {
-        cred: 'CRED:',
-        streak: 'STREAK',
-        dailyQuests: 'DAILY QUESTS',
-        weeklyQuests: 'WEEKLY QUESTS',
-        shop: 'SHOP',
-        loading: 'Loading...',
     },
 
     // ============ COSMETICS PANEL ============
