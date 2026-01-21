@@ -236,7 +236,7 @@ function renderThemeColorSection(equipped, hasFullAccess, userStats) {
     const currentId = equipped.theme_color || 'default';
     
     let html = `<div class="cosmetic-category">
-        <label>// THEME_COLOR</label>
+        <label>// THEME_COLOUR</label>
         <div class="theme-color-grid">`;
     
     Object.entries(colors).forEach(([id, item]) => {
@@ -244,7 +244,8 @@ function renderThemeColorSection(equipped, hasFullAccess, userStats) {
         
         const isEquipped = id === currentId;
         const reqInfo = buildRequirementsInfo(item.requirements, userStats);
-        const isLocked = Boolean(reqInfo.unmet);
+        // Admins and those with full access bypass requirements
+        const isLocked = !hasFullAccess && !cosmeticsState.isAdmin && Boolean(reqInfo.unmet);
         
         html += `
             <div class="theme-color-option ${isEquipped ? 'equipped' : ''} ${isLocked ? 'locked' : ''}"
@@ -292,7 +293,8 @@ function renderBadgeSection(equipped, hasFullAccess, userStats) {
         const isEquipped = id === currentId;
         const isPremiumLocked = cosmeticsState.paywallEnabled && item.premium && !hasFullAccess;
         const reqInfo = buildRequirementsInfo(item.requirements, userStats);
-        const isReqLocked = Boolean(reqInfo.unmet);
+        // Admins bypass all requirements
+        const isReqLocked = !cosmeticsState.isAdmin && !cosmeticsState.unlockAll && Boolean(reqInfo.unmet);
         const isLocked = isPremiumLocked || isReqLocked;
         
         let lockReason = '';
@@ -327,7 +329,8 @@ function renderTitleSection(equipped, hasFullAccess, userStats) {
         const isEquipped = id === currentId;
         const isPremiumLocked = cosmeticsState.paywallEnabled && item.premium && !hasFullAccess;
         const reqInfo = buildRequirementsInfo(item.requirements, userStats);
-        const isReqLocked = Boolean(reqInfo.unmet);
+        // Admins bypass all requirements
+        const isReqLocked = !cosmeticsState.isAdmin && !cosmeticsState.unlockAll && Boolean(reqInfo.unmet);
         const isLocked = isPremiumLocked || isReqLocked;
         
         let lockReason = '';
