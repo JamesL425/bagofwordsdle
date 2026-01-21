@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matchmaking Queue Tester</title>
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --border: #2a2a3a;
+            --text: #e0e0e0;
+            --accent: #00ff88;
+            --warning: #ffaa00;
+            --error: #ff4444;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        
+        h1 {
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+            font-size: 1.5rem;
+        }
+        
+        .subtitle {
+            color: #888;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .panel h2 {
+            color: var(--accent);
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            align-items: center;
+        }
+        
+        label {
+            color: #888;
+            min-width: 100px;
+        }
+        
+        input, select {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        button {
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transition: all 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 255, 136, 0.3);
+        }
+        
+        button:disabled {
+            background: #444;
+            color: #888;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        button.danger {
+            background: var(--error);
+        }
+        
+        .status {
+            padding: 1rem;
+            background: var(--bg);
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        
+        .status-label {
+            color: #888;
+        }
+        
+        .status-value {
+            color: var(--accent);
+            font-weight: bold;
+        }
+        
+        .status-value.waiting {
+            color: var(--warning);
+        }
+        
+        .status-value.matched {
+            color: var(--accent);
+        }
+        
+        .status-value.error {
+            color: var(--error);
+        }
+        
+        .log {
+            background: var(--bg);
+            border-radius: 4px;
+            padding: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 0.8rem;
+            line-height: 1.6;
+        }
+        
+        .log-entry {
+            padding: 0.25rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .log-entry.info { color: var(--text); }
+        .log-entry.success { color: var(--accent); }
+        .log-entry.warning { color: var(--warning); }
+        .log-entry.error { color: var(--error); }
+        
+        .timestamp {
+            color: #666;
+            margin-right: 0.5rem;
+        }
+        
+        .instructions {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        
+        .instructions h3 {
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+        
+        .instructions ol {
+            margin-left: 1.5rem;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Matchmaking Queue Tester</h1>
+        <p class="subtitle">Test multiplayer queue system with simulated players</p>
+        
+        <div class="instructions">
+            <h3>How to Test Solo:</h3>
+            <ol>
+                <li>Open this page in <strong>multiple browser tabs</strong> (4 for instant match, 2+ for delayed)</li>
+                <li>Give each tab a different player name</li>
+                <li>Click "Join Queue" in each tab</li>
+                <li>Watch them get matched together!</li>
+            </ol>
+            <p style="margin-top: 0.5rem; color: #888;">
+                Quick Play: 4 players = instant match | 2-3 players = matches after 30-60s wait
+            </p>
+        </div>
+        
+        <div class="panel">
+            <h2>Configuration</h2>
+            <div class="form-row">
+                <label>API URL:</label>
+                <input type="text" id="api-url" value="http://localhost:3000" style="flex: 1;">
+            </div>
+            <div class="form-row">
+                <label>Player Name:</label>
+                <input type="text" id="player-name" value="" placeholder="TestPlayer1">
+            </div>
+            <div class="form-row">
+                <label>Mode:</label>
+                <select id="queue-mode">
+                    <option value="quick_play">Quick Play</option>
+                    <option value="ranked" disabled>Ranked (requires auth)</option>
+                </select>
+            </div>
+            <div class="buttons">
+                <button id="join-btn" onclick="joinQueue()">Join Queue</button>
+                <button id="leave-btn" onclick="leaveQueue()" class="danger" disabled>Leave Queue</button>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <h2>Queue Status</h2>
+            <div class="status">
+                <div class="status-item">
+                    <span class="status-label">Status:</span>
+                    <span class="status-value" id="status-text">Not in queue</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Player ID:</span>
+                    <span class="status-value" id="player-id-text">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Queue Size:</span>
+                    <span class="status-value" id="queue-size-text">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Wait Time:</span>
+                    <span class="status-value" id="wait-time-text">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Min Match Size:</span>
+                    <span class="status-value" id="min-size-text">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Game Code:</span>
+                    <span class="status-value" id="game-code-text">-</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <h2>Log</h2>
+            <div class="log" id="log"></div>
+        </div>
+    </div>
+    
+    <script>
+        // State
+        let playerId = null;
+        let mode = 'quick_play';
+        let pollingInterval = null;
+        let joinedAt = null;
+        let timerInterval = null;
+        
+        // Generate random player name on load
+        document.getElementById('player-name').value = 'TestPlayer' + Math.floor(Math.random() * 1000);
+        
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const time = new Date().toLocaleTimeString();
+            entry.innerHTML = `<span class="timestamp">[${time}]</span> ${message}`;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        function updateStatus(key, value, className = '') {
+            const el = document.getElementById(`${key}-text`);
+            if (el) {
+                el.textContent = value;
+                el.className = `status-value ${className}`;
+            }
+        }
+        
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            const apiUrl = document.getElementById('api-url').value;
+            const url = `${apiUrl}${endpoint}`;
+            
+            const options = {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+            };
+            
+            if (data) {
+                options.body = JSON.stringify(data);
+            }
+            
+            const response = await fetch(url, options);
+            return response.json();
+        }
+        
+        async function joinQueue() {
+            const playerName = document.getElementById('player-name').value.trim();
+            mode = document.getElementById('queue-mode').value;
+            
+            if (!playerName) {
+                log('Please enter a player name', 'error');
+                return;
+            }
+            
+            log(`Joining ${mode} queue as "${playerName}"...`);
+            
+            try {
+                const result = await apiCall('/api/queue/join', 'POST', {
+                    mode: mode,
+                    player_name: playerName,
+                });
+                
+                if (result.status === 'queued') {
+                    playerId = result.player_id;
+                    joinedAt = Date.now();
+                    
+                    updateStatus('status', 'QUEUED', 'waiting');
+                    updateStatus('player-id', playerId.substring(0, 12) + '...');
+                    
+                    document.getElementById('join-btn').disabled = true;
+                    document.getElementById('leave-btn').disabled = false;
+                    
+                    log(`Successfully joined queue! ID: ${playerId.substring(0, 12)}...`, 'success');
+                    
+                    // Start polling
+                    startPolling();
+                    startTimer();
+                } else {
+                    log(`Failed to join: ${result.message || JSON.stringify(result)}`, 'error');
+                }
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function leaveQueue() {
+            if (!playerId) return;
+            
+            log('Leaving queue...');
+            
+            try {
+                await apiCall('/api/queue/leave', 'POST', {
+                    mode: mode,
+                    player_id: playerId,
+                });
+                
+                stopPolling();
+                stopTimer();
+                resetState();
+                
+                log('Left queue', 'info');
+            } catch (error) {
+                log(`Error leaving: ${error.message}`, 'error');
+            }
+        }
+        
+        function resetState() {
+            playerId = null;
+            joinedAt = null;
+            
+            updateStatus('status', 'Not in queue');
+            updateStatus('player-id', '-');
+            updateStatus('queue-size', '-');
+            updateStatus('wait-time', '-');
+            updateStatus('min-size', '-');
+            updateStatus('game-code', '-');
+            
+            document.getElementById('join-btn').disabled = false;
+            document.getElementById('leave-btn').disabled = true;
+        }
+        
+        function startPolling() {
+            pollingInterval = setInterval(pollStatus, 2000);
+            pollStatus(); // Initial poll
+        }
+        
+        function stopPolling() {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+        }
+        
+        function startTimer() {
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+        
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+        
+        function updateTimer() {
+            if (!joinedAt) return;
+            const elapsed = Math.floor((Date.now() - joinedAt) / 1000);
+            const mins = Math.floor(elapsed / 60);
+            const secs = elapsed % 60;
+            updateStatus('wait-time', `${mins}:${secs.toString().padStart(2, '0')}`);
+        }
+        
+        async function pollStatus() {
+            if (!playerId) return;
+            
+            try {
+                const result = await apiCall(`/api/queue/status?mode=${mode}&player_id=${playerId}`);
+                
+                if (result.status === 'matched') {
+                    // Match found!
+                    stopPolling();
+                    stopTimer();
+                    
+                    updateStatus('status', 'MATCHED!', 'matched');
+                    updateStatus('game-code', result.game_code, 'matched');
+                    
+                    log(`🎮 MATCH FOUND! Game Code: ${result.game_code}`, 'success');
+                    log(`Session Token: ${result.session_token?.substring(0, 20)}...`, 'info');
+                    
+                    document.getElementById('join-btn').disabled = false;
+                    document.getElementById('leave-btn').disabled = true;
+                    playerId = null;
+                    
+                } else if (result.status === 'not_in_queue') {
+                    stopPolling();
+                    stopTimer();
+                    resetState();
+                    log('Removed from queue (timeout or error)', 'warning');
+                    
+                } else {
+                    // Still waiting
+                    updateStatus('queue-size', result.queue_size || '-');
+                    updateStatus('min-size', result.min_match_size || '-');
+                }
+            } catch (error) {
+                log(`Poll error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (playerId) {
+                // Try to leave queue (best effort)
+                navigator.sendBeacon(
+                    `${document.getElementById('api-url').value}/api/queue/leave`,
+                    JSON.stringify({ mode, player_id: playerId })
+                );
+            }
+        });
+        
+        log('Ready! Enter a player name and click "Join Queue"', 'info');
+    </script>
+</body>
+</html>
+

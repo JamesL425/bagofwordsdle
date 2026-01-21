@@ -554,6 +554,7 @@ DEFAULT_COSMETICS = {
     "victory_effect": "classic",
     "profile_title": "none",
     "profile_avatar": "default",
+    "theme_color": "default",
 }
 
 # Cosmetics schema version for stored user cosmetics payload.
@@ -569,6 +570,7 @@ COSMETIC_CATEGORY_TO_CATALOG_KEY = {
     'victory_effect': 'victory_effects',
     'profile_title': 'profile_titles',
     'profile_avatar': 'profile_avatars',
+    'theme_color': 'theme_colors',
 }
 
 # Default stats stored on authenticated (Google) users.
