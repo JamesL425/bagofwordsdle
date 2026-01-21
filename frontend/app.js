@@ -1489,16 +1489,22 @@ function renderGamesPanelRecent() {
         const theme = game.theme || 'Unknown';
         const mode = game.mode || 'casual';
         const time = game.timestamp ? new Date(game.timestamp).toLocaleDateString() : '';
+        const code = game.code || '';
         return `
             <div class="game-item">
                 <div class="game-item-info">
                     <span class="game-item-theme">${escapeHtml(theme)}</span>
                     <span class="game-item-meta">${mode.toUpperCase()} • ${time}</span>
                 </div>
-                <button class="btn btn-ghost btn-tiny" onclick="rejoinGame('${escapeHtml(game.code || '')}')">REJOIN</button>
+                <button class="btn btn-ghost btn-tiny game-rejoin-btn" data-code="${escapeHtml(code)}">REJOIN</button>
             </div>
         `;
     }).join('');
+    
+    // Attach event listeners (CSP-safe)
+    container.querySelectorAll('.game-rejoin-btn').forEach(btn => {
+        btn.addEventListener('click', () => rejoinGame(btn.dataset.code));
+    });
 }
 
 async function loadOpenLobbiesForPanel() {
@@ -1510,7 +1516,8 @@ async function loadOpenLobbiesForPanel() {
     try {
         const response = await fetch('/api/lobbies');
         if (!response.ok) throw new Error('Failed to fetch lobbies');
-        const lobbies = await response.json();
+        const data = await response.json();
+        const lobbies = data.lobbies || [];
         
         if (!lobbies || lobbies.length === 0) {
             container.innerHTML = '<p class="games-empty">No open lobbies. Create one!</p>';
@@ -1522,6 +1529,7 @@ async function loadOpenLobbiesForPanel() {
             const players = lobby.player_count || 1;
             const maxPlayers = lobby.max_players || 8;
             const mode = lobby.mode || 'casual';
+            const code = lobby.code || '';
             return `
                 <div class="game-item">
                     <div class="game-item-info">
@@ -1529,10 +1537,15 @@ async function loadOpenLobbiesForPanel() {
                         <span class="game-item-meta">${mode.toUpperCase()}</span>
                     </div>
                     <span class="game-item-players">${players}/${maxPlayers}</span>
-                    <button class="btn btn-ghost btn-tiny" onclick="joinLobbyFromPanel('${escapeHtml(lobby.code || '')}')">JOIN</button>
+                    <button class="btn btn-ghost btn-tiny game-join-btn" data-code="${escapeHtml(code)}">JOIN</button>
                 </div>
             `;
         }).join('');
+        
+        // Attach event listeners (CSP-safe)
+        container.querySelectorAll('.game-join-btn').forEach(btn => {
+            btn.addEventListener('click', () => joinLobbyFromPanel(btn.dataset.code));
+        });
     } catch (e) {
         console.error('Failed to load lobbies:', e);
         container.innerHTML = '<p class="games-empty">Failed to load lobbies.</p>';
