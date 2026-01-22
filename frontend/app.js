@@ -221,6 +221,37 @@ const DEFAULT_OPTIONS = {
 
 let optionsState = { ...DEFAULT_OPTIONS };
 
+// ============ DAILY STATE ============
+// Initialize window.dailyState for compatibility with ES modules
+// This ensures dailyState is always defined before any function tries to access it
+if (typeof window.dailyState === 'undefined') {
+    window.dailyState = {
+        panelOpen: false,
+        wallet: { credits: 0 },
+        quests: [],
+        weeklyQuests: [],
+        ownedCosmetics: {},
+        date: '',
+        loading: false,
+        streak: {
+            streak_count: 0,
+            streak_last_date: '',
+            longest_streak: 0,
+            streak_claimed_today: false,
+        },
+        streakCreditsEarned: 0,
+        streakMilestoneBonus: 0,
+        streakBroken: false,
+        streakInfo: {
+            current_daily_credits: 15,
+            next_multiplier_day: null,
+            next_multiplier_credits: 15,
+            next_milestone_day: null,
+            next_milestone_bonus: 0,
+        },
+    };
+}
+
 function loadOptions() {
     try {
         const raw = localStorage.getItem('embeddle_options');
@@ -2985,10 +3016,10 @@ function normalizeGameCodeInput(raw) {
         .slice(0, 6);
 }
 
-async function createLobby({ visibility = 'private', isRanked = false, timeControl = 'rapid' } = {}) {
+async function createLobby({ visibility = 'private', isRanked = false, timeControl = 'rapid', wordCount = 100 } = {}) {
     // Lazy name prompt - show modal if no name
     if (!gameState.playerName) {
-        showNamePromptModal(() => createLobby({ visibility, isRanked, timeControl }));
+        showNamePromptModal(() => createLobby({ visibility, isRanked, timeControl, wordCount }));
         return;
     }
     if (isRanked && !gameState.authToken) {
@@ -3000,6 +3031,7 @@ async function createLobby({ visibility = 'private', isRanked = false, timeContr
             visibility,
             is_ranked: Boolean(isRanked),
             time_control: timeControl,
+            word_count: wordCount,
         });
         gameState.code = data.code;
         await joinLobby(data.code, gameState.playerName);
@@ -3391,8 +3423,10 @@ document.getElementById('custom-lobby-modal')?.querySelector('.modal-backdrop')?
 document.getElementById('create-custom-lobby-confirm')?.addEventListener('click', async () => {
     const timeControlSelect = document.getElementById('custom-time-control');
     const timeControl = timeControlSelect?.value || 'rapid';
+    const wordCountSelect = document.getElementById('custom-word-count');
+    const wordCount = parseInt(wordCountSelect?.value || '100', 10);
     hideCustomLobbyModal();
-    await createLobby({ visibility: customLobbyVisibility, isRanked: false, timeControl });
+    await createLobby({ visibility: customLobbyVisibility, isRanked: false, timeControl, wordCount });
 });
 
 // Queue count polling
@@ -4066,7 +4100,8 @@ function updateSingleplayerThemeVoting(options, votes) {
         return;
     }
 
-    container.innerHTML = options.map(theme => {
+    const sortedOptions = [...options].sort((a, b) => a.localeCompare(b));
+    container.innerHTML = sortedOptions.map(theme => {
         const voters = (votes && votes[theme]) ? votes[theme] : [];
         const voteCount = voters.length;
         const isMyVote = voters.some(v => v.id === gameState.playerId);
@@ -4350,6 +4385,15 @@ async function updateLobby() {
             }
         }
         
+        // Update word count badge
+        const wordCountBadge = document.getElementById('lobby-word-count-badge');
+        if (wordCountBadge) {
+            const wordCount = data.word_count || 100;
+            wordCountBadge.textContent = `${wordCount}w`;
+            wordCountBadge.classList.remove('hidden');
+            wordCountBadge.classList.toggle('quick', wordCount === 50);
+        }
+        
         // Update players list
         const playersList = document.getElementById('lobby-players');
         playersList.innerHTML = data.players.map(p => {
@@ -4410,7 +4454,8 @@ function updateThemeVoting(options, votes) {
     const container = document.getElementById('theme-vote-options');
     if (!container || !options) return;
     
-    container.innerHTML = options.map(theme => {
+    const sortedOptions = [...options].sort((a, b) => a.localeCompare(b));
+    container.innerHTML = sortedOptions.map(theme => {
         const voters = votes[theme] || [];
         const voteCount = voters.length;
         const isMyVote = voters.some(v => v.id === gameState.playerId);
@@ -8031,6 +8076,8 @@ initMatrixRain();
 loadOptions();
 applyOptionsToUI();
 startBackgroundMusic();
+// Start queue count polling immediately (home screen is visible by default)
+startQueueCountPolling();
 
 // Check for challenge URL first, then try to rejoin existing game
 async function initializeApp() {

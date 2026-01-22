@@ -225,15 +225,60 @@ def _load_profanity_list() -> set:
 
 PROFANITY_LIST = _load_profanity_list()
 
+# Leet speak character substitutions for normalization
+LEET_MAP = {
+    '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's',
+    '7': 't', '8': 'b', '@': 'a', '$': 's', '!': 'i',
+    '+': 't', '(': 'c', '<': 'c', '|': 'l', '/': 'l',
+}
+
+
+def _normalize_for_profanity_check(text: str) -> str:
+    """
+    Normalize text for profanity checking:
+    - Convert to lowercase
+    - Strip all non-alphanumeric characters
+    - Convert leet speak to letters
+    """
+    if not text:
+        return ""
+    
+    result = []
+    for char in text.lower():
+        # Convert leet speak
+        if char in LEET_MAP:
+            result.append(LEET_MAP[char])
+        # Keep letters only
+        elif char.isalpha():
+            result.append(char)
+        # Skip everything else (numbers, punctuation, spaces, etc.)
+    
+    return ''.join(result)
+
 
 def contains_profanity(text: str) -> bool:
-    """Check if text contains any profanity words (as substrings)."""
+    """
+    Check if text contains any profanity words.
+    
+    This function:
+    - Normalizes input by stripping non-alpha chars and converting leet speak
+    - Checks if the normalized text contains any banned word as a substring
+    - Prevents bypass via special characters (e.g., f.u.c.k, sh!t, a$$)
+    """
     if not text:
         return False
-    text_lower = text.lower()
+    
+    # Normalize the text (strip non-alpha, convert leet)
+    normalized = _normalize_for_profanity_check(text)
+    
+    if not normalized:
+        return False
+    
+    # Check if any profanity word appears in the normalized text
     for word in PROFANITY_LIST:
-        if word in text_lower:
+        if word in normalized:
             return True
+    
     return False
 
 
@@ -438,7 +483,10 @@ EMBEDDING_CACHE_SECONDS = CONFIG.get("embedding", {}).get("cache_expiry_seconds"
 
 # Load pre-generated themes from individual JSON files in api/themes/ directory
 def load_themes():
-    """Load all themes from api/themes/ directory."""
+    """Load all themes from api/themes/ directory.
+    
+    Returns dict mapping theme name to dict with 'words' (100) and 'words_50' (50).
+    """
     themes_dir = Path(__file__).parent / "themes"
     registry_path = themes_dir / "theme_registry.json"
     
@@ -457,7 +505,10 @@ def load_themes():
                             theme_data = json.load(f)
                         theme_name = theme_data.get("name", entry.get("name", ""))
                         if theme_name and theme_data.get("words"):
-                            themes[theme_name] = theme_data["words"]
+                            themes[theme_name] = {
+                                "words": theme_data["words"],
+                                "words_50": theme_data.get("words_50", theme_data["words"][:50]),
+                            }
                     except Exception as e:
                         print(f"Error loading theme file {theme_file}: {e}")
         except Exception as e:
@@ -469,7 +520,13 @@ def load_themes():
         if legacy_path.exists():
             try:
                 with open(legacy_path) as f:
-                    themes = json.load(f)
+                    legacy_themes = json.load(f)
+                    # Convert legacy format to new format
+                    for name, words in legacy_themes.items():
+                        themes[name] = {
+                            "words": words,
+                            "words_50": words[:50],
+                        }
             except Exception as e:
                 print(f"Error loading legacy themes.json: {e}")
     
@@ -2827,8 +2884,16 @@ def get_client_ip(headers) -> str:
     return 'unknown'
 
 
-def get_theme_words(category: str) -> dict:
-    """Get pre-generated theme words for a category."""
+def get_theme_words(category: str, word_count: int = 100) -> dict:
+    """Get pre-generated theme words for a category.
+    
+    Args:
+        category: Theme name
+        word_count: Number of words to use (50 or 100, default 100)
+    
+    Returns:
+        Dict with 'name' and 'words' keys
+    """
     def _sanitize_theme_words(raw_words: list) -> list:
         cleaned = []
         seen = set()
@@ -2858,7 +2923,14 @@ def get_theme_words(category: str) -> dict:
             # Deterministic fallback for unknown themes (should be rare; mainly old lobbies).
             key = next(iter(PREGENERATED_THEMES.keys()))
 
-    words = _sanitize_theme_words(PREGENERATED_THEMES.get(key, []))
+    theme_data = PREGENERATED_THEMES.get(key, {})
+    # Support both old format (list) and new format (dict with words/words_50)
+    if isinstance(theme_data, list):
+        raw_words = theme_data[:word_count] if word_count == 50 else theme_data
+    else:
+        raw_words = theme_data.get("words_50" if word_count == 50 else "words", [])
+    
+    words = _sanitize_theme_words(raw_words)
     return {"name": key or requested, "words": words}
 
 
@@ -4180,7 +4252,8 @@ def build_word_change_options(player: dict, game: dict) -> list:
     """
     Build a random sample of words offered when a player earns a word change.
     
-    Generates a fresh sample of WORD_CHANGE_SAMPLE_SIZE words from the full theme.
+    Generates a fresh sample of words from the full theme.
+    Sample size is halved for 50-word games.
     Excludes current secret words of OTHER players AND previously guessed words.
     """
     import random
@@ -4216,10 +4289,14 @@ def build_word_change_options(player: dict, game: dict) -> list:
         current = player.get('secret_word')
         return [current] if current else []
     
-    if len(available) <= WORD_CHANGE_SAMPLE_SIZE:
+    # Sample size: halved for 50-word games
+    word_count = game.get('word_count', 100)
+    sample_size = WORD_CHANGE_SAMPLE_SIZE // 2 if word_count == 50 else WORD_CHANGE_SAMPLE_SIZE
+    
+    if len(available) <= sample_size:
         return sorted(available)
     
-    return sorted(random.sample(available, WORD_CHANGE_SAMPLE_SIZE))
+    return sorted(random.sample(available, sample_size))
 
 
 def get_embedding(word: str, game: dict = None) -> list:
@@ -5571,6 +5648,9 @@ def _create_match_from_queue(redis, mode: str, players: list, ai_fill: int = 0) 
         is_quickplay = mode == "quick_play"
         time_control = get_time_control(is_ranked, "rapid", is_quickplay)
         
+        # Word count: 50 for quickplay, 100 for ranked
+        word_count = 100 if is_ranked else 50
+        
         # Create game
         game = {
             "code": code,
@@ -5590,6 +5670,7 @@ def _create_match_from_queue(redis, mode: str, players: list, ai_fill: int = 0) 
             "word_selection_time": get_word_selection_time(is_ranked),
             "from_matchmaking": True,
             "matchmaking_mode": mode,
+            "word_count": word_count,
         }
         
         # Add human players
@@ -5939,6 +6020,7 @@ class handler(BaseHTTPRequestHandler):
                 "word_selection_time": word_selection_time,
                 "word_selection_time_remaining": word_selection_time_remaining,
                 "word_change_time_remaining": word_change_time_remaining,
+                "word_count": game.get('word_count', 100),
             }
 
             ranked_mmr = game.get('ranked_mmr') if isinstance(game.get('ranked_mmr'), dict) else None
@@ -6821,6 +6903,7 @@ class handler(BaseHTTPRequestHandler):
                     "word_selection_time": word_selection_time,
                     "word_selection_time_remaining": word_selection_time_remaining,
                     "word_change_time_remaining": word_change_time_remaining,
+                    "word_count": game.get('word_count', 100),
                 }
                 
                 for p in game.get('players', []):
@@ -7153,6 +7236,7 @@ class handler(BaseHTTPRequestHandler):
                     "word_selection_time": word_selection_time,
                     "word_selection_time_remaining": word_selection_time_remaining,
                     "word_change_time_remaining": word_change_time_remaining,
+                    "word_count": game.get('word_count', 100),
                 }
 
                 # Ranked: include per-game MMR results on finished games (so clients can display deltas).
@@ -7324,6 +7408,11 @@ class handler(BaseHTTPRequestHandler):
             time_control_preset = str(body.get('time_control', 'rapid') or 'rapid').lower()
             if time_control_preset not in CASUAL_TIME_PRESETS:
                 time_control_preset = 'rapid'
+            
+            # Word count: 50 or 100 (default 100 for custom games, can be overridden)
+            requested_word_count = int(body.get('word_count', 100) or 100)
+            if requested_word_count not in (50, 100):
+                requested_word_count = 100
 
             # Ranked requires Google auth; also force public visibility
             auth_user_id = self._get_auth_user_id()
@@ -7331,6 +7420,7 @@ class handler(BaseHTTPRequestHandler):
                 if not auth_user_id:
                     return self._send_error("Ranked games require Google sign-in", 401)
                 requested_visibility = 'public'
+                requested_word_count = 100  # Ranked always uses 100 words
             
             code = generate_game_code()
             
@@ -7362,6 +7452,7 @@ class handler(BaseHTTPRequestHandler):
                 "created_by_user_id": auth_user_id if requested_ranked else (auth_user_id or None),
                 "time_control": time_control,
                 "turn_started_at": None,  # Set when game starts playing
+                "word_count": requested_word_count,
             }
             save_game(code, game)
             return self._send_json({
@@ -7370,6 +7461,7 @@ class handler(BaseHTTPRequestHandler):
                 "visibility": requested_visibility,
                 "is_ranked": bool(requested_ranked),
                 "time_control": time_control,
+                "word_count": requested_word_count,
             })
 
         # POST /api/challenge/create - Create a challenge link with pre-configured settings
@@ -7512,6 +7604,11 @@ class handler(BaseHTTPRequestHandler):
             # Offer 3 theme options to choose from (host picks via "vote" UI)
             theme_options = random.sample(THEME_CATEGORIES, min(3, len(THEME_CATEGORIES)))
             
+            # Word count: 50 or 100 (default 50 for singleplayer)
+            requested_word_count = int(body.get('word_count', 50) or 50)
+            if requested_word_count not in (50, 100):
+                requested_word_count = 50
+            
             # Create singleplayer lobby
             game = {
                 "code": code,
@@ -7530,6 +7627,7 @@ class handler(BaseHTTPRequestHandler):
                 "is_ranked": False,
                 "time_control": get_time_control(False, "none"),  # No time limit in singleplayer
                 "turn_started_at": None,
+                "word_count": requested_word_count,
             }
             save_game(code, game)
             return self._send_json({
@@ -7538,6 +7636,7 @@ class handler(BaseHTTPRequestHandler):
                 "is_singleplayer": True,
                 "visibility": "private",
                 "is_ranked": False,
+                "word_count": requested_word_count,
             })
 
         # POST /api/games/{code}/add-ai - Add AI player to singleplayer lobby
@@ -8292,6 +8391,13 @@ class handler(BaseHTTPRequestHandler):
             
             import random
             
+            # Determine word count (50 for quickplay, 100 for ranked/custom)
+            # Default to 100 for backwards compatibility
+            word_count = game.get('word_count', 100)
+            
+            # Words per player: halve for 50-word games (8 instead of 16)
+            words_per_player = WORDS_PER_PLAYER // 2 if word_count == 50 else WORDS_PER_PLAYER
+            
             # Determine theme from votes/options if available (singleplayer now also uses this).
             votes = game.get('theme_votes', {}) or {}
             theme_options = game.get('theme_options', []) or []
@@ -8307,7 +8413,7 @@ class handler(BaseHTTPRequestHandler):
                     weighted_themes = theme_options.copy()
 
                 winning_theme = random.choice(weighted_themes)
-                theme = get_theme_words(winning_theme)
+                theme = get_theme_words(winning_theme, word_count)
                 game['theme'] = {
                     "name": theme.get("name", winning_theme),
                     "words": theme.get("words", []),
@@ -8316,7 +8422,7 @@ class handler(BaseHTTPRequestHandler):
                 # Backwards-compatible fallback: singleplayer games created before theme options existed already have a theme.
                 if not game.get('theme') or not game['theme'].get('words'):
                     winning_theme = random.choice(THEME_CATEGORIES) if THEME_CATEGORIES else 'Animals'
-                    theme = get_theme_words(winning_theme)
+                    theme = get_theme_words(winning_theme, word_count)
                     game['theme'] = {
                         "name": theme.get("name", winning_theme),
                         "words": theme.get("words", []),
@@ -8324,7 +8430,7 @@ class handler(BaseHTTPRequestHandler):
 
             all_words = game['theme'].get('words', [])
             
-            # Assign distinct word pools to each player (WORDS_PER_PLAYER words each, no overlap)
+            # Assign distinct word pools to each player (words_per_player words each, no overlap)
             # NOTE: We intentionally fail closed if the theme is too small, because overlaps are not allowed.
             unique_words = []
             seen_words = set()
@@ -8338,12 +8444,12 @@ class handler(BaseHTTPRequestHandler):
                 unique_words.append(token)
             all_words = unique_words
 
-            required = WORDS_PER_PLAYER * len(game.get('players', []) or [])
+            required = words_per_player * len(game.get('players', []) or [])
             if required and len(all_words) < required:
                 theme_name = (game.get('theme', {}) or {}).get('name', 'Unknown')
                 return self._send_error(
                     f"Theme '{theme_name}' does not have enough words for this lobby. "
-                    f"Need {required} unique words ({WORDS_PER_PLAYER} per player), but only have {len(all_words)}.",
+                    f"Need {required} unique words ({words_per_player} per player), but only have {len(all_words)}.",
                     400,
                 )
 
@@ -8351,8 +8457,8 @@ class handler(BaseHTTPRequestHandler):
             random.shuffle(shuffled_words)
 
             for i, p in enumerate(game.get('players', []) or []):
-                start_idx = i * WORDS_PER_PLAYER
-                end_idx = start_idx + WORDS_PER_PLAYER
+                start_idx = i * words_per_player
+                end_idx = start_idx + words_per_player
                 pool = shuffled_words[start_idx:end_idx]
                 p['word_pool'] = sorted(pool)
             
@@ -9197,6 +9303,7 @@ class handler(BaseHTTPRequestHandler):
                 "type": "timeout",
                 "player_id": timed_out_player['id'],
                 "player_name": timed_out_player['name'],
+                "penalty": "eliminate",
             }
             game['history'].append(history_entry)
             

@@ -120,7 +120,7 @@ const TEXT = {
     // ============ GAME SCREEN ============
     game: {
         yourWord: 'Your word:',
-        round: 'R',
+        round: 'Round ',
         exit: 'EXIT',
         awaitingSignal: 'AWAITING SIGNAL...',
         selectNewWord: '> Select new codeword:',

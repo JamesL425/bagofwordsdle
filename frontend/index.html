@@ -604,6 +604,7 @@
                     <button id="copy-code-btn" class="btn btn-small">COPY</button>
                     <span id="lobby-mode-badge" class="mode-badge casual">CASUAL</span>
                     <span id="lobby-time-badge" class="time-badge hidden">60s</span>
+                    <span id="lobby-word-count-badge" class="word-count-badge hidden">100w</span>
                 </div>
                 
                 <!-- Theme Voting Section -->
@@ -1033,6 +1034,14 @@
                         <option value="classical">Classical (10 min + 5s)</option>
                         <option value="none">No Limit</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label for="custom-word-count">WORD COUNT</label>
+                    <select id="custom-word-count" class="word-count-select">
+                        <option value="50">50 Words (Quick)</option>
+                        <option value="100" selected>100 Words (Full)</option>
+                    </select>
+                    <p class="form-hint">50 words = smaller pools, faster games</p>
                 </div>
                 <div class="modal-buttons">
                     <button id="create-custom-lobby-confirm" class="btn btn-primary">&gt; CREATE_LOBBY</button>

@@ -1034,6 +1034,41 @@ header h1 {
     color: var(--text-muted);
 }
 
+/* Word count badge */
+.word-count-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    font-family: 'Courier Prime', 'Courier New', monospace;
+}
+
+.word-count-badge.hidden {
+    display: none;
+}
+
+.word-count-badge.quick {
+    background: rgba(0, 204, 255, 0.15);
+    border-color: var(--info);
+    color: var(--info);
+}
+
+/* Word count select */
+.word-count-select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
 .players-list {
     display: flex;
     flex-direction: column;
@@ -1402,6 +1437,7 @@ header h1 {
     min-height: 0;
     overflow-y: auto;
     scroll-behavior: smooth;
+    height: 100%;
 }
 
 /* Turn indicator */
@@ -2134,7 +2170,6 @@ header h1 {
 }
 
 .history-log {
-    max-height: 600px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
