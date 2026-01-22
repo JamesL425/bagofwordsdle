@@ -3414,6 +3414,72 @@ body.nerd-mode .nerd-sim {
     flex-shrink: 0;
 }
 
+/* Edit Username Button */
+.edit-username-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.edit-username-btn:hover {
+    background: var(--accent-primary);
+    color: var(--bg-primary);
+    border-color: var(--accent-primary);
+}
+
+/* Profile Username Edit Form */
+.profile-username-edit {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.2rem;
+}
+
+.profile-username-edit input {
+    flex: 1;
+    min-width: 120px;
+    max-width: 200px;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.85rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+}
+
+.profile-username-edit input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.profile-username-edit .btn-tiny {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.8rem;
+    min-width: auto;
+}
+
+.profile-username-error {
+    width: 100%;
+    color: var(--danger);
+    font-size: 0.7rem;
+    margin: 0;
+    padding-top: 0.2rem;
+}
+
 .profile-joined {
     display: block;
     color: var(--text-muted);

@@ -289,7 +289,14 @@
                 <div class="profile-title-wrapper">
                     <div class="profile-name-row">
                         <h2 id="profile-name">Player</h2>
+                        <button id="edit-username-btn" class="edit-username-btn hidden" title="Change username">✎</button>
                         <span id="profile-badge" class="profile-badge"></span>
+                    </div>
+                    <div id="profile-username-edit" class="profile-username-edit hidden">
+                        <input type="text" id="profile-username-input" placeholder="New username..." maxlength="20" autocomplete="off" spellcheck="false">
+                        <button id="profile-username-save" class="btn btn-primary btn-tiny">✓</button>
+                        <button id="profile-username-cancel" class="btn btn-ghost btn-tiny">✕</button>
+                        <p id="profile-username-error" class="profile-username-error hidden"></p>
                     </div>
                     <span id="profile-joined" class="profile-joined"></span>
                 </div>

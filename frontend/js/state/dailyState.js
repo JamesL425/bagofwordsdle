@@ -190,3 +190,7 @@ export function ownsCosmetic(categoryKey, cosmeticId) {
 // Export raw state for legacy compatibility
 export { dailyState };
 
+// Expose to window for legacy app.js compatibility
+if (typeof window !== 'undefined') {
+    window.dailyState = dailyState;
+}

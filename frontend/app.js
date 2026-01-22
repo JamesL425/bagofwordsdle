@@ -1127,16 +1127,18 @@ function updateHomeStatsBar() {
         return;
     }
     
-    // Update streak
-    const streak = dailyState?.streak;
-    if (streakEl) {
-        streakEl.textContent = streak?.streak_count || 0;
-    }
-    
-    // Update credits
-    const credits = dailyState?.wallet?.credits || 0;
-    if (creditsEl) {
-        creditsEl.textContent = credits.toLocaleString();
+    // Update streak (dailyState may not be defined if module hasn't loaded)
+    if (typeof window.dailyState !== 'undefined' && window.dailyState) {
+        const streak = window.dailyState?.streak;
+        if (streakEl) {
+            streakEl.textContent = streak?.streak_count || 0;
+        }
+        
+        // Update credits
+        const credits = window.dailyState?.wallet?.credits || 0;
+        if (creditsEl) {
+            creditsEl.textContent = credits.toLocaleString();
+        }
     }
     
     // Update rank (show placement progress or MMR)
@@ -1222,20 +1224,20 @@ function logout() {
     localStorage.removeItem('embeddle_auth_token');
     
     // Clear daily state to prevent stale data showing
-    if (typeof dailyState !== 'undefined') {
-        dailyState.quests = [];
-        dailyState.weeklyQuests = [];
-        dailyState.wallet = { credits: 0 };
-        dailyState.streak = {
+    if (typeof window.dailyState !== 'undefined' && window.dailyState) {
+        window.dailyState.quests = [];
+        window.dailyState.weeklyQuests = [];
+        window.dailyState.wallet = { credits: 0 };
+        window.dailyState.streak = {
             streak_count: 0,
             streak_last_date: '',
             longest_streak: 0,
             streak_claimed_today: false,
         };
-        dailyState.streakCreditsEarned = 0;
-        dailyState.streakMilestoneBonus = 0;
-        dailyState.streakBroken = false;
-        dailyState.ownedCosmetics = {};
+        window.dailyState.streakCreditsEarned = 0;
+        window.dailyState.streakMilestoneBonus = 0;
+        window.dailyState.streakBroken = false;
+        window.dailyState.ownedCosmetics = {};
     }
     
     document.getElementById('login-box').classList.remove('hidden');
@@ -1253,6 +1255,9 @@ function logout() {
     
     // Update UI to reflect logged-out state
     updateHomeStatsBar();
+    
+    // Close profile modal if open
+    closeProfileModal();
 }
 
 // Google login button
@@ -1831,6 +1836,18 @@ async function openProfileModal(playerName) {
         editAvatarBtn.classList.toggle('hidden', !isOwnProfile || !gameState.authToken);
     }
     
+    // Show edit username button only when viewing own profile and authenticated
+    const editUsernameBtn = document.getElementById('edit-username-btn');
+    if (editUsernameBtn) {
+        editUsernameBtn.classList.toggle('hidden', !isOwnProfile || !gameState.authToken);
+    }
+    
+    // Hide username edit form when opening profile
+    const usernameEditForm = document.getElementById('profile-username-edit');
+    if (usernameEditForm) {
+        usernameEditForm.classList.add('hidden');
+    }
+    
     profileModalInFlight = true;
     try {
         const data = await apiCall(`/api/profile/${encodeURIComponent(playerName)}`);
@@ -2391,6 +2408,165 @@ document.getElementById('edit-avatar-btn')?.addEventListener('click', openAvatar
 
 // Close avatar picker
 document.getElementById('close-avatar-picker-btn')?.addEventListener('click', closeAvatarPicker);
+
+// ============ PROFILE USERNAME EDITING ============
+
+function showProfileUsernameEdit() {
+    const nameEl = document.getElementById('profile-name');
+    const editBtn = document.getElementById('edit-username-btn');
+    const editForm = document.getElementById('profile-username-edit');
+    const input = document.getElementById('profile-username-input');
+    const errorEl = document.getElementById('profile-username-error');
+    
+    if (!editForm || !input) return;
+    
+    // Pre-populate with current username
+    input.value = gameState.playerName || '';
+    if (errorEl) {
+        errorEl.textContent = '';
+        errorEl.classList.add('hidden');
+    }
+    
+    // Show edit form, hide name and edit button
+    editForm.classList.remove('hidden');
+    if (nameEl) nameEl.classList.add('hidden');
+    if (editBtn) editBtn.classList.add('hidden');
+    
+    // Focus input
+    input.focus();
+    input.select();
+}
+
+function hideProfileUsernameEdit() {
+    const nameEl = document.getElementById('profile-name');
+    const editBtn = document.getElementById('edit-username-btn');
+    const editForm = document.getElementById('profile-username-edit');
+    
+    if (editForm) editForm.classList.add('hidden');
+    if (nameEl) nameEl.classList.remove('hidden');
+    if (editBtn) editBtn.classList.remove('hidden');
+}
+
+async function saveProfileUsername() {
+    const input = document.getElementById('profile-username-input');
+    const errorEl = document.getElementById('profile-username-error');
+    const saveBtn = document.getElementById('profile-username-save');
+    
+    if (!input) return;
+    
+    const newUsername = input.value.trim();
+    
+    // Client-side validation
+    const validation = validateUsernameInput(newUsername);
+    if (!validation.valid) {
+        if (errorEl) {
+            errorEl.textContent = validation.error;
+            errorEl.classList.remove('hidden');
+        }
+        return;
+    }
+    
+    // Same username check
+    if (newUsername.toLowerCase() === (gameState.playerName || '').toLowerCase()) {
+        hideProfileUsernameEdit();
+        return;
+    }
+    
+    // Disable button while saving
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = '...';
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/user/username`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${gameState.authToken}`,
+            },
+            body: JSON.stringify({ username: newUsername }),
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            if (errorEl) {
+                errorEl.textContent = data.detail || data.error || 'Failed to change username';
+                errorEl.classList.remove('hidden');
+            }
+            return;
+        }
+        
+        // Success - update local state
+        if (gameState.authUser) {
+            gameState.authUser.username = data.username;
+        }
+        gameState.playerName = data.username;
+        currentProfileName = data.username;
+        
+        // Update profile modal name
+        const profileNameEl = document.getElementById('profile-name');
+        if (profileNameEl) profileNameEl.textContent = data.username;
+        
+        // Update topbar/logged-in UI
+        const nameEl = document.getElementById('logged-in-name');
+        if (nameEl) nameEl.textContent = data.username.toUpperCase();
+        updateTopbarState();
+        
+        hideProfileUsernameEdit();
+        showToast('Username updated!', 'success');
+    } catch (err) {
+        console.error('Failed to change username:', err);
+        if (errorEl) {
+            errorEl.textContent = 'Network error. Please try again.';
+            errorEl.classList.remove('hidden');
+        }
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = '✓';
+        }
+    }
+}
+
+// Edit username button click
+document.getElementById('edit-username-btn')?.addEventListener('click', showProfileUsernameEdit);
+
+// Cancel username edit
+document.getElementById('profile-username-cancel')?.addEventListener('click', hideProfileUsernameEdit);
+
+// Save username
+document.getElementById('profile-username-save')?.addEventListener('click', saveProfileUsername);
+
+// Enter key to save username
+document.getElementById('profile-username-input')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        saveProfileUsername();
+    } else if (e.key === 'Escape') {
+        e.preventDefault();
+        hideProfileUsernameEdit();
+    }
+});
+
+// Live validation feedback for profile username input
+document.getElementById('profile-username-input')?.addEventListener('input', (e) => {
+    const errorEl = document.getElementById('profile-username-error');
+    const value = e.target.value.trim();
+    
+    if (value.length > 0) {
+        const validation = validateUsernameInput(value);
+        if (!validation.valid && errorEl) {
+            errorEl.textContent = validation.error;
+            errorEl.classList.remove('hidden');
+        } else if (errorEl) {
+            errorEl.classList.add('hidden');
+        }
+    } else if (errorEl) {
+        errorEl.classList.add('hidden');
+    }
+});
 
 // Global button click handler (no sound)
 document.addEventListener('click', (e) => {
@@ -7334,6 +7510,55 @@ document.getElementById('replay-load-btn')?.addEventListener('click', async () =
     
     history.pushState({}, '', `/replay/${code}`);
     await loadAndShowReplay(code);
+});
+
+// Keyboard navigation for replays (left/right arrow keys)
+document.addEventListener('keydown', (e) => {
+    // Check if replay screen is visible
+    const replayScreen = document.getElementById('replay-screen');
+    const replayModal = document.getElementById('replay-modal');
+    
+    const isReplayScreenVisible = replayScreen?.classList.contains('active');
+    const isReplayModalVisible = replayModal?.classList.contains('show');
+    
+    if (!isReplayScreenVisible && !isReplayModalVisible) return;
+    
+    // Don't interfere if user is typing in an input
+    if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+    
+    if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (isReplayScreenVisible) {
+            // Replay screen navigation
+            if (replayScreenState.currentTurn > 0) {
+                replayScreenState.currentTurn--;
+                renderReplayScreen(replayScreenState.currentTurn);
+            }
+        } else if (isReplayModalVisible) {
+            // Replay modal navigation
+            if (replayState.currentTurn > 0) {
+                replayState.currentTurn--;
+                renderReplayState(replayState.currentTurn);
+            }
+        }
+    } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (isReplayScreenVisible) {
+            // Replay screen navigation
+            const history = replayScreenState.data?.history.filter(h => h.type !== 'word_change' && h.type !== 'forfeit') || [];
+            if (replayScreenState.currentTurn < history.length) {
+                replayScreenState.currentTurn++;
+                renderReplayScreen(replayScreenState.currentTurn);
+            }
+        } else if (isReplayModalVisible) {
+            // Replay modal navigation
+            const history = replayState.data?.history.filter(h => h.type !== 'word_change' && h.type !== 'forfeit') || [];
+            if (replayState.currentTurn < history.length) {
+                replayState.currentTurn++;
+                renderReplayState(replayState.currentTurn);
+            }
+        }
+    }
 });
 
 function createConfetti(targetEl = null) {

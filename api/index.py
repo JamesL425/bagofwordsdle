@@ -305,7 +305,8 @@ def release_username(username: str, user_id: str) -> bool:
     try:
         key = f"username:{username.lower()}"
         current_owner = redis.get(key)
-        if current_owner == user_id:
+        # Compare as strings (upstash_redis returns strings)
+        if current_owner and str(current_owner) == str(user_id):
             redis.delete(key)
             return True
         return False
@@ -4887,6 +4888,7 @@ def update_game_stats(game: dict):
     # Count eliminations per player
     eliminations_by_player = {}
     eliminated_players = set()
+    forfeited_players = set()  # Track forfeits separately - they shouldn't count towards games played
     
     for entry in game.get('history', []):
         if entry.get('type') == 'word_change':
@@ -4895,6 +4897,7 @@ def update_game_stats(game: dict):
             pid = entry.get('player_id')
             if pid:
                 eliminated_players.add(pid)
+                forfeited_players.add(pid)
             continue
         guesser_id = entry.get('guesser_id')
         if guesser_id and entry.get('eliminations'):
@@ -4910,7 +4913,8 @@ def update_game_stats(game: dict):
         
         # Only update casual leaderboard stats for multiplayer CASUAL games (not solo, not ranked)
         # Ranked games have their own separate stats tracked via apply_ranked_mmr_updates
-        if is_multiplayer and not is_ranked:
+        # Skip forfeited players - they shouldn't get credit for games they quit
+        if is_multiplayer and not is_ranked and player['id'] not in forfeited_players:
             stats = get_player_stats(player['name'])
             stats['games_played'] += 1
             
@@ -4955,7 +4959,8 @@ def update_game_stats(game: dict):
             save_player_stats(player['name'], stats)
 
         # Update authenticated user's mp_* stats for cosmetics unlocks (for ALL multiplayer games)
-        if is_multiplayer:
+        # Skip forfeited players - they shouldn't get credit towards games played (prevents ranked unlock abuse)
+        if is_multiplayer and player['id'] not in forfeited_players:
             auth_user_id = player.get('auth_user_id')
             if auth_user_id:
                 auth_user = get_user_by_id(auth_user_id)
