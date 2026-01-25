@@ -5138,7 +5138,7 @@ def get_leaderboard(leaderboard_type: str = 'alltime') -> list:
 
 # Queue configuration
 QUEUE_EXPIRY_SECONDS = 300  # 5 minutes max in queue
-QUEUE_QUICK_PLAY_TIMEOUT = 30  # 30 seconds before filling with AI
+QUEUE_QUICK_PLAY_BOT_FILL_TIMEOUT = 45  # 45 seconds before filling with rookie bots
 QUEUE_MATCH_SIZE_MIN = 2  # Minimum players for a quick play match
 QUEUE_MATCH_SIZE_MAX = 4  # Maximum players for matches
 QUEUE_MATCH_SIZE = 4  # Fixed match size for ranked
@@ -5392,6 +5392,10 @@ def get_queue_status(mode: str, player_id: str) -> dict:
         min_size = get_min_match_size_for_quick_play(wait_time)
         response["min_match_size"] = min_size
         response["max_match_size"] = QUEUE_MATCH_SIZE_MAX
+        # Show when bots will fill remaining slots
+        response["bot_fill_timeout"] = QUEUE_QUICK_PLAY_BOT_FILL_TIMEOUT
+        time_until_bots = max(0, QUEUE_QUICK_PLAY_BOT_FILL_TIMEOUT - wait_time)
+        response["time_until_bot_fill"] = int(time_until_bots)
     
     return response
 
@@ -5460,13 +5464,17 @@ def _try_quick_play_match(redis, queue_key: str, requesting_player_id: str, wait
     - If 4 players: create match immediately (FIFO)
     - After 30s: accept 3-player matches
     - After 60s: accept 2-player matches
+    - After 45s: fill remaining slots with rookie bots
     """
     players = _get_queue_players(redis, queue_key, "quick_play")
     
     # Get minimum match size based on wait time
     min_match_size = get_min_match_size_for_quick_play(wait_time)
     
-    if len(players) < min_match_size:
+    # Check if we should fill with bots (after timeout and at least 1 player)
+    should_fill_with_bots = wait_time >= QUEUE_QUICK_PLAY_BOT_FILL_TIMEOUT and len(players) >= 1
+    
+    if len(players) < min_match_size and not should_fill_with_bots:
         return None
     
     # Sort by join time (FIFO)
@@ -5486,26 +5494,65 @@ def _try_quick_play_match(redis, queue_key: str, requesting_player_id: str, wait
         # This player accepts matches of size >= p_min_size
         # We need players who accept our current min_match_size
         if len(eligible_players) < QUEUE_MATCH_SIZE_MAX:
-            eligible_players.append((p, p_min_size))
+            eligible_players.append((p, p_min_size, p_wait))
     
     # Find the best group we can form
     # Start with max size and reduce
     for target_size in range(QUEUE_MATCH_SIZE_MAX, min_match_size - 1, -1):
         if len(eligible_players) < target_size:
+            # Not enough players for this size - check if we can fill with bots
+            if should_fill_with_bots and len(eligible_players) >= 1:
+                # Check if requesting player is in eligible players
+                eligible_player_ids = [p.get("player_id") for p, _, _ in eligible_players]
+                if requesting_player_id not in eligible_player_ids:
+                    continue
+                
+                # Check if all eligible players have waited long enough for bot fill
+                all_ready_for_bots = all(
+                    p_wait >= QUEUE_QUICK_PLAY_BOT_FILL_TIMEOUT 
+                    for _, _, p_wait in eligible_players
+                )
+                if not all_ready_for_bots:
+                    continue
+                
+                match_players = [p for p, _, _ in eligible_players]
+                bots_needed = QUEUE_MATCH_SIZE_MAX - len(match_players)
+                
+                # Use distributed lock to prevent race conditions
+                lock_key = f"queue_lock:quick_play:{':'.join(sorted(p.get('player_id', '') for p in match_players))}"
+                
+                # Try to acquire lock (SET NX with expiry)
+                lock_acquired = redis.set(lock_key, "1", nx=True, ex=10)  # 10 second lock
+                if not lock_acquired:
+                    # Another process is creating this match
+                    return None
+                
+                try:
+                    # Double-check all players are still in queue
+                    for p in match_players:
+                        pid = p.get("player_id")
+                        if redis.zrank(queue_key, pid) is None:
+                            # Player already matched, abort
+                            return None
+                    
+                    return _create_match_from_queue(redis, "quick_play", match_players, ai_fill=bots_needed)
+                finally:
+                    # Release lock
+                    redis.delete(lock_key)
             continue
         
         # Take the first target_size players
         group_candidates = eligible_players[:target_size]
         
         # Check if requesting player is in this group
-        group_player_ids = [p.get("player_id") for p, _ in group_candidates]
+        group_player_ids = [p.get("player_id") for p, _, _ in group_candidates]
         if requesting_player_id not in group_player_ids:
             continue
         
         # Check if all players in the group accept this match size
-        all_accept = all(p_min_size <= target_size for _, p_min_size in group_candidates)
+        all_accept = all(p_min_size <= target_size for _, p_min_size, _ in group_candidates)
         if all_accept:
-            match_players = [p for p, _ in group_candidates]
+            match_players = [p for p, _, _ in group_candidates]
             
             # Use distributed lock to prevent race conditions
             lock_key = f"queue_lock:quick_play:{':'.join(sorted(p.get('player_id', '') for p in match_players))}"
@@ -5700,14 +5747,13 @@ def _create_match_from_queue(redis, mode: str, players: list, ai_fill: int = 0) 
             if i == 0:
                 game["host_id"] = player_id
         
-        # Add AI players if needed (quick_play only)
+        # Add AI players if needed (quick_play only, always rookie difficulty)
         if ai_fill > 0 and mode == "quick_play":
-            ai_difficulties = ["field-agent", "analyst", "spymaster", "rookie"]
             for i in range(ai_fill):
-                difficulty = ai_difficulties[i % len(ai_difficulties)]
+                difficulty = "rookie"
                 ai_id = f"ai_{difficulty}_{secrets.token_hex(4)}"
-                ai_config = AI_DIFFICULTY_CONFIG.get(difficulty, AI_DIFFICULTY_CONFIG.get("field-agent", {}))
-                ai_name = f"{ai_config.get('name_prefix', 'AI')} {secrets.token_hex(2).upper()}"
+                ai_config = AI_DIFFICULTY_CONFIG.get(difficulty, {})
+                ai_name = f"{ai_config.get('name_prefix', 'Rookie')} {secrets.token_hex(2).upper()}"
                 
                 ai_player = {
                     "id": ai_id,

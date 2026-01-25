@@ -3136,6 +3136,12 @@ function showQueueScreen(mode) {
         minSizeDisplay.classList.toggle('hidden', mode !== 'quick_play');
     }
 
+    // Show/hide bot fill display for quick play only
+    const botFillDisplay = document.getElementById('queue-bot-fill-display');
+    if (botFillDisplay) {
+        botFillDisplay.classList.toggle('hidden', mode !== 'quick_play');
+    }
+
     // Reset displays
     const playersDisplay = document.getElementById('queue-players');
     if (playersDisplay) playersDisplay.textContent = '0';
@@ -3145,6 +3151,9 @@ function showQueueScreen(mode) {
 
     const minSizeValue = document.getElementById('queue-min-size');
     if (minSizeValue) minSizeValue.textContent = '4';
+
+    const botFillTimer = document.getElementById('queue-bot-fill-timer');
+    if (botFillTimer) botFillTimer.textContent = '45s';
 
     const timerDisplay = document.getElementById('queue-timer');
     if (timerDisplay) timerDisplay.textContent = '0:00';
@@ -3272,6 +3281,18 @@ async function pollQueueStatus() {
                 } else {
                     targetSizeDisplay.textContent = (response.max_match_size || 4).toString();
                 }
+            }
+        }
+
+        // Update bot fill timer for quick play
+        const botFillDisplay = document.getElementById('queue-bot-fill-display');
+        const botFillTimer = document.getElementById('queue-bot-fill-timer');
+        if (botFillDisplay && botFillTimer && response.time_until_bot_fill !== undefined) {
+            botFillDisplay.classList.remove('hidden');
+            if (response.time_until_bot_fill <= 0) {
+                botFillTimer.textContent = 'NOW';
+            } else {
+                botFillTimer.textContent = `${response.time_until_bot_fill}s`;
             }
         }
 

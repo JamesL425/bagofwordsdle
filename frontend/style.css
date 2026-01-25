@@ -9909,7 +9909,8 @@ body[data-background="binary_rain"]::after {
 .queue-mode-display,
 .queue-players-display,
 .queue-timer-display,
-.queue-mmr-display {
+.queue-mmr-display,
+.queue-bot-fill-display {
     display: flex;
     justify-content: center;
     align-items: center;
@@ -9962,7 +9963,8 @@ body[data-background="binary_rain"]::after {
 }
 
 /* Queue MMR Display */
-.queue-mmr-display.hidden {
+.queue-mmr-display.hidden,
+.queue-bot-fill-display.hidden {
     display: none;
 }
 
